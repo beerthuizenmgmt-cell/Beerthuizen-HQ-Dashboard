@@ -505,6 +505,17 @@ model AdCampaign {
   dailyBudget Float?
   startedAt   DateTime?
 
+  /// De grenswaarden waartegen deze campagne beoordeeld wordt. Bewust per
+  /// campagne en niet één universele norm: een awarenesscampagne op CPM
+  /// afrekenen zoals een leadcampagne op CPA levert een verkeerd oordeel.
+  ///
+  /// Vrije vorm, want welke maatstaf telt hangt van het doel af. Bijvoorbeeld
+  /// { "cpaEur": 27, "ctr": 0.012, "roas": 3.5 }.
+  benchmarks Json?
+  /// Waar die grenswaarden vandaan komen: eigen historie, platformgemiddelde,
+  /// afspraak met de klant. Zonder herkomst is een benchmark een gok.
+  benchmarkSource String?
+
   creatives AdCreative[]
 
   @@unique([accountId, externalId])
