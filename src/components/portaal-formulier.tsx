@@ -22,10 +22,13 @@ export function PortaalFormulier({
     {},
   );
 
-  // Antwoorden bijhouden zodat vervolgvragen alleen verschijnen wanneer ze
-  // ergens over gaan. Wie geen budget heeft vastgesteld hoeft geen bedrag te
-  // zien, en dat scheelt een derde van het formulier.
+  // Alle antwoorden in één state. Dat moet: zodra een keuze een vervolgvraag
+  // laat verschijnen tekent React het formulier opnieuw, en dan zouden losse
+  // velden hun inhoud kwijtraken. Iemand die halverwege een keuze aanpast mag
+  // niet opeens het halve formulier opnieuw hoeven invullen.
   const [antwoorden, setAntwoorden] = useState<Record<string, string>>({});
+  const wijzig = (naam: string, waarde: string) =>
+    setAntwoorden((vorige) => ({ ...vorige, [naam]: waarde }));
 
   const zichtbaar = (veld: Veld) =>
     !veld.toonAls || veld.toonAls.waarden.includes(antwoorden[veld.toonAls.veld] ?? "");
@@ -58,16 +61,20 @@ export function PortaalFormulier({
                   </span>
 
                   {veld.type === "textarea" ? (
-                    <textarea name={veld.naam} className="input min-h-20" required={veld.verplicht} />
+                    <textarea
+                      name={veld.naam}
+                      className="input min-h-20"
+                      required={veld.verplicht}
+                      value={antwoorden[veld.naam] ?? ""}
+                      onChange={(event) => wijzig(veld.naam, event.target.value)}
+                    />
                   ) : veld.type === "select" ? (
                     <select
                       name={veld.naam}
                       className="input"
                       required={veld.verplicht}
-                      defaultValue=""
-                      onChange={(event) =>
-                        setAntwoorden({ ...antwoorden, [veld.naam]: event.target.value })
-                      }
+                      value={antwoorden[veld.naam] ?? ""}
+                      onChange={(event) => wijzig(veld.naam, event.target.value)}
                     >
                       <option value="" disabled>
                         Kies…
@@ -97,6 +104,8 @@ export function PortaalFormulier({
                       className="input"
                       required={veld.verplicht}
                       autoComplete={autoComplete(veld)}
+                      value={antwoorden[veld.naam] ?? ""}
+                      onChange={(event) => wijzig(veld.naam, event.target.value)}
                     />
                   )}
                 </label>
