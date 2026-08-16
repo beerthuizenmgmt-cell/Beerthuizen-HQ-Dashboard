@@ -64,6 +64,7 @@ model User {
   decidedAdvice    AdAdvice[]
   decidedApprovals Approval[]
   auditLogs        AuditLog[]
+  portalRequests   PortalRequest[]
 }
 
 enum AgentStatus {
@@ -1023,6 +1024,12 @@ model Invoice {
 
   direction InvoiceDirection @default(uitgaand)
 
+  /// Zodra de klant in de klantenlijst staat hangt de factuur eraan. De losse
+  /// velden blijven staan: een factuur moet leesbaar blijven ook als een klant
+  /// later wordt hernoemd of verwijderd.
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
   /// Bij een uitgaande factuur de klant, bij een inkomende de leverancier.
   clientName    String
   clientEmail   String?
@@ -1178,4 +1185,106 @@ model IncomingPayment {
 
   @@unique([source, externalId])
   @@index([confirmedAt, createdAt(sort: Desc)])
+}
+
+// ============================================================
+// Klanten en klantportaal
+// ============================================================
+
+/// Een klant of prospect. Eén keer vastleggen, overal gebruiken.
+///
+/// Bestaat los van Invoice zodat dezelfde gegevens onder meerdere facturen,
+/// campagnes en briefings hangen zonder dat je ze opnieuw invoert.
+model Client {
+  id   String @id @default(cuid())
+  name String
+
+  contactName  String?
+  email        String?
+  phone        String?
+  address      String?
+  postalCode   String?
+  city         String?
+  country      String? @default("Nederland")
+  kvk          String?
+  vatId        String?
+
+  /// Waar facturen heen moeten. Vaak een ander adres dan de contactpersoon.
+  invoiceEmail     String?
+  invoiceReference String?
+  invoiceNotes     String?
+
+  notes String?
+
+  /// Wanneer de klant zijn gegevens voor het laatst zelf heeft aangeleverd.
+  /// Leeg betekent: alles is met de hand ingevoerd.
+  detailsConfirmedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoices Invoice[]
+  requests PortalRequest[]
+
+  @@index([name])
+}
+
+/// Welk formulier een klant te zien krijgt. Bepaalt ook naar welke agent de
+/// ingevulde gegevens gaan.
+enum PortalFormType {
+  klantgegevens
+  campagnebriefing
+  contentaanlevering
+  projectinformatie
+}
+
+/// Waar een aanvraag staat. Elke stap is zichtbaar in HQ, zodat je weet of een
+/// klant de link al geopend heeft of dat hij nog ergens ligt.
+enum PortalStatus {
+  aangemaakt
+  verstuurd
+  geopend
+  ingevuld
+  gecontroleerd
+  verwerkt
+  verlopen
+}
+
+/// Eén beveiligde link naar één formulier voor één klant.
+///
+/// De klant heeft geen account en ziet niets anders dan dit formulier. Het
+/// token is de sleutel; hij is lang, willekeurig, eenmalig van doel en
+/// verloopt. Verloopt of is hij verwerkt, dan geeft de pagina niets meer prijs.
+model PortalRequest {
+  id    String         @id @default(cuid())
+  token String         @unique
+  type  PortalFormType @default(klantgegevens)
+
+  clientId String?
+  client   Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  /// Naam waaronder je hem aanmaakte, als de klant nog niet bestaat.
+  label String?
+
+  status PortalStatus @default(aangemaakt)
+
+  /// Wat de klant heeft ingevuld, precies zoals hij het instuurde. Bewaard
+  /// naast de verwerkte gegevens, zodat altijd terug te zien is wat er
+  /// werkelijk is aangeleverd.
+  submission Json?
+
+  /// Wat er ontbrak bij het insturen. Leeg betekent compleet.
+  missingFields String[] @default([])
+
+  openedAt    DateTime?
+  submittedAt DateTime?
+  processedAt DateTime?
+  expiresAt   DateTime
+
+  createdByUserId String?
+  createdByUser   User?   @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt(sort: Desc)])
 }
