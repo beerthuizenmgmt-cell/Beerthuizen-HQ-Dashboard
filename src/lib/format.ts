@@ -102,6 +102,19 @@ export function isRecent(date: Date | null | undefined, withinMs: number): boole
   return date ? Date.now() - date.getTime() < withinMs : false;
 }
 
+/// Bedragen onder een cent zijn hier normaal — één agentaanroep kost al snel
+/// €0,0005. Afronden op twee decimalen zou overal €0,00 tonen en de indruk
+/// wekken dat er niets geregistreerd is.
+export function formatEuro(value: number): string {
+  const decimals = value > 0 && value < 0.01 ? 4 : 2;
+  return value.toLocaleString("nl-NL", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   content: "Content",
   marketing: "Marketing",

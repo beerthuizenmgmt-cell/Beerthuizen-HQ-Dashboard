@@ -380,6 +380,23 @@ export const DEFAULT_WATCHES: {
     minIntervalMinutes: 60,
   },
   {
+    // Een goedkeuring die blijft liggen kost geld of tijd; hij herinnert eraan
+    // in plaats van te wachten tot Enriqueo er zelf aan denkt.
+    agentKey: "chief",
+    key: "chief-goedkeuringen",
+    label: "Openstaande goedkeuringen",
+    probe: "approvals",
+    minIntervalMinutes: 240,
+  },
+  {
+    // Foutmeldingen en stilgevallen agents. Hij hoort het eerder te zien dan jij.
+    agentKey: "chief",
+    key: "chief-storingen",
+    label: "Fouten en stilgevallen agents",
+    probe: "activity",
+    minIntervalMinutes: 120,
+  },
+  {
     agentKey: "analytics",
     key: "analytics-campagnecijfers",
     label: "Campagnecijfers",

@@ -41,6 +41,13 @@ export const AREAS: Area[] = [
     reason: "Alleen de eigenaar beslist over externe acties en uitgaven.",
   },
   {
+    path: "/opbouw",
+    label: "Opbouw",
+    icon: "◱",
+    roles: ["owner"],
+    reason: "Hier wordt bepaald wat een agent mag; dat is aan de eigenaar.",
+  },
+  {
     path: "/monitoring",
     label: "Monitoring",
     icon: "◎",

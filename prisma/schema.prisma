@@ -172,6 +172,7 @@ model Agent {
   watches        AgentWatch[]
   insights       AgentInsight[]
   tools          AgentTool[]
+  memories       AgentMemory[]
 
   @@index([category])
   @@index([status])
@@ -822,6 +823,43 @@ model AgentInsight {
 
   @@index([agentId, createdAt(sort: Desc)])
   @@index([reportedAt])
+}
+
+/// Wat een agent onthoudt tussen gesprekken door.
+///
+/// Een inzicht (AgentInsight) is een waarneming van één moment die in het
+/// rapport belandt en daarna klaar is. Een herinnering blijft: een besluit van
+/// Enriqueo, een voorkeur, een vaste afspraak. Ze gaan mee in het systeemprompt,
+/// zodat hij niet elke ochtend opnieuw uitleg nodig heeft.
+model AgentMemory {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  /// besluit | voorkeur | afspraak | leerpunt | context
+  kind  String @default("context")
+  title String
+  body  String
+
+  /// Wie dit heeft vastgelegd: de agent zelf, of Enriqueo met de hand.
+  source String @default("agent")
+
+  /// Vastgezet blijft altijd meegaan, ook als de lijst lang wordt.
+  pinned Boolean @default(false)
+
+  /// Verlopen herinneringen blijven leesbaar in het dossier maar gaan niet
+  /// meer mee in het prompt. Zo blijft zichtbaar waarom iets ooit gold.
+  activeUntil DateTime?
+  archivedAt  DateTime?
+
+  /// Laatste keer dat deze herinnering in een prompt is meegegeven — laat zien
+  /// wat echt gebruikt wordt en wat dode ballast is.
+  lastUsedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agentId, pinned, createdAt(sort: Desc)])
 }
 
 model CostEntry {

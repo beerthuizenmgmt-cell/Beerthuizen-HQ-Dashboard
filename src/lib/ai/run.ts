@@ -7,6 +7,8 @@ import { resolveCost, checkBudget, assertWithinBudget } from "./cost";
 import { AGENT_TOOLS, CHIEF_TOOLS, runTool } from "./tools";
 import { toolsForAgent, runAgentTool } from "./toolkit";
 import { DEFAULT_COMPANY_CONTEXT, SHARED_FRAMEWORK } from "./profiles";
+import { activeCharterFor, charterAsPrompt } from "./charters";
+import { memoryAsPrompt } from "./memory";
 import { formatDayLong } from "@/lib/format";
 
 const CONTEXT_KEY = "company_context";
@@ -120,18 +122,33 @@ export async function runAgent(options: {
   }
 
   const model = agent.modelId || config.defaultModel;
-  const [companyContext, situation] = await Promise.all([
+  const [companyContext, situation, memory] = await Promise.all([
     getCompanyContext(),
     situationalContext(agent.id),
+    memoryAsPrompt(agent.id),
   ]);
+
+  // Het functieprofiel dat jij in het dossier ziet, is letterlijk het profiel
+  // dat hij meekrijgt. Zo kan er geen verschil ontstaan tussen wat er op papier
+  // staat en wat hij denkt te mogen.
+  const charter = activeCharterFor(agent.key);
+
+  // Namen van collega's komen uit de database: hernoem je iemand in het
+  // dashboard, dan heet hij ook in het denkwerk van zijn collega's anders.
+  const roster = charter
+    ? await db.agent.findMany({ select: { key: true, name: true } })
+    : [];
+  const namen = Object.fromEntries(roster.map((member) => [member.key, member.name]));
 
   const systemPrompt = [
     agent.systemPrompt?.trim() || `Jij bent ${agent.name}, ${agent.role}, bij Beerthuizen Management.`,
     ``,
     SHARED_FRAMEWORK,
+    ...(charter ? [``, charterAsPrompt(charter, namen)] : []),
     ``,
     `# Bedrijfscontext`,
     companyContext,
+    ...(memory ? [``, memory] : []),
     ``,
     `# Stand van zaken`,
     situation,

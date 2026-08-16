@@ -7,6 +7,7 @@ import { meetingDate } from "@/lib/standup";
 import { fromDayKey } from "@/lib/format";
 import type { ToolDefinition } from "./provider";
 import type { TaskPriority } from "@/generated/prisma/enums";
+import { remember, isMemoryKind } from "./memory";
 
 // Het gereedschap van de agents. Alles hier werkt binnen het dashboard: geen
 // enkel stuk gereedschap doet iets naar buiten. Externe acties lopen via
@@ -110,6 +111,27 @@ export const AGENT_TOOLS: ToolDefinition[] = [
       required: ["bevinding"],
     },
   },
+  {
+    name: "onthoud",
+    description:
+      "Leg iets vast dat je later opnieuw nodig hebt: een besluit van Enriqueo en de reden erachter, een voorkeur, een vaste afspraak of een leerpunt. Dit gaat mee in al je volgende denkbeurten. Gebruik het niet voor gegevens die al in het dashboard staan — taken, cijfers en activiteiten kun je gewoon opzoeken.",
+    parameters: {
+      type: "object",
+      properties: {
+        soort: {
+          type: "string",
+          enum: ["besluit", "voorkeur", "afspraak", "leerpunt", "context"],
+        },
+        titel: { type: "string", description: "Waar het over gaat, in een paar woorden" },
+        inhoud: { type: "string", description: "Wat je precies onthoudt, inclusief het waarom" },
+        vastzetten: {
+          type: "boolean",
+          description: "Waar voor iets dat altijd mee moet, ook als je geheugen langer wordt",
+        },
+      },
+      required: ["soort", "titel", "inhoud"],
+    },
+  },
 ];
 
 /// Alleen de Head of Operations kan collega's aan het werk zetten; zo blijft de
@@ -157,6 +179,8 @@ export async function runTool(
         return await requestApproval(args, context);
       case "noteer_bevinding":
         return await noteFinding(args, context);
+      case "onthoud":
+        return await rememberThis(args, context);
       default:
         return { ok: false, message: `Onbekend gereedschap: ${name}` };
     }
@@ -353,4 +377,31 @@ async function noteFinding(args: Record<string, unknown>, context: ToolContext):
   });
 
   return { ok: true, message: "Vastgelegd in de activiteitenfeed." };
+}
+
+async function rememberThis(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
+  const title = text(args.titel);
+  const body = text(args.inhoud);
+  if (!title || !body) return { ok: false, message: "titel en inhoud zijn verplicht" };
+
+  const kind = text(args.soort);
+  if (!isMemoryKind(kind)) {
+    return { ok: false, message: "soort moet besluit, voorkeur, afspraak, leerpunt of context zijn" };
+  }
+
+  const { created } = await remember({
+    agentId: context.agentId,
+    kind,
+    title,
+    body,
+    source: "agent",
+    pinned: args.vastzetten === true,
+  });
+
+  return {
+    ok: true,
+    message: created
+      ? "Onthouden. Dit gaat mee in je volgende denkbeurten."
+      : "Je wist dit al; ik heb het bijgewerkt met de nieuwe inhoud.",
+  };
 }

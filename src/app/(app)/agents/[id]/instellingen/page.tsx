@@ -1,0 +1,220 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { db } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
+import { adapterCatalog, publicConfig, getAdapter } from "@/lib/adapters";
+import { AgentForm } from "@/components/agent-form";
+import { ConnectionTestButton } from "@/components/connection-test";
+import { InboundSetup } from "@/components/inbound-setup";
+import { AgentAiSettings } from "@/components/agent-ai-settings";
+import { AgentAvatar } from "@/components/agent-avatar";
+import { AgentIdentity } from "@/components/agent-identity";
+import { AgentTools } from "@/components/agent-tools";
+import { getAiStatus } from "@/lib/ai/provider";
+import { toolCatalogForUi, getToolEntry, decryptToolConfig } from "@/lib/ai/toolkit";
+import { maskSecret } from "@/lib/crypto";
+import { ActivityList } from "@/components/activity-list";
+import { StatusBadge } from "@/components/status-dot";
+import { deleteAgent, togglePause } from "@/lib/actions/agents";
+import { timeAgo } from "@/lib/format";
+
+export const dynamic = "force-dynamic";
+
+export default async function AgentSettingsPage({ params }: PageProps<"/agents/[id]/instellingen">) {
+  await requireUser();
+  const { id } = await params;
+
+  const agent = await db.agent.findUnique({
+    where: { id },
+    include: {
+      activityEvents: {
+        orderBy: { occurredAt: "desc" },
+        take: 10,
+        include: { agent: { select: { name: true, emoji: true, color: true, avatarUrl: true } } },
+      },
+    },
+  });
+  if (!agent) notFound();
+
+  const adapter = getAdapter(agent.adapterType);
+  const aiConfig = await getAiStatus();
+
+  const tools = await db.agentTool.findMany({
+    where: { agentId: agent.id },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const attachedTools = tools.map((tool) => {
+    const entry = getToolEntry(tool.toolKey);
+    const secrets = new Set((entry?.fields ?? []).filter((f) => f.secret).map((f) => f.name));
+    const decrypted = decryptToolConfig(tool.config);
+    const safeConfig: Record<string, string> = {};
+    for (const [key, value] of Object.entries(decrypted)) {
+      safeConfig[key] = secrets.has(key) ? maskSecret(value) : value;
+    }
+
+    return {
+      id: tool.id,
+      toolKey: tool.toolKey,
+      label: tool.label ?? entry?.name ?? tool.toolKey,
+      enabled: tool.enabled,
+      implemented: entry?.implemented ?? false,
+      lastError: tool.lastError,
+      config: safeConfig,
+    };
+  });
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-6">
+      <header>
+        <Link href={`/agents/${agent.id}`} className="text-xs text-text-muted hover:text-text">
+          ← Dossier van {agent.name}
+        </Link>
+
+        <div className="mt-3 flex flex-wrap items-start gap-4">
+          <AgentAvatar agent={agent} size="lg" />
+
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-semibold">{agent.name}</h1>
+              {agent.isChief && <span className="chip border-accent/40 text-accent">Chief</span>}
+              <StatusBadge status={agent.paused ? "paused" : agent.status} />
+            </div>
+            <p className="mt-1 text-sm text-text-muted">{agent.role}</p>
+            {agent.description && <p className="mt-2 text-sm text-text-muted">{agent.description}</p>}
+          </div>
+        </div>
+      </header>
+
+      <section className="card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Koppeling — {adapter.label}</h2>
+            <p className="mt-1 text-xs text-text-muted">
+              Laatst gecontroleerd: {timeAgo(agent.lastCheckedAt)}
+              {agent.lastActiveAt && ` · laatste activiteit ${timeAgo(agent.lastActiveAt)}`}
+            </p>
+          </div>
+          <ConnectionTestButton agentId={agent.id} />
+        </div>
+
+        {agent.lastError && (
+          <p className="mt-3 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
+            {agent.lastError}
+          </p>
+        )}
+
+        <div className="mt-4 flex flex-wrap gap-4 border-t border-border pt-4 text-xs text-text-muted">
+          <span>Taken versturen: {adapter.capabilities.send ? "ja" : "nee"}</span>
+          <span>Status ophalen: {adapter.capabilities.poll ? "ja" : "nee"}</span>
+          <span>Ontvangt push: {adapter.capabilities.receive ? "ja" : "nee"}</span>
+        </div>
+      </section>
+
+      {agent.adapterType === "builtin" && (
+        <section className="card p-5">
+          <h2 className="mb-3 text-sm font-semibold">AI-instellingen</h2>
+          <AgentAiSettings
+            agentId={agent.id}
+            modelId={agent.modelId}
+            defaultModel={aiConfig.defaultModel}
+            paused={agent.paused}
+          />
+        </section>
+      )}
+
+      <section className="card p-5">
+        <h2 className="mb-3 text-sm font-semibold">Terugpraten</h2>
+        <InboundSetup
+          agentId={agent.id}
+          token={agent.inboundToken}
+          appUrl={(process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}
+          isTelegram={agent.adapterType === "telegram"}
+        />
+      </section>
+
+      <section className="card p-6">
+        <h2 className="mb-1 text-sm font-semibold">Identiteit</h2>
+        <p className="mb-5 text-xs text-text-muted">
+          Naam, functietitel, beschrijving en gezicht. Dit zie je terug op elk scherm waar {agent.name}{" "}
+          voorkomt.
+        </p>
+        <AgentIdentity
+          agentId={agent.id}
+          name={agent.name}
+          role={agent.role}
+          description={agent.description}
+          emoji={agent.emoji}
+          color={agent.color}
+          avatarUrl={agent.avatarUrl}
+        />
+      </section>
+
+      <section className="card p-6">
+        <h2 className="mb-1 text-sm font-semibold">Tools &amp; koppelingen</h2>
+        <p className="mb-5 text-xs text-text-muted">
+          Systemen die alleen {agent.name} mag gebruiken. Een koppeling hier maakt hem niet beschikbaar
+          voor de rest van het team.
+        </p>
+        <AgentTools
+          agentId={agent.id}
+          agentKey={agent.key}
+          agentName={agent.name}
+          catalog={toolCatalogForUi()}
+          attached={attachedTools}
+        />
+      </section>
+
+      <section className="card p-6">
+        <h2 className="mb-5 text-sm font-semibold">Koppeling en categorie</h2>
+        <AgentForm
+          catalog={adapterCatalog()}
+          values={{
+            id: agent.id,
+            name: agent.name,
+            role: agent.role,
+            description: agent.description ?? undefined,
+            emoji: agent.emoji ?? undefined,
+            color: agent.color ?? undefined,
+            category: agent.category,
+            adapterType: agent.adapterType,
+            config: publicConfig(agent.adapterType, agent.adapterConfig),
+          }}
+        />
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold">Activiteit</h2>
+        <div className="card divide-y divide-border">
+          <ActivityList
+            events={agent.activityEvents}
+            emptyMessage={`Nog niets binnengekomen van ${agent.name}.`}
+          />
+        </div>
+      </section>
+
+      <section className="card flex flex-wrap items-center justify-between gap-3 p-5">
+        <div>
+          <h2 className="text-sm font-semibold">{agent.paused ? "Weer aan het werk zetten" : "Op pauze zetten"}</h2>
+          <p className="mt-1 text-xs text-text-muted">
+            {agent.paused
+              ? "Deze agent krijgt nu geen taken en wordt niet uitgevraagd bij het ochtendoverleg."
+              : "Tijdelijk buiten dienst: geen taken, geen standup, blijft wel in het overzicht staan."}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <form action={togglePause.bind(null, agent.id)}>
+            <button type="submit" className="btn btn-ghost">
+              {agent.paused ? "Hervatten" : "Pauzeren"}
+            </button>
+          </form>
+          <form action={deleteAgent.bind(null, agent.id)}>
+            <button type="submit" className="btn btn-danger">
+              Verwijderen
+            </button>
+          </form>
+        </div>
+      </section>
+    </div>
+  );
+}
