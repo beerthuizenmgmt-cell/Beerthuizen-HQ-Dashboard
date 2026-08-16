@@ -9,9 +9,10 @@ import "dotenv/config";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { poolConfig } from "../src/lib/db-url";
 
 const db = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
+  adapter: new PrismaPg(poolConfig(process.env.DATABASE_URL!)),
 });
 
 /// Volgorde is de kern: een taak kan pas bestaan als zijn agent bestaat.
