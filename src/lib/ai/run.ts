@@ -4,7 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { chat, getAiConfig, AiNotConfiguredError, type ChatMessage, type ToolDefinition } from "./provider";
 import { resolveCost, checkBudget, assertWithinBudget } from "./cost";
-import { AGENT_TOOLS, CHIEF_TOOLS, runTool } from "./tools";
+import { AGENT_TOOLS, CHIEF_TOOLS, FINANCE_TOOLS, runTool } from "./tools";
 import { toolsForAgent, runAgentTool } from "./toolkit";
 import { DEFAULT_COMPANY_CONTEXT, SHARED_FRAMEWORK } from "./profiles";
 import { activeCharterFor, charterAsPrompt } from "./charters";
@@ -167,6 +167,9 @@ export async function runAgent(options: {
       ? []
       : [
           ...(agent.isChief && depth === 0 ? [...AGENT_TOOLS, ...CHIEF_TOOLS] : AGENT_TOOLS),
+          // De administratie is niet voor iedereen: daar staan klantnamen en
+          // bedragen in.
+          ...(agent.key === "finance" ? FINANCE_TOOLS : []),
           ...ownTools.map((tool) => tool.definition),
         ];
 

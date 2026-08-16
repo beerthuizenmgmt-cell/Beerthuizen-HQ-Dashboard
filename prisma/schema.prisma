@@ -621,6 +621,11 @@ model Approval {
   linkedTaskId String?
   linkedTask   Task?   @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
 
+  /// Gaat dit verzoek over een factuur, dan hangt het eraan. Zo zie je bij de
+  /// factuur zelf welke stap er op jouw akkoord wacht.
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
 
   @@index([status, createdAt(sort: Desc)])
@@ -950,4 +955,78 @@ model Setting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// Facturen en debiteuren
+// ============================================================
+
+enum InvoiceStatus {
+  /// Aangemaakt, nog niet de deur uit.
+  concept
+  verzonden
+  deels_betaald
+  betaald
+  /// Afgeboekt: hier komt niets meer binnen.
+  oninbaar
+  vervallen_verklaard
+}
+
+/// Waar een factuur staat in de opvolging. Elke stap naar buiten — herinnering,
+/// aanmaning, regeling — vereist het akkoord van Enriqueo; deze statussen laten
+/// zien wat voorbereid is en wat werkelijk verstuurd is.
+enum FollowUpStatus {
+  geen
+  herinnering1_voorbereid
+  herinnering1_verstuurd
+  herinnering2_voorbereid
+  herinnering2_verstuurd
+  gemeld_aan_eigenaar
+  vervolgstap_voorgesteld
+  afgehandeld
+}
+
+model Invoice {
+  id     String @id @default(cuid())
+  number String
+
+  clientName  String
+  clientEmail String?
+
+  issuedOn DateTime
+  dueOn    DateTime
+
+  /// Bedrag inclusief btw, in euro. Het bedrag dat de klant moet overmaken.
+  amountEur Float
+  /// Wat er werkelijk binnen is. Leeg zolang er niets betaald is.
+  paidAmountEur Float?
+
+  status   InvoiceStatus  @default(concept)
+  followUp FollowUpStatus @default(geen)
+
+  sentAt DateTime?
+  paidAt DateTime?
+
+  /// Wanneer een herinnering daadwerkelijk is verstuurd — niet wanneer hij is
+  /// voorbereid. Het verschil telt: voorbereiden mag een agent, versturen niet.
+  reminder1SentAt DateTime?
+  reminder2SentAt DateTime?
+
+  notes String?
+
+  /// Waar deze factuur vandaan komt. Nu altijd handmatig; zodra er een
+  /// boekhoudpakket gekoppeld is staat hier de naam ervan en houdt externalId
+  /// de koppeling vast. Zo hoeft er niets herbouwd te worden.
+  source       String    @default("handmatig")
+  externalId   String?
+  lastSyncedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  approvals Approval[]
+
+  @@unique([source, number])
+  @@index([status, dueOn])
+  @@index([dueOn])
 }

@@ -156,6 +156,25 @@ export const CHIEF_TOOLS: ToolDefinition[] = [
   },
 ];
 
+/// Alleen voor de Finance & Debiteuren Manager. De administratie bevat
+/// klantnamen en bedragen; die hoeft de Creative Director niet in te zien.
+export const FINANCE_TOOLS: ToolDefinition[] = [
+  {
+    name: "lees_facturen",
+    description:
+      "Lees de facturenadministratie: wat er openstaat, wie te laat is, welke stap er volgens de workflow aan de beurt is. Gebruik dit voordat je iets zegt over bedragen of termijnen — verzin nooit een bedrag dat je hier niet ziet.",
+    parameters: {
+      type: "object",
+      properties: {
+        alleen_te_laat: {
+          type: "boolean",
+          description: "Waar om alleen facturen te zien waarvan de vervaldatum verstreken is",
+        },
+      },
+    },
+  }
+];
+
 const PRIORITIES: TaskPriority[] = ["low", "normal", "high", "urgent"];
 
 export type ToolResult = { ok: boolean; message: string };
@@ -181,6 +200,8 @@ export async function runTool(
         return await noteFinding(args, context);
       case "onthoud":
         return await rememberThis(args, context);
+      case "lees_facturen":
+        return await readInvoices(args);
       default:
         return { ok: false, message: `Onbekend gereedschap: ${name}` };
     }
@@ -403,5 +424,45 @@ async function rememberThis(args: Record<string, unknown>, context: ToolContext)
     message: created
       ? "Onthouden. Dit gaat mee in je volgende denkbeurten."
       : "Je wist dit al; ik heb het bijgewerkt met de nieuwe inhoud.",
+  };
+}
+
+async function readInvoices(args: Record<string, unknown>): Promise<ToolResult> {
+  const { alleFacturen, debiteurenstand } = await import("@/lib/facturen");
+  const facturen = await alleFacturen();
+
+  if (facturen.length === 0) {
+    return {
+      ok: true,
+      message:
+        "De administratie is leeg. Er staan geen facturen in, dus er valt niets te analyseren. Zeg dat, en geef aan welke gegevens je nodig hebt.",
+    };
+  }
+
+  const stand = await debiteurenstand();
+  const selectie = args.alleen_te_laat === true ? facturen.filter((f) => f.teLaat) : facturen;
+
+  const regels = selectie
+    .slice(0, 50)
+    .map(
+      (f) =>
+        `${f.nummer} | ${f.klant} | €${f.bedragEur.toFixed(2)} | open €${f.openstaandEur.toFixed(2)} | ` +
+        `vervalt ${f.vervaldatum.toISOString().slice(0, 10)} | ${f.teLaat ? `${f.dagenOpenstaand} dagen te laat` : "op tijd"} | ` +
+        `${f.statusLabel} | ${f.opvolgingLabel} | volgende stap: ${f.volgendeStap}`,
+    );
+
+  return {
+    ok: true,
+    message: [
+      `Openstaand €${stand.openstaandEur.toFixed(2)} over ${stand.aantalOpen} facturen, waarvan €${stand.teLaatEur.toFixed(2)} te laat (${stand.aantalTeLaat}).`,
+      stand.gemiddeldeBetaaltermijn !== null
+        ? `Gemiddelde betaaltermijn: ${stand.gemiddeldeBetaaltermijn} dagen.`
+        : `Gemiddelde betaaltermijn: nog niet te bepalen.`,
+      ``,
+      ...regels,
+      selectie.length > 50 ? `(${selectie.length - 50} regels weggelaten)` : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
   };
 }

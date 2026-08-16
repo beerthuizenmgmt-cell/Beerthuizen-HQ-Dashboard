@@ -133,6 +133,33 @@ const PROBES: Record<string, Probe> = {
     );
   },
 
+  /// Facturen: verandert er iets aan wat openstaat, wat te laat is of welke
+  /// stap er aan de beurt is, dan wordt Maud wakker. Blijft alles gelijk, dan
+  /// draait er niets — ook niet als er honderd facturen in staan.
+  async invoices() {
+    const facturen = await db.invoice.findMany({
+      where: { status: { notIn: ["betaald", "oninbaar", "vervallen_verklaard"] } },
+      orderBy: { dueOn: "asc" },
+      select: { id: true, status: true, followUp: true, dueOn: true, paidAmountEur: true },
+    });
+
+    const nu = Date.now();
+    const teLaat = facturen.filter((f) => f.dueOn.getTime() < nu);
+
+    // De vingerafdruk bevat ook of een factuur inmiddels over de vervaldatum is.
+    // Zo wordt zij wakker op de dag dat een termijn verstrijkt, zonder dat er
+    // iemand iets hoeft in te voeren.
+    return fingerprint(
+      facturen.map(
+        (f) => `${f.id}:${f.status}:${f.followUp}:${f.dueOn.getTime() < nu ? "over" : "open"}:${f.paidAmountEur ?? ""}`,
+      ),
+      facturen.length
+        ? `${facturen.length} openstaande facturen, waarvan ${teLaat.length} over de vervaldatum`
+        : "geen openstaande facturen",
+      facturen.length,
+    );
+  },
+
   async approvals(agentId) {
     const approvals = await db.approval.findMany({
       where: { agentId, status: "pending" },
@@ -423,6 +450,13 @@ export const DEFAULT_WATCHES: {
     label: "Commerciële signalen",
     probe: "manual_signal",
     minIntervalMinutes: 30,
+  },
+  {
+    agentKey: "finance",
+    key: "finance-facturen",
+    label: "Openstaande facturen en vervaldatums",
+    probe: "invoices",
+    minIntervalMinutes: 120,
   },
   {
     agentKey: "operations",

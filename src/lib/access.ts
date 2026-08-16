@@ -48,6 +48,13 @@ export const AREAS: Area[] = [
     reason: "Hier wordt bepaald wat een agent mag; dat is aan de eigenaar.",
   },
   {
+    path: "/facturen",
+    label: "Facturen",
+    icon: "€",
+    roles: ["owner"],
+    reason: "Financiele administratie is alleen voor de eigenaar.",
+  },
+  {
     path: "/tools",
     label: "Tools",
     icon: "⚒",

@@ -1,0 +1,113 @@
+import { requireOwner } from "@/lib/access";
+import { alleFacturen, debiteurenstand, WORKFLOW } from "@/lib/facturen";
+import { FactuurTabel } from "@/components/factuur-tabel";
+import { formatEuro, formatDate } from "@/lib/format";
+
+export const dynamic = "force-dynamic";
+
+// De facturenadministratie.
+//
+// Bewust één scherm: invoeren, overzicht en opvolging bij elkaar. Debiteuren
+// bijhouden is werk dat je tussendoor doet, niet iets waar je een wizard voor
+// wilt doorlopen.
+
+export default async function FacturenPage() {
+  await requireOwner();
+
+  const [facturen, stand] = await Promise.all([alleFacturen(), debiteurenstand()]);
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6">
+      <header>
+        <h1 className="text-2xl font-semibold">Facturen &amp; debiteuren</h1>
+        <p className="mt-2 max-w-3xl text-sm text-text-muted">
+          Wat er uitstaat, wie te laat is en wat er als volgende moet gebeuren. Maud leest hier mee en
+          bereidt opvolging voor — versturen doe jij, altijd.
+        </p>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-4">
+        <div className="card p-4">
+          <p className="text-2xl font-semibold">{formatEuro(stand.openstaandEur)}</p>
+          <p className="text-xs text-text-muted">openstaand · {stand.aantalOpen} facturen</p>
+        </div>
+        <div className="card p-4">
+          <p className={`text-2xl font-semibold ${stand.teLaatEur > 0 ? "text-danger" : ""}`}>
+            {formatEuro(stand.teLaatEur)}
+          </p>
+          <p className="text-xs text-text-muted">te laat · {stand.aantalTeLaat} facturen</p>
+        </div>
+        <div className="card p-4">
+          <p className={`text-2xl font-semibold ${stand.wachtOpAkkoord > 0 ? "text-warn" : ""}`}>
+            {stand.wachtOpAkkoord}
+          </p>
+          <p className="text-xs text-text-muted">wacht op jouw akkoord</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-2xl font-semibold">
+            {stand.gemiddeldeBetaaltermijn === null ? "—" : `${stand.gemiddeldeBetaaltermijn} dg`}
+          </p>
+          <p className="text-xs text-text-muted">
+            {stand.gemiddeldeBetaaltermijn === null ? "nog niets betaald" : "gemiddelde betaaltermijn"}
+          </p>
+        </div>
+      </div>
+
+      <section className="card p-5">
+        <h2 className="text-sm font-semibold">De route die elke factuur aflegt</h2>
+        <ol className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          {WORKFLOW.map((stap, index) => (
+            <li key={stap} className="flex items-center gap-2">
+              <span className="chip">{stap}</span>
+              {index < WORKFLOW.length - 1 && <span className="text-text-faint">→</span>}
+            </li>
+          ))}
+        </ol>
+        <p className="mt-3 text-xs text-text-muted">
+          Maud loopt deze route en slaat geen stap over. Alles tot en met &ldquo;voorbereiden&rdquo; doet
+          zij zelf; herinneringen, aanmaningen en regelingen gaan pas de deur uit met jouw akkoord.
+        </p>
+      </section>
+
+      <FactuurTabel
+        facturen={facturen.map((f) => ({
+          id: f.id,
+          nummer: f.nummer,
+          klant: f.klant,
+          email: f.klantEmail,
+          factuurdatum: f.factuurdatum.toISOString().slice(0, 10),
+          factuurdatumLabel: formatDate(f.factuurdatum),
+          vervaldatum: f.vervaldatum.toISOString().slice(0, 10),
+          vervaldatumLabel: formatDate(f.vervaldatum),
+          bedrag: f.bedragEur,
+          bedragLabel: formatEuro(f.bedragEur),
+          openstaandLabel: formatEuro(f.openstaandEur),
+          status: f.status,
+          statusLabel: f.statusLabel,
+          opvolgingLabel: f.opvolgingLabel,
+          verzonden: f.verzondenOp ? f.verzondenOp.toISOString().slice(0, 10) : "",
+          verzondenLabel: f.verzondenOp ? formatDate(f.verzondenOp) : null,
+          betaaldatum: f.betaaldOp ? f.betaaldOp.toISOString().slice(0, 10) : "",
+          betaaldatumLabel: f.betaaldOp ? formatDate(f.betaaldOp) : null,
+          herinnering1: f.herinnering1Op ? formatDate(f.herinnering1Op) : null,
+          herinnering2: f.herinnering2Op ? formatDate(f.herinnering2Op) : null,
+          dagen: f.dagenOpenstaand,
+          teLaat: f.teLaat,
+          notities: f.notities,
+          volgendeStap: f.volgendeStap,
+          bron: f.bron,
+        }))}
+      />
+
+      <section className="card p-5">
+        <h2 className="text-sm font-semibold">Later koppelen aan je boekhouding</h2>
+        <p className="mt-2 text-sm text-text-muted">
+          Elke factuur draagt een herkomst en een extern kenmerk. Koppel je straks Moneybird,
+          e-Boekhouden of Exact, dan komen die facturen ernaast te staan en weet het systeem welke regel
+          bij welke factuur hoort. Maud hoeft daar niets voor te leren — voor haar verandert er niets
+          behalve dat er meer in staat.
+        </p>
+      </section>
+    </div>
+  );
+}
