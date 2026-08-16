@@ -83,6 +83,7 @@ enum AgentCategory {
   ops
   research
   bizdev
+  finance
   other
 }
 

@@ -123,6 +123,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   ops: "Operations",
   research: "Research",
   bizdev: "Business development",
+  finance: "Financieel",
   other: "Overig",
 };
 

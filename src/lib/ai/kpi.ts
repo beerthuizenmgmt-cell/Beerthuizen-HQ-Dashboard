@@ -161,7 +161,32 @@ async function bereken(kpi: KpiDefinitie, agentId: string): Promise<KpiWaarde> {
       };
     }
 
+    case "openstaande_verzoeken": {
+      const aantal = await db.approval.count({ where: { agentId, status: "pending" } });
+      return {
+        ...kpi,
+        waarde: `${aantal}`,
+        stand: aantal === 0 ? "goed" : aantal <= 3 ? "aandacht" : "slecht",
+        onderbouwing: "goedkeuringsverzoeken van deze agent die nog op een besluit wachten",
+      };
+    }
+
+    case "signalen_gemeld": {
+      const sinds = new Date(Date.now() - 14 * DAG);
+      const [gemeld, totaal] = await Promise.all([
+        db.agentInsight.count({ where: { agentId, reportedAt: { not: null }, createdAt: { gte: sinds } } }),
+        db.agentInsight.count({ where: { agentId, createdAt: { gte: sinds } } }),
+      ]);
+      if (totaal === 0) return leeg("nog geen bevindingen vastgelegd");
+      return {
+        ...kpi,
+        waarde: `${gemeld} van ${totaal}`,
+        stand: "goed",
+        onderbouwing: "bevindingen van de laatste 14 dagen die in een rapport zijn verwerkt",
+      };
+    }
+
     default:
-      return leeg("deze maatstaf is nog niet berekenbaar");
+      return leeg(kpi.bron.startsWith("Nog geen bron") ? kpi.bron : "deze maatstaf is nog niet berekenbaar");
   }
 }
