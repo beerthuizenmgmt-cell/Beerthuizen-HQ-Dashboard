@@ -228,10 +228,25 @@ export async function verwerkFormulier(
   const ingevuld: Record<string, string> = {};
   const ontbreekt: string[] = [];
 
+  // Meerkeuzevelden leveren meerdere waarden; die horen als één antwoord terug
+  // te komen en niet alleen de laatste.
   for (const veld of velden) {
+    if (veld.type === "multi") {
+      const waarden = formData.getAll(veld.naam).map(String).filter(Boolean);
+      if (waarden.length) ingevuld[veld.naam] = waarden.join(", ");
+      continue;
+    }
     const waarde = String(formData.get(veld.naam) ?? "").trim();
     if (waarde) ingevuld[veld.naam] = waarde;
-    else if (veld.verplicht) ontbreekt.push(veld.label);
+  }
+
+  // Pas daarna beoordelen wat verplicht was. Een vervolgvraag die de klant
+  // nooit te zien kreeg mag hij ook niet missen — anders blokkeert het
+  // formulier op een veld dat er voor hem niet eens stond.
+  for (const veld of velden) {
+    if (!veld.verplicht) continue;
+    if (veld.toonAls && !veld.toonAls.waarden.includes(ingevuld[veld.toonAls.veld] ?? "")) continue;
+    if (!ingevuld[veld.naam]) ontbreekt.push(veld.label);
   }
 
   if (ontbreekt.length > 0) {
