@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
+import { Logo } from "@/components/logo";
 
 export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/hq");
@@ -9,11 +10,13 @@ export default async function LoginPage() {
     <main className="flex min-h-screen items-center justify-center px-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-lg font-semibold text-white">
-            BH
+          <div className="mb-5 flex justify-center">
+            <Logo size="lg" />
           </div>
-          <h1 className="text-xl font-semibold">BHMGMT HQ</h1>
-          <p className="mt-1 text-sm text-text-muted">Het kantoor van je AI-team</p>
+          <h1 className="text-2xl">
+            Het kantoor van je <span className="accent-serif">AI-team</span>
+          </h1>
+          <p className="eyebrow mt-2">Beerthuizen Management</p>
         </div>
 
         <div className="card p-6">
