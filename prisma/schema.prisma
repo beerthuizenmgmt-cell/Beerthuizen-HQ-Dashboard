@@ -1074,6 +1074,7 @@ model Invoice {
   updatedAt DateTime @updatedAt
 
   approvals Approval[]
+  payments  IncomingPayment[]
 
   @@unique([source, number])
   @@index([status, dueOn])
@@ -1137,4 +1138,44 @@ model ResearchEntry {
 
   @@index([subject, createdAt(sort: Desc)])
   @@index([createdAt(sort: Desc)])
+}
+
+/// Een binnengekomen betaling die nog niet zeker aan een factuur hangt.
+///
+/// Een bank- of boekhoudkoppeling levert bedragen met een omschrijving; die
+/// hoeven niet één op één te matchen. Kan de match niet met zekerheid gemaakt
+/// worden, dan blijft de betaling hier staan tot Enriqueo hem bevestigt. Zomaar
+/// koppelen zou betekenen dat een factuur op betaald staat terwijl het geld van
+/// iets anders kwam — en dat merk je pas maanden later.
+model IncomingPayment {
+  id String @id @default(cuid())
+
+  amountEur Float
+  receivedOn DateTime
+  /// Wat de bank of het boekhoudpakket meestuurde: omschrijving, tegenrekening,
+  /// naam. Hierop wordt gezocht.
+  reference    String?
+  counterparty String?
+
+  /// Waar deze betaling vandaan kwam: bank, boekhouding, handmatig.
+  source     String  @default("handmatig")
+  externalId String?
+
+  /// De factuur waaraan hij gekoppeld is, zodra dat zeker is.
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  /// zeker | onzeker | geen — hoe betrouwbaar de match was.
+  matchConfidence String  @default("geen")
+  matchReason     String?
+
+  /// Bevestigd door Enriqueo. Zolang dit leeg is en er geen zekere match was,
+  /// telt de betaling nergens in mee.
+  confirmedAt DateTime?
+  dismissedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([source, externalId])
+  @@index([confirmedAt, createdAt(sort: Desc)])
 }

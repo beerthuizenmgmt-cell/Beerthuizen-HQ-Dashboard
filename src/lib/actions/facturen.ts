@@ -91,23 +91,75 @@ export async function bewaarFactuur(_prev: FactuurState, formData: FormData): Pr
 }
 
 /// Vastleggen dat er betaald is. Dit is administratie, geen externe actie.
+///
+/// Loopt via dezelfde route als een betaling uit de bank, zodat je hier
+/// dezelfde Telegram-melding krijgt. Anders zou je alleen bericht krijgen van
+/// betalingen die het systeem zelf zag, en niet van die je zelf afboekt.
 export async function markeerBetaald(id: string): Promise<void> {
   const user = await requireOwner();
   const factuur = await db.invoice.findUnique({ where: { id } });
   if (!factuur) return;
 
-  await db.invoice.update({
-    where: { id },
-    data: {
-      status: "betaald",
-      paidAt: new Date(),
-      paidAmountEur: factuur.amountEur,
-      followUp: "afgehandeld",
-    },
-  });
+  const { boekBetaald } = await import("@/lib/betalingen");
+  const openstaand = factuur.amountEur - (factuur.paidAmountEur ?? 0);
+  await boekBetaald(id, openstaand, new Date());
 
   await audit(user, "factuur_betaald", `${factuur.number} · ${factuur.clientName}`);
   revalidatePath("/facturen");
+}
+
+/// Een betaling die het systeem niet zeker kon koppelen, alsnog aan een factuur
+/// hangen. Dit is jouw oordeel, niet dat van Maud.
+export async function bevestigKoppeling(betalingId: string, invoiceId: string): Promise<void> {
+  const user = await requireOwner();
+
+  const betaling = await db.incomingPayment.findUnique({ where: { id: betalingId } });
+  if (!betaling || betaling.confirmedAt) return;
+
+  await db.incomingPayment.update({
+    where: { id: betalingId },
+    data: { invoiceId, confirmedAt: new Date(), matchConfidence: "zeker", matchReason: "door jou bevestigd" },
+  });
+
+  const { boekBetaald } = await import("@/lib/betalingen");
+  await boekBetaald(invoiceId, betaling.amountEur, betaling.receivedOn);
+
+  await audit(user, "betaling_gekoppeld", `${betaling.amountEur} → factuur ${invoiceId}`);
+  revalidatePath("/facturen");
+}
+
+/// Een betaling die nergens bij hoort — bijvoorbeeld een terugbetaling of een
+/// bedrag dat niets met facturen te maken heeft.
+export async function negeerBetaling(betalingId: string): Promise<void> {
+  const user = await requireOwner();
+  await db.incomingPayment.update({ where: { id: betalingId }, data: { dismissedAt: new Date() } });
+  await audit(user, "betaling_genegeerd", betalingId);
+  revalidatePath("/facturen");
+}
+
+/// Handmatig een ontvangen bedrag invoeren, zolang er nog geen bankkoppeling is.
+export async function registreerBetaling(
+  _prev: FactuurState,
+  formData: FormData,
+): Promise<FactuurState> {
+  await requireOwner();
+
+  const bedragEur = bedrag(formData.get("bedrag"));
+  const ontvangen = datum(formData.get("ontvangen"));
+  if (bedragEur === null || bedragEur <= 0) return { error: "Vul een bedrag in." };
+  if (!ontvangen) return { error: "Vul de ontvangstdatum in." };
+
+  const { verwerkBetaling } = await import("@/lib/betalingen");
+  const uitkomst = await verwerkBetaling({
+    amountEur: bedragEur,
+    receivedOn: ontvangen,
+    reference: String(formData.get("omschrijving") ?? "").trim() || null,
+    counterparty: String(formData.get("tegenpartij") ?? "").trim() || null,
+    source: "handmatig",
+  });
+
+  revalidatePath("/facturen");
+  return uitkomst.gekoppeld ? { ok: uitkomst.bericht } : { error: uitkomst.bericht };
 }
 
 /// Vastleggen dat een factuur of herinnering daadwerkelijk verstuurd is.

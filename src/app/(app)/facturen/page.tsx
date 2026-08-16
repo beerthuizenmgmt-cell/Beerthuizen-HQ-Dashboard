@@ -1,6 +1,8 @@
 import { requireOwner } from "@/lib/access";
 import { alleFacturen, debiteurenstand, WORKFLOW } from "@/lib/facturen";
+import { openstaandeBetalingen } from "@/lib/betalingen";
 import { FactuurTabel } from "@/components/factuur-tabel";
+import { BetalingPaneel } from "@/components/betaling-paneel";
 import { formatEuro, formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +16,19 @@ export const dynamic = "force-dynamic";
 export default async function FacturenPage() {
   await requireOwner();
 
-  const [facturen, stand] = await Promise.all([alleFacturen(), debiteurenstand()]);
+  const [facturen, stand, betalingen] = await Promise.all([
+    alleFacturen(),
+    debiteurenstand(),
+    openstaandeBetalingen(),
+  ]);
+
+  // Alleen facturen waar nog iets op open staat zijn een zinnige koppeling.
+  const koppelbaar = facturen
+    .filter((f) => f.richting === "uitgaand" && f.openstaandEur > 0)
+    .map((f) => ({
+      id: f.id,
+      label: `${f.nummer} · ${f.klant} · ${formatEuro(f.openstaandEur)} open`,
+    }));
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -74,6 +88,22 @@ export default async function FacturenPage() {
           zij zelf; herinneringen, aanmaningen en regelingen gaan pas de deur uit met jouw akkoord.
         </p>
       </section>
+
+      <BetalingPaneel
+        betalingen={betalingen.map((b) => ({
+          id: b.id,
+          bedragLabel: formatEuro(b.amountEur),
+          ontvangenLabel: formatDate(b.receivedOn),
+          omschrijving: b.reference,
+          tegenpartij: b.counterparty,
+          reden: b.matchReason ?? "geen match gevonden",
+          bron: b.source,
+          vermoeden: b.invoice
+            ? { id: b.invoiceId!, label: `${b.invoice.number} · ${b.invoice.clientName}` }
+            : null,
+        }))}
+        facturen={koppelbaar}
+      />
 
       <FactuurTabel
         facturen={facturen.map((f) => ({
