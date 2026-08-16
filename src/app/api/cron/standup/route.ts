@@ -1,4 +1,4 @@
-import { runStandup } from "@/lib/standup";
+import { meetingDate, runStandup } from "@/lib/standup";
 import { db } from "@/lib/db";
 import { TIMEZONE } from "@/lib/format";
 
@@ -57,7 +57,21 @@ async function handle(request: Request) {
     return Response.json({ ok: true, skipped: "overleg staat uit" });
   }
 
-  const force = new URL(request.url).searchParams.get("force") === "1";
+  const params = new URL(request.url).searchParams;
+  const force = params.get("force") === "1";
+
+  // Op het Hobby-plan mag er maar één cron per dag draaien, en die kan door de
+  // zomertijd op een ander lokaal uur vallen dan ingesteld. In die stand kijken
+  // we daarom niet naar de klok maar naar de vraag: is het overleg van vandaag
+  // al begonnen? Zo niet, dan nu. Met Pro kan het weer op de minuut.
+  if (params.get("daily") === "1" && !force) {
+    const today = await db.meeting.findUnique({ where: { date: meetingDate() } });
+    if (today && today.status !== "scheduled") {
+      return Response.json({ ok: true, skipped: "overleg van vandaag liep al" });
+    }
+    const result = await runStandup();
+    return Response.json({ ok: true, mode: "daily", ...result });
+  }
 
   if (!force) {
     const now = minutesNow();
