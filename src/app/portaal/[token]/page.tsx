@@ -44,9 +44,11 @@ export default async function PortaalPagina({ params }: PageProps<"/portaal/[tok
             tekst="Neem even contact met ons op, dan sturen we je een nieuwe."
           />
         ) : alGedaan ? (
+          // Leest goed voor wie net verzonden heeft én voor wie de link later
+          // nog eens opent. "Al ontvangen" klinkt als een verwijt.
           <Bericht
-            kop="We hebben je gegevens al ontvangen"
-            tekst="Bedankt. Je hoeft verder niets meer te doen."
+            kop="Bedankt, we hebben je gegevens ontvangen"
+            tekst="Je hoeft verder niets meer te doen. We nemen contact op als er nog iets ontbreekt."
           />
         ) : !isBeschikbaar(aanvraag.type) ? (
           <Bericht
