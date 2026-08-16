@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BHMGMT HQ
 
-## Getting Started
+Het digitale kantoor van Beerthuizen Management: één plek waar het AI-team van acht agents
+zichtbaar is, aangestuurd wordt en verantwoording aflegt.
 
-First, run the development server:
+## Wat er nu werkt (fase 1)
+
+- **Inloggen** met e-mail en wachtwoord; sessie in een httpOnly-cookie.
+- **HQ-overzicht** met het hele team, live status, en wat er aandacht nodig heeft.
+- **Agents toevoegen en beheren** met een keuze uit vier koppeltypes en een
+  **verbindingstest** die in gewone taal zegt wat er mis is.
+- **Reader-koppelingen**: het ingest-contract is identiek aan dat van de bestaande
+  `elara-reader`, dus die draait er zonder aanpassing op.
+- **Activiteitenfeed** van alles wat de agents doen.
+
+Fase 2 (taken en teamcommunicatie), 3 (ochtendoverleg) en 4 (Meta ads-manager) staan in het plan.
+
+## Aan de praat krijgen
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Start de lokale database. Dit draait een echte Postgres en drukt een connectiestring af —
+zet die in `.env` als `DATABASE_URL` en `SHADOW_DATABASE_URL`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run db:dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Vul verder `APP_SECRET` in `.env` (genereer met `openssl rand -base64 32`), en dan:
 
-## Learn More
+```bash
+npm run db:migrate
+npm run db:seed
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Inloggen kan met het account uit de seed (`SEED_EMAIL` / `SEED_PASSWORD`, standaard
+`jacey_music@live.nl` / `welkom123`). **Wijzig dat wachtwoord voordat de app online staat.**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Koppeltypes
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Type | Wanneer | Taken versturen |
+|---|---|---|
+| **Telegram-bot** | De agent heeft een eigen bot. Snelst werkend. | ja |
+| **OpenClaw gateway** | Directe WebSocket naar de agent. Rijkst. | ja, mits het token `operator.write` heeft |
+| **Reader (push)** | Agent is niet van buitenaf bereikbaar. | nee |
+| **Nog niet koppelen** | Je regelt de koppeling later. | nee |
 
-## Deploy on Vercel
+De gateway-adapter onderhandelt protocol 3–4, doorloopt de connect-challenge en **leest de
+verzendmethode uit `features.methods`** in plaats van hem te gokken — gateway-builds verschillen
+daarin.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Reader aansluiten
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Maak bij **Instellingen → Reader-koppelingen** een koppeling aan. Je krijgt eenmalig een
+API-sleutel plus het startcommando. De reader praat alleen uitgaand, dus er hoeft geen poort open.
+
+Endpoints (auth: `Authorization: Bearer <instance_id>:<api_key>`):
+
+```
+POST /api/ingest/snapshot    agents, modellen en skills
+POST /api/ingest/activity    losse gebeurtenissen
+POST /api/ingest/heartbeat   levensteken
+```
+
+## Naar Vercel
+
+1. Repo naar GitHub pushen en in Vercel importeren.
+2. **Storage → Create Database → Postgres** aanmaken; `DATABASE_URL` wordt automatisch gekoppeld.
+3. Environment variables zetten: `APP_SECRET`, `APP_URL`, `CRON_SECRET`.
+4. Deployen. `postinstall` draait `prisma generate`; migraties draai je met `npm run db:deploy`.
+
+## Beveiliging
+
+- Agent-tokens staan versleuteld (AES-256-GCM) in de database en gaan nooit naar de browser —
+  in de UI zie je alleen een gemaskeerde weergave.
+- API-sleutels van readers worden gehasht opgeslagen en zijn na aanmaken niet meer op te vragen.
+- `APP_SECRET` is de sleutel onder beide. Wijzig je hem, dan zijn bestaande agent-tokens niet
+  meer te ontsleutelen en moet je ze opnieuw invoeren.

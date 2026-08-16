@@ -1,0 +1,531 @@
+// BHMGMT HQ — datamodel
+//
+// Statuswaarden en categorieën sluiten aan op het bestaande domeinmodel van
+// ~/.elara-reader (src/types.ts), zodat snapshots van de reader zonder
+// vertaalslag binnenkomen. De enums zijn een superset: de reader gebruikt
+// alleen de waarden die hij zelf kent.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// Basis
+// ============================================================
+
+enum UserRole {
+  owner
+  member
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(member)
+  createdAt    DateTime @default(now())
+
+  createdTasks   Task[]         @relation("TaskCreatedByUser")
+  taskUpdates    TaskUpdate[]
+  messages       Message[]
+  decidedAdvice  AdAdvice[]
+}
+
+enum AgentStatus {
+  active
+  idle
+  error
+  offline
+  paused
+}
+
+/// Categorieën uit het bestaande reader-model, aangevuld met bizdev.
+enum AgentCategory {
+  content
+  marketing
+  ads
+  analyse
+  ops
+  research
+  bizdev
+  other
+}
+
+enum AdapterType {
+  openclaw_gateway
+  telegram
+  reader_ingest
+  manual
+}
+
+model Agent {
+  id          String        @id @default(cuid())
+  key         String        @unique
+  name        String
+  role        String
+  description String?
+  emoji       String?
+  color       String?
+  category    AgentCategory @default(other)
+
+  /// Chief stuurt de andere agents aan en is standaard ontvanger van
+  /// rapportages en escalaties.
+  isChief Boolean @default(false)
+
+  status      AgentStatus @default(offline)
+  statusText  String?
+  model       String?
+  channels    String[]    @default([])
+  progressPct Int?
+
+  adapterType AdapterType @default(manual)
+  /// Verbindingsgegevens. Geheimen zitten hierin versleuteld (AES-256-GCM)
+  /// en verlaten de server nooit — zie src/lib/crypto.ts.
+  adapterConfig Json?
+
+  lastActiveAt   DateTime?
+  lastCheckedAt  DateTime?
+  lastError      String?
+  paused         Boolean   @default(false)
+  sortOrder      Int       @default(0)
+
+  instanceId String?
+  instance   Instance? @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activityEvents ActivityEvent[]
+  tasks          Task[]          @relation("TaskAssignee")
+  createdTasks   Task[]          @relation("TaskCreatedByAgent")
+  taskUpdates    TaskUpdate[]
+  messagesFrom   Message[]       @relation("MessageFromAgent")
+  messagesTo     Message[]       @relation("MessageToAgent")
+  dmChannel      Channel?
+  standupEntries StandupEntry[]
+  advice         AdAdvice[]
+  costEntries    CostEntry[]
+  notifications  Notification[]
+
+  @@index([category])
+  @@index([status])
+}
+
+/// Een OpenClaw-installatie die via de reader outbound naar dit dashboard
+/// pusht. Auth: `Bearer <publicId>:<apiKey>`.
+model Instance {
+  id            String    @id @default(cuid())
+  publicId      String    @unique
+  name          String
+  apiKeyHash    String
+  readerVersion String?
+  uptimeSeconds Int?
+  lastHeartbeatAt DateTime?
+  lastSnapshotAt  DateTime?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+
+  agents         Agent[]
+  skills         Skill[]
+  models         ModelInfo[]
+  activityEvents ActivityEvent[]
+}
+
+enum ActivityLevel {
+  info
+  warn
+  error
+  success
+}
+
+model ActivityEvent {
+  id         String        @id @default(cuid())
+  occurredAt DateTime
+  kind       String
+  level      ActivityLevel @default(info)
+  message    String
+  payload    Json?
+  createdAt  DateTime      @default(now())
+
+  agentId    String?
+  agent      Agent?    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  instanceId String?
+  instance   Instance? @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@index([occurredAt(sort: Desc)])
+  @@index([agentId, occurredAt(sort: Desc)])
+}
+
+model Skill {
+  id           String  @id @default(cuid())
+  key          String
+  name         String
+  description  String  @default("")
+  installed    Boolean @default(false)
+  slashCommand String?
+  icon         String?
+  category     String?
+
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@unique([instanceId, key])
+}
+
+model ModelInfo {
+  id            String  @id @default(cuid())
+  modelId       String
+  provider      String
+  online        Boolean @default(true)
+  contextWindow Int?
+
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+
+  @@unique([instanceId, modelId])
+}
+
+// ============================================================
+// Werk
+// ============================================================
+
+enum TaskStatus {
+  inbox
+  assigned
+  in_progress
+  blocked
+  review
+  done
+  cancelled
+}
+
+enum TaskPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum ActorType {
+  user
+  agent
+  system
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(inbox)
+  priority    TaskPriority @default(normal)
+
+  agentId String?
+  agent   Agent?  @relation("TaskAssignee", fields: [agentId], references: [id], onDelete: SetNull)
+
+  createdByUserId  String?
+  createdByUser    User?   @relation("TaskCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdByAgentId String?
+  createdByAgent   Agent?  @relation("TaskCreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
+
+  /// Waar de taak vandaan komt: handmatig, ochtendoverleg, ads-advies, agent.
+  source      String   @default("manual")
+  dueAt       DateTime?
+  result      String?
+  dispatchedAt DateTime?
+  completedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  updates TaskUpdate[]
+  advice  AdAdvice[]
+
+  @@index([status, updatedAt(sort: Desc)])
+  @@index([agentId, status])
+}
+
+model TaskUpdate {
+  id     String @id @default(cuid())
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  authorType   ActorType
+  authorUserId String?
+  authorUser   User?     @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+  authorAgentId String?
+  authorAgent  Agent?    @relation(fields: [authorAgentId], references: [id], onDelete: SetNull)
+
+  /// comment | status | result | dispatch | error
+  kind      String   @default("comment")
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([taskId, createdAt])
+}
+
+// ============================================================
+// Communicatie
+// ============================================================
+
+enum ChannelKind {
+  team
+  dm
+}
+
+model Channel {
+  id      String      @id @default(cuid())
+  key     String      @unique
+  name    String
+  purpose String?
+  kind    ChannelKind @default(team)
+
+  /// Gevuld voor DM-kanalen: het gesprek met één specifieke agent.
+  agentId String? @unique
+  agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  messages Message[]
+}
+
+enum MessageDelivery {
+  pending
+  sent
+  delivered
+  failed
+  local
+}
+
+model Message {
+  id        String  @id @default(cuid())
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  fromType    ActorType
+  fromUserId  String?
+  fromUser    User?     @relation(fields: [fromUserId], references: [id], onDelete: SetNull)
+  fromAgentId String?
+  fromAgent   Agent?    @relation("MessageFromAgent", fields: [fromAgentId], references: [id], onDelete: Cascade)
+
+  /// Gericht aan één agent — ook gebruikt voor agent-naar-agent verkeer,
+  /// dat altijd in een kanaal zichtbaar blijft.
+  toAgentId String?
+  toAgent   Agent?  @relation("MessageToAgent", fields: [toAgentId], references: [id], onDelete: SetNull)
+
+  body     String
+  mentions String[] @default([])
+
+  delivery      MessageDelivery @default(local)
+  deliveryError String?
+  createdAt     DateTime        @default(now())
+
+  @@index([channelId, createdAt])
+}
+
+// ============================================================
+// Ochtendoverleg
+// ============================================================
+
+enum MeetingStatus {
+  scheduled
+  collecting
+  ready
+  closed
+}
+
+model Meeting {
+  id     String        @id @default(cuid())
+  /// Kalenderdag van het overleg (Europe/Amsterdam), op middernacht UTC gezet.
+  date   DateTime      @unique
+  status MeetingStatus @default(scheduled)
+
+  summaryMd String?
+  createdAt DateTime  @default(now())
+  closedAt  DateTime?
+
+  entries StandupEntry[]
+}
+
+model StandupEntry {
+  id        String  @id @default(cuid())
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  agentId   String
+  agent     Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  yesterday String?
+  today     String?
+  blockers  String?
+  rawReply  String?
+
+  requestedAt DateTime  @default(now())
+  receivedAt  DateTime?
+  error       String?
+
+  @@unique([meetingId, agentId])
+}
+
+// ============================================================
+// Advertenties (Meta)
+// ============================================================
+
+model AdAccount {
+  id         String   @id @default(cuid())
+  platform   String   @default("meta")
+  externalId String
+  name       String
+  currency   String   @default("EUR")
+  createdAt  DateTime @default(now())
+  lastSyncAt DateTime?
+
+  campaigns AdCampaign[]
+
+  @@unique([platform, externalId])
+}
+
+model AdCampaign {
+  id         String    @id @default(cuid())
+  accountId  String
+  account    AdAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  externalId  String
+  name        String
+  objective   String?
+  status      String? // ACTIVE, PAUSED, ...
+  dailyBudget Float?
+  startedAt   DateTime?
+
+  creatives AdCreative[]
+
+  @@unique([accountId, externalId])
+}
+
+model AdCreative {
+  id         String     @id @default(cuid())
+  campaignId String
+  campaign   AdCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  externalId String
+  name       String
+  /// video | image | carousel | collection | reel | story
+  format     String?
+  placement  String?
+  /// Creatieve hoek of hook, zodat we kunnen zien wat het beste werkt.
+  angle        String?
+  thumbnailUrl String?
+
+  @@unique([campaignId, externalId])
+}
+
+enum MetricScope {
+  account
+  campaign
+  creative
+}
+
+/// Dagcijfers op één van drie niveaus. Eén tabel met scope houdt de
+/// vergelijkingen tussen niveaus simpel.
+model AdMetric {
+  id      String      @id @default(cuid())
+  date    DateTime
+  scope   MetricScope
+  scopeId String
+
+  spend       Float @default(0)
+  impressions Int   @default(0)
+  reach       Int   @default(0)
+  clicks      Int   @default(0)
+  conversions Int   @default(0)
+  revenue     Float @default(0)
+  videoViews  Int   @default(0)
+  engagements Int   @default(0)
+
+  @@unique([date, scope, scopeId])
+  @@index([scope, scopeId, date])
+}
+
+enum AdviceStatus {
+  open
+  accepted
+  rejected
+  done
+}
+
+/// Advies van een agent over de advertenties — dit is wat het dashboard
+/// bruikbaar maakt in plaats van alleen mooi.
+model AdAdvice {
+  id      String @id @default(cuid())
+  agentId String?
+  agent   Agent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  title          String
+  bodyMd         String
+  recommendation String?
+  /// account | campaign | creative | format
+  targetType     String?
+  targetId       String?
+  /// Bijvoorbeeld "ROAS +0,4" of "€120/maand besparing".
+  expectedImpact String?
+  severity       ActivityLevel @default(info)
+
+  status         AdviceStatus @default(open)
+  linkedTaskId   String?
+  linkedTask     Task?        @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+  decidedAt      DateTime?
+  decidedByUserId String?
+  decidedByUser  User?        @relation(fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt(sort: Desc)])
+}
+
+// ============================================================
+// Overig
+// ============================================================
+
+model CostEntry {
+  id       String   @id @default(cuid())
+  date     DateTime
+  agentId  String?
+  agent    Agent?   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  provider String
+  model    String
+  tokensIn  Int   @default(0)
+  tokensOut Int   @default(0)
+  costEur   Float @default(0)
+
+  @@unique([date, agentId, provider, model])
+  @@index([date])
+}
+
+model Notification {
+  id      String        @id @default(cuid())
+  level   ActivityLevel @default(info)
+  title   String
+  body    String?
+  link    String?
+  agentId String?
+  agent   Agent?        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  readAt    DateTime?
+  /// Of deze melding ook naar Telegram is gestuurd.
+  pushedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([readAt, createdAt(sort: Desc)])
+}
+
+/// Sleutel-waarde instellingen: overlegtijd, tijdzone, alertvoorkeuren,
+/// Meta-credentials (versleuteld).
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
