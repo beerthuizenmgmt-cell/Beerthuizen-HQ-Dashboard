@@ -6,6 +6,7 @@ import { buildDossier } from "@/lib/ai/dossier";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { StatusBadge } from "@/components/status-dot";
 import { AgentMemoryPanel } from "@/components/agent-memory";
+import { AgentPlaybook } from "@/components/agent-playbook";
 import { timeAgo, formatEuro, formatDateTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -336,6 +337,21 @@ export default async function AgentDossierPage({ params }: PageProps<"/agents/[i
           </section>
         </>
       )}
+
+      {/* Werkinstructies */}
+      <section className="card p-5">
+        <h2 className="text-sm font-semibold">Werkinstructies</h2>
+        <p className="mt-1 mb-4 text-xs text-text-muted">
+          Hoe {agent.name} zijn werk doet — de handleiding bij de functie. Het functieprofiel hierboven
+          zegt waar hij over gaat; dit zegt hoe. Gaat integraal mee in elke denkbeurt.
+        </p>
+        <AgentPlaybook
+          agentId={agent.id}
+          agentName={agent.name}
+          playbook={agent.playbook}
+          canEdit={user.role === "owner"}
+        />
+      </section>
 
       {/* Gereedschap */}
       <section className="card p-5">

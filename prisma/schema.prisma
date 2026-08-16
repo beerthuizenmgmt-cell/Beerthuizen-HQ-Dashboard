@@ -118,6 +118,13 @@ model Agent {
   /// het systeemprompt. Leeg betekent: gebruik het standaardprofiel uit de seed.
   systemPrompt String?
 
+  /// Werkinstructies: hoe deze agent zijn werk doet, in zijn eigen woorden
+  /// opgeschreven door Enriqueo. Losstaand van het geheugen — dat is voor
+  /// blijvende kernregels, dit is de handleiding bij de functie.
+  ///
+  /// Gaat integraal mee in het systeemprompt, na het functieprofiel.
+  playbook String?
+
   /// Welk model deze agent draait. Leeg = het standaardmodel uit de
   /// instellingen. Bewust per agent instelbaar: zwaar denkwerk verdient een
   /// ander model dan repetitief werk.

@@ -145,6 +145,10 @@ export async function runAgent(options: {
     ``,
     SHARED_FRAMEWORK,
     ...(charter ? [``, charterAsPrompt(charter, namen)] : []),
+    // De werkinstructies staan ná het functieprofiel: het profiel zegt waar hij
+    // over gaat, het playbook hoe hij het doet. Bij tegenspraak wint het
+    // playbook, want dat is het meest specifiek opgeschreven.
+    ...(agent.playbook?.trim() ? [``, `# Je werkinstructies`, ``, agent.playbook.trim()] : []),
     ``,
     `# Bedrijfscontext`,
     companyContext,

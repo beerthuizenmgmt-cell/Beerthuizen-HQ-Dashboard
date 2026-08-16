@@ -151,8 +151,10 @@ export async function buildMorningReport(): Promise<HeadReport> {
     )),
     ``,
     `Schrijf geen opsomming van wat er staat — dat kan Enriqueo zelf lezen. Schrijf`,
-    `wat het betekent: wat loopt goed, wat vraagt aandacht, waar heb je een besluit`,
-    `nodig, en wat zou jij doen. Zet het belangrijkste bovenaan. Kort mag.`,
+    `wat het betekent. Houd de vorm aan die in je werkinstructies staat: vandaag,`,
+    `aandacht, agents, van jou nodig, en maximaal drie prioriteiten. Kort en`,
+    `actiegericht; is er weinig te melden, dan is het rapport kort. Dat is beter`,
+    `dan kunstmatige drukte.`,
   ]
     .filter(Boolean)
     .join("\n");
