@@ -6,6 +6,8 @@ import { SystemStatus, type StatusItem } from "@/components/system-status";
 import { getAiStatus } from "@/lib/ai/provider";
 import { getFinanceSettings } from "@/lib/ai/cost";
 import { getCompanyContext } from "@/lib/ai/run";
+import { TelegramSettings } from "@/components/telegram-settings";
+import { getTelegramStatus } from "@/lib/telegram";
 import { isRecent } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -22,16 +24,16 @@ export default async function SettingsPage() {
     db.setting.findUnique({ where: { key: "alerts" } }),
   ]);
 
-  const [aiConfig, finance, companyContext, builtinAgents, activeAgents, runCount] = await Promise.all([
+  const [aiConfig, finance, companyContext, builtinAgents, activeAgents, runCount, telegram] = await Promise.all([
     getAiStatus(),
     getFinanceSettings(),
     getCompanyContext(),
     db.agent.count({ where: { adapterType: "builtin" } }),
     db.agent.count({ where: { adapterType: "builtin", paused: false } }),
     db.agentRun.count(),
+    getTelegramStatus(),
   ]);
 
-  const telegramReady = Boolean(process.env.TELEGRAM_ALERT_BOT_TOKEN && process.env.TELEGRAM_ALERT_CHAT_ID);
 
   const statusItems: StatusItem[] = [
     {
@@ -76,10 +78,12 @@ export default async function SettingsPage() {
     },
     {
       name: "Head of Operations met Telegram-rapport",
-      level: telegramReady ? "deels" : "niet",
-      detail: telegramReady
-        ? "Telegram is ingesteld voor alerts. De dagelijkse cyclus en het ochtendrapport bouw ik hierna."
-        : "Nog geen bot-token en chat-ID ingesteld, en de dagelijkse cyclus moet nog gebouwd worden.",
+      level: telegram.ready ? "deels" : telegram.hasToken ? "wacht" : "niet",
+      detail: telegram.ready
+        ? `Verbonden met @. Meldingen gaan door; de dagelijkse cyclus en het ochtendrapport bouw ik hierna.`
+        : telegram.hasToken
+          ? "De bot is gekoppeld maar kent je chat nog niet — stuur hem één bericht en klik op Zoek mijn chat."
+          : "Nog geen bot gekoppeld.",
     },
     {
       name: "Meta Ads, web search en e-mail",
@@ -189,6 +193,22 @@ export default async function SettingsPage() {
           defaultModel={aiConfig.defaultModel}
           fastModel={aiConfig.fastModel}
           hasKey={Boolean(aiConfig.connected)}
+        />
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Telegram — de lijn met je Head of Operations</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Hier komt het ochtendrapport, urgente problemen en verzoeken om akkoord. Het volledige
+            overzicht blijft in het dashboard.
+          </p>
+        </div>
+        <TelegramSettings
+          hasToken={telegram.hasToken}
+          botUsername={telegram.botUsername}
+          chatId={telegram.chatId}
+          ready={telegram.ready}
         />
       </section>
 
