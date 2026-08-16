@@ -184,7 +184,14 @@ async function main() {
     update: {},
     create: {
       key: "standup",
-      value: { enabled: true, time: "08:00", timezone: "Europe/Amsterdam" },
+      value: {
+        enabled: true,
+        // 08:00 de leesbare briefing, 09:45 de uitvraag voor de call van 10:00.
+        time: "08:00",
+        callPrepTime: "09:45",
+        callTime: "10:00",
+        timezone: "Europe/Amsterdam",
+      },
     },
   });
 

@@ -23,10 +23,14 @@ export default async function StandupPage() {
           orderBy: { agent: { sortOrder: "asc" } },
           include: { agent: { select: { id: true, name: true, emoji: true, color: true } } },
         },
+        questions: { select: { answeredAt: true, skippedAt: true } },
       },
     }),
     db.agent.findMany({ where: { paused: false }, select: { adapterType: true } }),
   ]);
+
+  const openQuestions =
+    meeting?.questions.filter((question) => !question.answeredAt && !question.skippedAt).length ?? 0;
 
   const reachable = agents.filter((agent) => getAdapter(agent.adapterType).capabilities.send).length;
   const received = meeting?.entries.filter((entry) => entry.receivedAt) ?? [];
@@ -42,8 +46,24 @@ export default async function StandupPage() {
             {meeting && ` · ${received.length} van ${meeting.entries.length} gerapporteerd`}
           </p>
         </div>
-        <StandupControls hasMeeting={Boolean(meeting)} reachable={reachable} />
+        <div className="flex flex-wrap gap-2">
+          {meeting && (
+            <Link href="/overleg/call" className="btn btn-primary">
+              {openQuestions > 0 ? `Naar de call · ${openQuestions} vragen` : "Naar de call"}
+            </Link>
+          )}
+          <StandupControls hasMeeting={Boolean(meeting)} reachable={reachable} />
+        </div>
       </header>
+
+      {openQuestions > 0 && (
+        <div className="card border-accent/30 bg-accent/5 p-4">
+          <p className="text-sm">
+            Het team heeft <strong>{openQuestions} vraag/vragen</strong> voor je liggen. In de call loop
+            je ze één voor één af en spreek je je antwoord in.
+          </p>
+        </div>
+      )}
 
       {!meeting && (
         <div className="card p-6 text-center">

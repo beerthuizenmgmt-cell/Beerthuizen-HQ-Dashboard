@@ -17,7 +17,13 @@ export default async function SettingsPage() {
     db.setting.findUnique({ where: { key: "alerts" } }),
   ]);
 
-  const standupValue = (standup?.value ?? {}) as { time?: string; timezone?: string; enabled?: boolean };
+  const standupValue = (standup?.value ?? {}) as {
+    time?: string;
+    callPrepTime?: string;
+    callTime?: string;
+    timezone?: string;
+    enabled?: boolean;
+  };
   const alertsValue = (alerts?.value ?? {}) as { inApp?: boolean; telegram?: boolean; email?: boolean };
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
 
@@ -52,20 +58,35 @@ export default async function SettingsPage() {
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Ochtendoverleg</h2>
         <div className="card p-4 text-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p>
-                Elke werkdag om <strong>{standupValue.time ?? "08:00"}</strong> ({standupValue.timezone ?? "Europe/Amsterdam"})
-              </p>
-              <p className="mt-1 text-xs text-text-muted">
-                Het dashboard vraagt elke agent om zijn standup en zet er een samenvatting boven.
-              </p>
-            </div>
+          <div className="flex items-start justify-between gap-4">
+            <dl className="space-y-2">
+              <div>
+                <dt className="text-xs text-text-faint">Briefing</dt>
+                <dd>
+                  <strong>{standupValue.time ?? "08:00"}</strong> — het team wordt uitgevraagd, jij kunt
+                  het lezen zodra je wakker bent
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-text-faint">Voorbereiding call</dt>
+                <dd>
+                  <strong>{standupValue.callPrepTime ?? "09:45"}</strong> — wie nog niet reageerde krijgt
+                  een herinnering
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-text-faint">Ochtendcall</dt>
+                <dd>
+                  <strong>{standupValue.callTime ?? "10:00"}</strong> — alles ligt klaar, jij loopt de
+                  vragen af en spreekt je antwoorden in
+                </dd>
+              </div>
+            </dl>
             <span className="chip">{standupValue.enabled === false ? "Uit" : "Aan"}</span>
           </div>
           <p className="mt-3 border-t border-border pt-3 text-xs text-text-faint">
-            Het overlegscherm zelf komt in fase 3. De instelling staat er alvast, zodat je hem straks
-            alleen nog hoeft aan te zetten.
+            Tijdzone {standupValue.timezone ?? "Europe/Amsterdam"}. De cron vuurt op meerdere momenten en
+            controleert zelf of het hier écht tijd is, zodat de zomertijd niets verschuift.
           </p>
         </div>
       </section>

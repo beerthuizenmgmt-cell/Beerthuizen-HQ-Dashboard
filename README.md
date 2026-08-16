@@ -98,3 +98,28 @@ POST /api/ingest/heartbeat   levensteken
 - API-sleutels van readers worden gehasht opgeslagen en zijn na aanmaken niet meer op te vragen.
 - `APP_SECRET` is de sleutel onder beide. Wijzig je hem, dan zijn bestaande agent-tokens niet
   meer te ontsleutelen en moet je ze opnieuw invoeren.
+
+## Ochtendoverleg en ochtendcall
+
+Twee momenten per werkdag, allebei in Europe/Amsterdam:
+
+| Tijd | Wat er gebeurt |
+|---|---|
+| **08:00** | Het team wordt uitgevraagd: gisteren, vandaag, blokkades, en vragen voor jou. Je kunt de briefing lezen zodra je wakker bent. |
+| **09:45** | Wie nog niet reageerde krijgt een herinnering, zodat om tien uur alles er ligt. |
+| **10:00** | Jij opent de call op `/overleg/call` en loopt de vragen één voor één af. |
+
+In de call spreek je je antwoord in — de browser zet het om naar tekst, jij kunt het nog bijschaven
+en het gaat daarna rechtstreeks naar de agent die de vraag stelde. Werkt in Chrome, Edge en Safari;
+in Firefox valt de microfoonknop weg en typ je gewoon. Er gaat geen audio naar een externe dienst.
+
+Naast de vragen staat de planning van de dag, en met één knop leg je een afspraak vast als taak.
+
+Vercel draait crons in UTC, wat twee keer per jaar een uur zou verschuiven. Daarom vuurt de cron op
+meerdere momenten en controleert `/api/cron/standup` zelf of het hier écht tijd is.
+
+## Bij het ontwikkelen
+
+Na `prisma migrate` of `prisma generate` **moet de dev-server opnieuw op**. Next houdt de oude
+gegenereerde client vast en je krijgt anders `Unknown argument`-fouten op velden die wel degelijk
+bestaan.

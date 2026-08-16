@@ -114,6 +114,7 @@ model Agent {
   messagesTo     Message[]       @relation("MessageToAgent")
   dmChannel      Channel?
   standupEntries StandupEntry[]
+  questions      MeetingQuestion[]
   advice         AdAdvice[]
   costEntries    CostEntry[]
   notifications  Notification[]
@@ -354,7 +355,36 @@ model Meeting {
   createdAt DateTime  @default(now())
   closedAt  DateTime?
 
-  entries StandupEntry[]
+  /// De ochtendcall: wanneer je erin sprong en wanneer je hem afsloot.
+  callStartedAt DateTime?
+  callEndedAt   DateTime?
+
+  entries   StandupEntry[]
+  questions MeetingQuestion[]
+}
+
+/// Een vraag die een agent aan jou stelt tijdens het ochtendoverleg. In de call
+/// werk je deze wachtrij af; je antwoord gaat terug naar de agent die hem stelde.
+model MeetingQuestion {
+  id        String  @id @default(cuid())
+  meetingId String
+  meeting   Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  agentId   String
+  agent     Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  body   String
+  answer String?
+
+  answeredAt DateTime?
+  skippedAt  DateTime?
+  /// Of je antwoord ook echt bij de agent is afgeleverd.
+  deliveredAt   DateTime?
+  deliveryError String?
+
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([meetingId, sortOrder])
 }
 
 model StandupEntry {
@@ -367,6 +397,8 @@ model StandupEntry {
   yesterday String?
   today     String?
   blockers  String?
+  /// Wat de agent aan jou wil vragen — wordt opgesplitst in MeetingQuestion's.
+  questions String?
   rawReply  String?
 
   requestedAt DateTime  @default(now())

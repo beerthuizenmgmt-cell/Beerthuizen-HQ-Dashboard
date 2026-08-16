@@ -33,15 +33,20 @@ function standupPrompt(agentName: string, agentId: string, token: string): strin
   return [
     `Goedemorgen ${agentName}. Tijd voor de dagelijkse standup van BHMGMT.`,
     ``,
-    `Drie vragen:`,
+    `Beantwoord deze vier punten:`,
     `1. Wat heb je gisteren gedaan?`,
     `2. Wat pak je vandaag op?`,
-    `3. Waar loop je vast of wat heb je van mij nodig?`,
+    `3. Waar loop je vast?`,
+    `4. Welke vragen heb je voor Beerthuizen? Zet elke vraag op een eigen regel.`,
+    ``,
+    `Punt 4 is belangrijk: om 10:00 loopt hij de vragen van het hele team met je`,
+    `door en spreekt hij zijn antwoord in. Stel dus wat je echt wilt weten —`,
+    `keuzes, prioriteiten, akkoord op budget. Geen vragen? Laat punt 4 leeg.`,
     ``,
     `Antwoord kort en concreet, zo:`,
     `POST ${appUrl()}/api/agents/${agentId}/reply`,
     `Authorization: Bearer ${token}`,
-    `{"message": "Gisteren: ... | Vandaag: ... | Blokkades: ..."}`,
+    `{"message": "Gisteren: ... | Vandaag: ... | Blokkades: ... | Vragen: ..."}`,
   ].join("\n");
 }
 
@@ -129,6 +134,20 @@ export async function recordStandupReply(agentId: string, message: string): Prom
     data: { ...parsed, rawReply: message, receivedAt: new Date(), error: null },
   });
 
+  // Vragen worden losse regels in de wachtrij van de ochtendcall.
+  const questions = splitQuestions(parsed.questions);
+  if (questions.length) {
+    const offset = await db.meetingQuestion.count({ where: { meetingId: meeting.id } });
+    await db.meetingQuestion.createMany({
+      data: questions.map((body, index) => ({
+        meetingId: meeting.id,
+        agentId,
+        body,
+        sortOrder: offset + index,
+      })),
+    });
+  }
+
   // Iedereen binnen? Dan is de briefing klaar om te lezen.
   const open = await db.standupEntry.count({
     where: { meetingId: meeting.id, receivedAt: null },
@@ -154,6 +173,7 @@ export function parseStandup(message: string): {
   yesterday: string | null;
   today: string | null;
   blockers: string | null;
+  questions: string | null;
 } {
   const grab = (patterns: RegExp[]): string | null => {
     for (const pattern of patterns) {
@@ -166,7 +186,7 @@ export function parseStandup(message: string): {
     return null;
   };
 
-  const stop = "(?=\\s*(?:\\||\\n|$|gisteren|vandaag|blokkade|blokkades|blockers|nodig))";
+  const stop = "(?=\\s*(?:\\||\\n|$|gisteren|vandaag|blokkade|blokkades|blockers|nodig|vragen|vraag))";
 
   return {
     yesterday: grab([
@@ -178,10 +198,35 @@ export function parseStandup(message: string): {
       /^\s*2[.)]\s*([\s\S]+?)(?=\n\s*3[.)]|$)/im,
     ]),
     blockers: grab([
-      new RegExp(`(?:blokkades?|blockers?|nodig)\\s*:?\\s*(.+?)(?=\\s*(?:\\||\\n\\n|$))`, "is"),
-      /^\s*3[.)]\s*([\s\S]+)$/im,
+      new RegExp(`(?:blokkades?|blockers?|nodig)\\s*:?\\s*(.+?)${stop}`, "is"),
+      /^\s*3[.)]\s*([\s\S]+?)(?=\n\s*4[.)]|$)/im,
+    ]),
+    questions: grab([
+      new RegExp(`(?:vragen|vraag)(?:\\s+voor\\s+\\S+)?\\s*:?\\s*(.+?)(?=\\s*(?:\\n\\n|$))`, "is"),
+      /^\s*4[.)]\s*([\s\S]+)$/im,
     ]),
   };
+}
+
+/// Splitst het vragenblok in losse vragen. Agents schrijven ze als opsomming,
+/// als genummerde lijst of gewoon achter elkaar met vraagtekens.
+export function splitQuestions(block: string | null): string[] {
+  if (!block) return [];
+
+  const trimmed = block.trim();
+  if (!trimmed || /^(geen|nee|niets|n\.?v\.?t\.?|-)$/i.test(trimmed)) return [];
+
+  const lines = trimmed
+    .split(/\n+/)
+    .flatMap((line) =>
+      // Meerdere vragen op één regel? Knippen na het vraagteken.
+      line.includes("?") ? line.split(/(?<=\?)\s+/) : [line],
+    )
+    .map((line) => line.replace(/^\s*(?:[-–—*•]|\d+[.)])\s*/, "").trim())
+    .filter((line) => line.length > 3);
+
+  // Dubbele vragen komen voor als een agent zichzelf herhaalt.
+  return Array.from(new Set(lines)).slice(0, 10);
 }
 
 /// Samenvatting boven de briefing. Met een OpenRouter-sleutel schrijft een model
