@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { InstanceManager } from "@/components/instance-manager";
 import { AiSettings, FinanceSettings, ContextSettings } from "@/components/ai-settings";
 import { SystemStatus, type StatusItem } from "@/components/system-status";
-import { getAiConfig } from "@/lib/ai/provider";
+import { getAiStatus } from "@/lib/ai/provider";
 import { getFinanceSettings } from "@/lib/ai/cost";
 import { getCompanyContext } from "@/lib/ai/run";
 import { isRecent } from "@/lib/format";
@@ -23,7 +23,7 @@ export default async function SettingsPage() {
   ]);
 
   const [aiConfig, finance, companyContext, builtinAgents, activeAgents, runCount] = await Promise.all([
-    getAiConfig(),
+    getAiStatus(),
     getFinanceSettings(),
     getCompanyContext(),
     db.agent.count({ where: { adapterType: "builtin" } }),
@@ -49,8 +49,8 @@ export default async function SettingsPage() {
     },
     {
       name: "Ingebouwde AI-agents",
-      level: aiConfig.apiKey ? (runCount > 0 ? "live" : "deels") : "wacht",
-      detail: aiConfig.apiKey
+      level: aiConfig.connected ? (runCount > 0 ? "live" : "deels") : "wacht",
+      detail: aiConfig.connected
         ? runCount > 0
           ? `${activeAgents} van ${builtinAgents} agents actief, ${runCount} aanroepen gedaan.`
           : "Sleutel staat er, maar er heeft nog geen agent gedraaid. Doe eerst een proefopdracht."
@@ -58,13 +58,13 @@ export default async function SettingsPage() {
     },
     {
       name: "Kostenregistratie en budget",
-      level: aiConfig.apiKey ? "live" : "wacht",
+      level: aiConfig.connected ? "live" : "wacht",
       detail:
         "Per aanroep worden model, aanbieder, tokens, kosten en duur vastgelegd. Bedragen die de aanbieder niet meldt blijven leeg in plaats van geschat.",
     },
     {
       name: "Ochtendoverleg en ochtendcall",
-      level: aiConfig.apiKey ? "deels" : "wacht",
+      level: aiConfig.connected ? "deels" : "wacht",
       detail:
         "De schermen, de uitvraag en de vragenwachtrij werken en zijn getest met gesimuleerde antwoorden. Echte inhoud komt er zodra de agents draaien.",
     },
@@ -188,7 +188,7 @@ export default async function SettingsPage() {
           provider={aiConfig.provider}
           defaultModel={aiConfig.defaultModel}
           fastModel={aiConfig.fastModel}
-          hasKey={Boolean(aiConfig.apiKey)}
+          hasKey={Boolean(aiConfig.connected)}
         />
       </section>
 

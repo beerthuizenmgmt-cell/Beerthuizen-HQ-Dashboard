@@ -137,6 +137,8 @@ model Agent {
   approvals      Approval[]
   runs           AgentRun[]
   valueEntries   ValueEntry[]
+  watches        AgentWatch[]
+  insights       AgentInsight[]
 
   @@index([category])
   @@index([status])
@@ -597,8 +599,11 @@ model AgentRun {
   agentId String
   agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  /// task | standup | message | chief_cycle | call | manual
+  /// task | standup | message | chief_cycle | call | manual | watch
   trigger String
+  /// Waarom deze agent wakker werd. Bij event-driven activering staat hier wat
+  /// er precies veranderd was.
+  reason String?
   model   String
   /// Welke aanbieder het model draaide — nodig om kosten per provider te
   /// kunnen splitsen zodra er meer dan één in gebruik is.
@@ -684,6 +689,76 @@ model ValueEntry {
 
   @@index([date])
   @@index([kind, confirmedAt])
+}
+
+/// Een onderwerp dat een agent in de gaten houdt. De kern van het
+/// event-driven model: zolang de vingerafdruk van de data niet verandert,
+/// wordt de agent niet wakker gemaakt en kost hij dus niets.
+model AgentWatch {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  /// Welke probe de data samenvat: tasks | ad_metrics | ad_campaigns |
+  /// activity | approvals | messages | manual_signal
+  probe String
+  key   String @unique
+  label String
+
+  /// Vingerafdruk van de data zoals die nu is.
+  dataHash String?
+  /// Loopt op bij elke gedetecteerde wijziging — leest makkelijker dan een hash.
+  dataVersion      Int       @default(0)
+  lastDataChangeAt DateTime?
+
+  /// Vingerafdruk waarop de laatste analyse is gedaan. Gelijk aan dataHash
+  /// betekent: de agent heeft deze stand al bekeken.
+  analyzedHash   String?
+  lastAnalyzedAt DateTime?
+
+  /// Rem tegen te vaak draaien, ook als er telkens kleine wijzigingen zijn.
+  minIntervalMinutes Int       @default(60)
+  nextEligibleAt     DateTime?
+
+  /// Waarom de agent de laatste keer wakker werd — of waarom niet.
+  lastReason String?
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  insights AgentInsight[]
+
+  @@index([agentId])
+}
+
+enum Relevance {
+  low
+  medium
+  high
+}
+
+/// Het resultaat van een analyse, bewaard zodat de Head het kan hergebruiken
+/// zonder de agent opnieuw te laten denken.
+model AgentInsight {
+  id      String  @id @default(cuid())
+  agentId String
+  agent   Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  watchId String?
+  watch   AgentWatch? @relation(fields: [watchId], references: [id], onDelete: SetNull)
+
+  title     String
+  body      String
+  relevance Relevance @default(medium)
+
+  /// Op welke stand van de data dit inzicht is gebaseerd.
+  dataVersion Int @default(0)
+
+  /// Of de Head dit al in een rapport heeft verwerkt.
+  reportedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([agentId, createdAt(sort: Desc)])
+  @@index([reportedAt])
 }
 
 model CostEntry {

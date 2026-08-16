@@ -98,27 +98,44 @@ export function TestRun({ agents }: { agents: { id: string; name: string; emoji:
           </div>
 
           <div className="card p-5">
-            <h2 className="mb-3 text-sm font-semibold">Wat deze ene opdracht kostte</h2>
+            <h2 className="mb-4 font-mono text-xs tracking-wider text-text-muted uppercase">
+              Test result
+            </h2>
             <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-              <Metric label="Aanbieder" value={result.meta.provider} />
+              <Metric label="Provider" value={result.meta.provider} />
               <Metric label="Model" value={result.meta.model} />
-              <Metric label="Duur" value={`${(result.meta.durationMs / 1000).toFixed(1)} sec`} />
-              <Metric label="Invoertokens" value={result.meta.promptTokens.toLocaleString("nl-NL")} />
-              <Metric label="Uitvoertokens" value={result.meta.completionTokens.toLocaleString("nl-NL")} />
+              <Metric label="Status" value="geslaagd" />
+              <Metric label="Input tokens" value={result.meta.promptTokens.toLocaleString("nl-NL")} />
+              <Metric label="Output tokens" value={result.meta.completionTokens.toLocaleString("nl-NL")} />
+              <Metric label="Total tokens" value={result.meta.totalTokens.toLocaleString("nl-NL")} />
               <Metric
-                label="Kosten"
-                value={
-                  result.meta.costKnown
-                    ? `€${result.meta.costEur.toFixed(4)}`
-                    : "onbekend"
-                }
+                label="Cost"
+                value={result.meta.costKnown ? `€${result.meta.costEur.toFixed(4)}` : "onbekend"}
                 hint={
                   result.meta.costKnown
                     ? undefined
-                    : "De aanbieder gaf geen bedrag en er staat geen tarief voor dit model. Haal de tarieven op bij Instellingen."
+                    : "De aanbieder gaf geen bedrag en er staat geen tarief voor dit model. Haal de tarieven op bij Instellingen → Taalmodel."
                 }
               />
+              <Metric label="Duration" value={`${(result.meta.durationMs / 1000).toFixed(1)} sec`} />
+              <Metric
+                label="Timestamp"
+                value={new Date(result.meta.timestamp).toLocaleString("nl-NL")}
+              />
+              <Metric label="Run-ID" value={result.meta.runId} />
             </dl>
+
+            <p
+              className={`mt-4 rounded-lg border px-3 py-2 text-sm ${
+                result.meta.registeredInFinance
+                  ? "border-ok/40 bg-ok/10 text-ok"
+                  : "border-warn/40 bg-warn/10 text-warn"
+              }`}
+            >
+              {result.meta.registeredInFinance
+                ? "✓ De werkelijke kosten zijn vastgelegd en tellen mee op AI Finance."
+                : "⚠ De aanroep is vastgelegd, maar zonder bedrag — hij telt dus niet mee in het maandtotaal op AI Finance."}
+            </p>
           </div>
         </>
       )}

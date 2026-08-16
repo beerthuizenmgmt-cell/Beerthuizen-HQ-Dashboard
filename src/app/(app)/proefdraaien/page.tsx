@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { getAiConfig } from "@/lib/ai/provider";
+import { getAiStatus } from "@/lib/ai/provider";
 import { TestRun } from "@/components/test-run";
 import { timeAgo } from "@/lib/format";
 
@@ -16,7 +16,7 @@ export default async function TestRunPage() {
       orderBy: [{ isChief: "desc" }, { sortOrder: "asc" }],
       select: { id: true, name: true, emoji: true, paused: true },
     }),
-    getAiConfig(),
+    getAiStatus(),
     db.agentRun.findMany({
       where: { trigger: "manual" },
       orderBy: { createdAt: "desc" },
@@ -37,7 +37,7 @@ export default async function TestRunPage() {
         </p>
       </header>
 
-      {!config.apiKey ? (
+      {!config.connected ? (
         <div className="card border-warn/40 bg-warn/5 p-5">
           <h2 className="text-sm font-semibold text-warn">Er is nog geen API-sleutel</h2>
           <p className="mt-1.5 text-sm text-text-muted">

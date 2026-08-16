@@ -90,6 +90,9 @@ export async function runAgent(options: {
   agentId: string;
   input: string;
   trigger: string;
+  /// Waarom deze agent wakker werd. Bij event-driven activering staat hier wat
+  /// er veranderd was — zodat je achteraf ziet waar een aanroep vandaan kwam.
+  reason?: string;
   taskId?: string;
   /// Voorkomt dat agents elkaar eindeloos blijven bevragen.
   depth?: number;
@@ -219,6 +222,7 @@ export async function runAgent(options: {
     data: {
       agentId: agent.id,
       trigger: options.trigger,
+      reason: options.reason ?? null,
       model,
       provider: config.provider,
       taskId: options.taskId ?? null,

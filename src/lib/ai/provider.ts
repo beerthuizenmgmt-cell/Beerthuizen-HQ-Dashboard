@@ -68,6 +68,42 @@ export async function getAiConfig(): Promise<AiConfig> {
   };
 }
 
+/// Is er een sleutel? Bewust zónder ontsleutelen: schermen die alleen willen
+/// weten óf er verbinding is, hoeven het geheim niet in het geheugen te krijgen.
+export async function hasApiKey(): Promise<boolean> {
+  const setting = await db.setting.findUnique({ where: { key: SETTING_KEY } });
+  const stored = (setting?.value ?? {}) as { apiKey?: string };
+  return Boolean(
+    stored.apiKey ||
+      process.env.OPENROUTER_API_KEY ||
+      process.env.ANTHROPIC_API_KEY ||
+      process.env.OPENAI_API_KEY,
+  );
+}
+
+/// Alles wat een scherm mag weten over de AI-koppeling: de aanbieder, het model
+/// en óf er verbinding is. Nooit de sleutel zelf.
+export async function getAiStatus(): Promise<{
+  provider: Provider;
+  defaultModel: string;
+  fastModel: string | null;
+  connected: boolean;
+  label: string;
+}> {
+  const setting = await db.setting.findUnique({ where: { key: SETTING_KEY } });
+  const stored = (setting?.value ?? {}) as Partial<AiConfig> & { apiKey?: string };
+  const provider = stored.provider ?? "openrouter";
+  const connected = await hasApiKey();
+
+  return {
+    provider,
+    defaultModel: stored.defaultModel || SUGGESTED_DEFAULT_MODEL,
+    fastModel: stored.fastModel || null,
+    connected,
+    label: connected ? `${provider}: verbonden` : `${provider}: geen sleutel ingesteld`,
+  };
+}
+
 export class AiNotConfiguredError extends Error {
   constructor() {
     super(
@@ -83,6 +119,60 @@ const BASE_URLS: Record<Provider, string> = {
   anthropic: "https://api.anthropic.com/v1",
 };
 
+export class ModelNotAvailableError extends Error {
+  constructor(
+    public readonly model: string,
+    public readonly provider: Provider,
+    public readonly suggestions: string[],
+  ) {
+    super(
+      `Model "${model}" bestaat niet bij ${provider}. Er is dus geen aanroep gedaan en niets in rekening gebracht. ` +
+        (suggestions.length
+          ? `Modellen die er wél op lijken: ${suggestions.join(", ")}. Kies er een bij Instellingen → Taalmodel.`
+          : `Kies een geldig model bij Instellingen → Taalmodel.`),
+    );
+    this.name = "ModelNotAvailableError";
+  }
+}
+
+// De modellenlijst verandert zelden; één keer per uur ophalen is genoeg en
+// scheelt een extra verzoek bij elke aanroep.
+let modelCache: { ids: Set<string>; at: number; provider: Provider } | null = null;
+const MODEL_CACHE_MS = 60 * 60_000;
+
+/// Controleert vóór het bellen of het model bestaat. Doet hij dat niet, dan
+/// gaat er geen aanroep uit — een verkeerde modelnaam mag geen mislukte,
+/// betaalde poging worden.
+async function assertModelAvailable(model: string, provider: Provider): Promise<void> {
+  const fresh = modelCache && modelCache.provider === provider && Date.now() - modelCache.at < MODEL_CACHE_MS;
+
+  if (!fresh) {
+    try {
+      const models = await listModels();
+      modelCache = { ids: new Set(models.map((entry) => entry.id)), at: Date.now(), provider };
+    } catch {
+      // Lijst niet op te halen? Dan blokkeren we niet — de aanroep zelf geeft
+      // straks een duidelijke fout als er echt iets mis is.
+      return;
+    }
+  }
+
+  if (!modelCache || modelCache.ids.size === 0) return;
+  if (modelCache.ids.has(model)) return;
+
+  const needle = model.toLowerCase().split("/").pop() ?? model.toLowerCase();
+  const suggestions = [...modelCache.ids]
+    .filter((id) => id.toLowerCase().includes(needle.split("-")[0] ?? ""))
+    .slice(0, 5);
+
+  throw new ModelNotAvailableError(model, provider, suggestions);
+}
+
+/// Leegt de cache, zodat een net gewijzigde sleutel of aanbieder meteen telt.
+export function clearModelCache(): void {
+  modelCache = null;
+}
+
 export async function chat(options: {
   messages: ChatMessage[];
   model?: string;
@@ -96,6 +186,8 @@ export async function chat(options: {
 
   const model = options.model || config.defaultModel;
   const timeout = options.timeoutMs ?? 90_000;
+
+  await assertModelAvailable(model, config.provider);
 
   return config.provider === "anthropic"
     ? callAnthropic(config, model, options, timeout)

@@ -31,6 +31,22 @@ export function AiSettings({
 
   return (
     <form action={formAction} className="card space-y-4 p-5">
+      <div
+        className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm"
+        style={{
+          borderColor: hasKey ? "color-mix(in srgb, var(--ok) 40%, transparent)" : "var(--border)",
+          background: hasKey ? "color-mix(in srgb, var(--ok) 8%, transparent)" : "transparent",
+        }}
+      >
+        <span
+          className="h-2 w-2 rounded-full"
+          style={{ background: hasKey ? "var(--ok)" : "var(--text-faint)" }}
+        />
+        <span className={hasKey ? "text-ok" : "text-text-muted"}>
+          {provider}: {hasKey ? "verbonden" : "geen sleutel ingesteld"}
+        </span>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="label" htmlFor="provider">

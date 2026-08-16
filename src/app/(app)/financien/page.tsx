@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { getAiConfig } from "@/lib/ai/provider";
+import { getAiStatus } from "@/lib/ai/provider";
 import { getFinanceSettings, monthRange } from "@/lib/ai/cost";
 import { dayKey, fromDayKey, startOfWeek } from "@/lib/format";
 
@@ -26,7 +26,7 @@ export default async function FinancePage() {
   const todayStart = fromDayKey(dayKey(new Date()));
   const weekStart = fromDayKey(startOfWeek(dayKey(new Date())));
 
-  const [config, finance] = await Promise.all([getAiConfig(), getFinanceSettings()]);
+  const [config, finance] = await Promise.all([getAiStatus(), getFinanceSettings()]);
 
   const spendWhere = { createdAt: { gte: monthStart, lt: monthEnd } };
 
@@ -42,7 +42,11 @@ export default async function FinancePage() {
     agents,
     valueEntries,
   ] = await Promise.all([
-    db.agentRun.aggregate({ where: spendWhere, _sum: { costEur: true }, _count: true }),
+    db.agentRun.aggregate({
+      where: spendWhere,
+      _sum: { costEur: true, promptTokens: true, completionTokens: true },
+      _count: true,
+    }),
     db.agentRun.aggregate({ where: { createdAt: { gte: todayStart } }, _sum: { costEur: true }, _count: true }),
     db.agentRun.aggregate({ where: { createdAt: { gte: weekStart } }, _sum: { costEur: true }, _count: true }),
     db.agentRun.count({ where: { ...spendWhere, costKnown: false } }),
@@ -58,6 +62,14 @@ export default async function FinancePage() {
     db.agent.findMany({ select: { id: true, name: true, emoji: true, modelId: true, paused: true } }),
     db.valueEntry.findMany({ where: { date: { gte: monthStart, lt: monthEnd } } }),
   ]);
+
+  // Gemiddelde kosten per taak: alleen runs die aan een taak hangen tellen mee,
+  // anders vertekenen losse gesprekken het beeld.
+  const taskRuns = await db.agentRun.groupBy({
+    by: ["taskId"],
+    where: { ...spendWhere, taskId: { not: null } },
+    _sum: { costEur: true },
+  });
 
   const agentById = new Map(agents.map((agent) => [agent.id, agent]));
 
@@ -103,7 +115,7 @@ export default async function FinancePage() {
         <div className="card border-accent/30 bg-accent/5 p-5">
           <h2 className="text-sm font-semibold">Er is deze maand nog niets uitgegeven</h2>
           <p className="mt-1.5 text-sm text-text-muted">
-            {config.apiKey
+            {config.connected
               ? "Er is een sleutel ingesteld, maar nog geen enkele agent heeft gedraaid. Doe een proefopdracht om de eerste cijfers te zien."
               : "Er is nog geen API-sleutel ingesteld, dus er kan nog niets draaien en er is €0 uitgegeven."}
           </p>
@@ -122,6 +134,37 @@ export default async function FinancePage() {
           value={euro(forecast)}
           sub={monthAgg._count === 0 ? "nog geen basis" : `op basis van ${dayOfMonth} dagen`}
           muted
+        />
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat
+          label="AI-aanroepen deze maand"
+          value={monthAgg._count.toLocaleString("nl-NL")}
+          sub={`${taskRuns.length} daarvan aan een taak gekoppeld`}
+        />
+        <Stat
+          label="Invoertokens"
+          value={(monthAgg._sum.promptTokens ?? 0).toLocaleString("nl-NL")}
+          sub="wat de agents lazen"
+        />
+        <Stat
+          label="Uitvoertokens"
+          value={(monthAgg._sum.completionTokens ?? 0).toLocaleString("nl-NL")}
+          sub="wat ze schreven"
+        />
+        <Stat
+          label="Gemiddeld per taak"
+          value={
+            taskRuns.length
+              ? euro(taskRuns.reduce((total, row) => total + (row._sum.costEur ?? 0), 0) / taskRuns.length)
+              : "—"
+          }
+          sub={
+            monthAgg._count > 0
+              ? `${euro(spentMonth / monthAgg._count)} per aanroep`
+              : "nog geen basis"
+          }
         />
       </section>
 

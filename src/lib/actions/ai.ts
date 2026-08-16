@@ -5,7 +5,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { encryptSecret } from "@/lib/crypto";
-import { listModels, type ModelOption, type Provider } from "@/lib/ai/provider";
+import { clearModelCache, listModels, type ModelOption, type Provider } from "@/lib/ai/provider";
 import { refreshModelPrices } from "@/lib/ai/cost";
 import { setCompanyContext } from "@/lib/ai/run";
 
@@ -47,6 +47,9 @@ export async function saveAiSettings(
     update: { value },
     create: { key: "ai", value },
   });
+
+  // Nieuwe sleutel of aanbieder betekent een andere modellenlijst.
+  clearModelCache();
 
   revalidatePath("/instellingen");
   revalidatePath("/financien");

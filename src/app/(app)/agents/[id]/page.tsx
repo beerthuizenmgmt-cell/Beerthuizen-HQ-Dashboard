@@ -7,7 +7,7 @@ import { AgentForm } from "@/components/agent-form";
 import { ConnectionTestButton } from "@/components/connection-test";
 import { InboundSetup } from "@/components/inbound-setup";
 import { AgentAiSettings } from "@/components/agent-ai-settings";
-import { getAiConfig } from "@/lib/ai/provider";
+import { getAiStatus } from "@/lib/ai/provider";
 import { ActivityList } from "@/components/activity-list";
 import { StatusBadge } from "@/components/status-dot";
 import { deleteAgent, togglePause } from "@/lib/actions/agents";
@@ -33,7 +33,7 @@ export default async function AgentDetailPage({ params }: PageProps<"/agents/[id
 
   const adapter = getAdapter(agent.adapterType);
   const accent = agent.color ?? "#6366f1";
-  const aiConfig = await getAiConfig();
+  const aiConfig = await getAiStatus();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

@@ -16,9 +16,14 @@ export type TestRunResult = {
     model: string;
     promptTokens: number;
     completionTokens: number;
+    totalTokens: number;
     costEur: number;
     costKnown: boolean;
     durationMs: number;
+    runId: string;
+    timestamp: string;
+    /// Of deze aanroep ook echt terugkomt in het maandtotaal op AI Finance.
+    registeredInFinance: boolean;
   };
 };
 
@@ -68,6 +73,9 @@ export async function runTestTask(agentId: string, instruction: string): Promise
 
   const run = await db.agentRun.findUnique({ where: { id: result.runId } });
 
+  const promptTokens = run?.promptTokens ?? 0;
+  const completionTokens = run?.completionTokens ?? 0;
+
   return {
     ok: true,
     answer: result.text,
@@ -75,11 +83,17 @@ export async function runTestTask(agentId: string, instruction: string): Promise
       agent: agent.name,
       provider: run?.provider ?? config.provider,
       model: run?.model ?? config.defaultModel,
-      promptTokens: run?.promptTokens ?? 0,
-      completionTokens: run?.completionTokens ?? 0,
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
       costEur: run?.costEur ?? 0,
       costKnown: run?.costKnown ?? false,
       durationMs: run?.durationMs ?? 0,
+      runId: result.runId,
+      timestamp: (run?.createdAt ?? new Date()).toISOString(),
+      // De run staat in AgentRun en telt daarmee mee op /financien, mits het
+      // bedrag bekend is.
+      registeredInFinance: Boolean(run) && (run?.costKnown ?? false),
     },
   };
 }
