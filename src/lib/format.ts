@@ -102,6 +102,12 @@ export function isRecent(date: Date | null | undefined, withinMs: number): boole
   return date ? Date.now() - date.getTime() < withinMs : false;
 }
 
+/// Is deze houdbaarheidsdatum verstreken? Staat hier om dezelfde reden buiten
+/// de componenten: de klok lezen tijdens het renderen mag niet.
+export function isVerlopen(date: Date | null | undefined): boolean {
+  return date ? date.getTime() < Date.now() : false;
+}
+
 /// Bedragen onder een cent zijn hier normaal — één agentaanroep kost al snel
 /// €0,0005. Afronden op twee decimalen zou overal €0,00 tonen en de indruk
 /// wekken dat er niets geregistreerd is.

@@ -181,6 +181,7 @@ model Agent {
   insights       AgentInsight[]
   tools          AgentTool[]
   memories       AgentMemory[]
+  research       ResearchEntry[]
 
   @@index([category])
   @@index([status])
@@ -1036,4 +1037,63 @@ model Invoice {
   @@unique([source, number])
   @@index([status, dueOn])
   @@index([dueOn])
+}
+
+// ============================================================
+// Onderzoek en kennis
+// ============================================================
+
+/// Wat het onderzoek betreft. Bepaalt hoe je het later terugvindt.
+enum ResearchSubject {
+  markt
+  merk
+  creator
+  concurrent
+  trend
+  doelgroep
+  prospect
+  overig
+}
+
+/// Eén afgerond onderzoek, met de vraag erbij en de bronnen eronder.
+///
+/// Zonder dit begint elk onderzoek bij nul en wordt dezelfde vraag drie keer
+/// uitgezocht. Met dit kan de Head vragen "wat weten we al over deze klant?"
+/// en krijgt hij antwoord in plaats van een nieuwe zoektocht.
+model ResearchEntry {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  /// De onderzoeksvraag zoals hij gesteld is. Hierop wordt gezocht.
+  question String
+  subject  ResearchSubject @default(overig)
+
+  /// Waar het over gaat: de merknaam, de creator, de markt. Vrije tekst, want
+  /// een vaste lijst zou het opzoeken juist beperken.
+  about String?
+
+  /// De belangrijkste bevindingen, in gewone taal.
+  findings String
+  /// Wat het betekent — de interpretatie, expliciet gescheiden van de feiten.
+  insight String?
+  conclusion String?
+  risks         String?
+  opportunities String?
+  advice        String?
+
+  /// Waar het vandaan komt. Elk item: { titel, url, geraadpleegdOp }.
+  sources Json?
+
+  /// Actuele informatie veroudert; evergreen niet. Staat hier een datum, dan
+  /// weet een volgende lezer wanneer hij opnieuw moet kijken.
+  staleAfter DateTime?
+
+  /// Waar dit onderzoek bij hoorde, zodat je het vanuit een taak terugvindt.
+  taskId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([subject, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
 }

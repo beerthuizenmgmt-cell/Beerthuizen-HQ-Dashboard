@@ -7,6 +7,7 @@ import { meetingDate } from "@/lib/standup";
 import { fromDayKey } from "@/lib/format";
 import type { ToolDefinition } from "./provider";
 import type { TaskPriority } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 import { remember, isMemoryKind } from "./memory";
 
 // Het gereedschap van de agents. Alles hier werkt binnen het dashboard: geen
@@ -112,6 +113,23 @@ export const AGENT_TOOLS: ToolDefinition[] = [
     },
   },
   {
+    name: "zoek_onderzoek",
+    description:
+      "Zoek in het onderzoeksarchief van het bureau: wat hebben we al uitgezocht over een merk, creator, markt of concurrent? Doe dit vóórdat je iemand vraagt iets uit te zoeken — dan hoeft hetzelfde niet twee keer.",
+    parameters: {
+      type: "object",
+      properties: {
+        zoekterm: { type: "string", description: "Merk, creator, markt of onderwerp" },
+        onderwerp: {
+          type: "string",
+          enum: ["markt", "merk", "creator", "concurrent", "trend", "doelgroep", "prospect", "overig"],
+          description: "Optioneel: beperk tot dit soort onderzoek",
+        },
+      },
+      required: ["zoekterm"],
+    },
+  },
+  {
     name: "onthoud",
     description:
       "Leg iets vast dat je later opnieuw nodig hebt: een besluit van Enriqueo en de reden erachter, een voorkeur, een vaste afspraak of een leerpunt. Dit gaat mee in al je volgende denkbeurten. Gebruik het niet voor gegevens die al in het dashboard staan — taken, cijfers en activiteiten kun je gewoon opzoeken.",
@@ -175,6 +193,49 @@ export const FINANCE_TOOLS: ToolDefinition[] = [
   }
 ];
 
+/// Alleen voor de Research Manager. Vastleggen is zijn vak; de rest leest mee.
+export const RESEARCH_TOOLS: ToolDefinition[] = [
+  {
+    name: "leg_onderzoek_vast",
+    description:
+      "Leg een afgerond onderzoek vast in het archief, met de vraag, de bevindingen, je conclusie en je bronnen. Doe dit bij elk onderzoek dat later opnieuw van pas kan komen — zo hoeft niemand het over te doen.",
+    parameters: {
+      type: "object",
+      properties: {
+        vraag: { type: "string", description: "De onderzoeksvraag zoals hij gesteld was" },
+        onderwerp: {
+          type: "string",
+          enum: ["markt", "merk", "creator", "concurrent", "trend", "doelgroep", "prospect", "overig"],
+        },
+        waarover: { type: "string", description: "Het merk, de creator of de markt waar dit over gaat" },
+        bevindingen: { type: "string", description: "De belangrijkste punten, 3 tot 7" },
+        inzicht: { type: "string", description: "Wat het betekent — jouw interpretatie, los van de feiten" },
+        conclusie: { type: "string" },
+        risicos: { type: "string" },
+        kansen: { type: "string" },
+        advies: { type: "string", description: "Wat jij zou doen" },
+        bronnen: {
+          type: "array",
+          description: "Waar het vandaan komt. Leeg laten mag niet: zeg dan expliciet dat je geen bron had.",
+          items: {
+            type: "object",
+            properties: {
+              titel: { type: "string" },
+              url: { type: "string" },
+              geraadpleegdOp: { type: "string", description: "JJJJ-MM-DD" },
+            },
+          },
+        },
+        verouderd_na: {
+          type: "string",
+          description: "JJJJ-MM-DD. Alleen invullen bij actuele informatie die later opnieuw gecheckt moet worden.",
+        },
+      },
+      required: ["vraag", "onderwerp", "bevindingen"],
+    },
+  },
+];
+
 const PRIORITIES: TaskPriority[] = ["low", "normal", "high", "urgent"];
 
 export type ToolResult = { ok: boolean; message: string };
@@ -200,6 +261,10 @@ export async function runTool(
         return await noteFinding(args, context);
       case "onthoud":
         return await rememberThis(args, context);
+      case "zoek_onderzoek":
+        return await searchResearch(args);
+      case "leg_onderzoek_vast":
+        return await recordResearch(args, context);
       case "lees_facturen":
         return await readInvoices(args);
       default:
@@ -464,5 +529,96 @@ async function readInvoices(args: Record<string, unknown>): Promise<ToolResult> 
     ]
       .filter(Boolean)
       .join("\n"),
+  };
+}
+
+async function searchResearch(args: Record<string, unknown>): Promise<ToolResult> {
+  const term = text(args.zoekterm);
+  if (!term) return { ok: false, message: "zoekterm is verplicht" };
+
+  const onderwerp = text(args.onderwerp);
+  const treffers = await db.researchEntry.findMany({
+    where: {
+      ...(onderwerp ? { subject: onderwerp as never } : {}),
+      OR: [
+        { question: { contains: term, mode: "insensitive" } },
+        { about: { contains: term, mode: "insensitive" } },
+        { findings: { contains: term, mode: "insensitive" } },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 8,
+    include: { agent: { select: { name: true } } },
+  });
+
+  if (treffers.length === 0) {
+    return {
+      ok: true,
+      message: `Niets in het archief over "${term}". Dit is dus nog niet uitgezocht.`,
+    };
+  }
+
+  const nu = Date.now();
+  const regels = treffers.map((entry) => {
+    const oud = entry.staleAfter && entry.staleAfter.getTime() < nu;
+    return [
+      `## ${entry.question}`,
+      `${entry.agent.name} · ${entry.createdAt.toISOString().slice(0, 10)}${oud ? " · LET OP: deze informatie is verlopen en moet opnieuw gecontroleerd" : ""}`,
+      entry.about ? `Over: ${entry.about}` : "",
+      ``,
+      entry.findings,
+      entry.insight ? `\nInzicht: ${entry.insight}` : "",
+      entry.conclusion ? `Conclusie: ${entry.conclusion}` : "",
+      entry.advice ? `Advies: ${entry.advice}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  });
+
+  return {
+    ok: true,
+    message: `${treffers.length} eerder${treffers.length === 1 ? " onderzoek" : "e onderzoeken"} over "${term}":\n\n${regels.join("\n\n---\n\n")}`,
+  };
+}
+
+async function recordResearch(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
+  const vraag = text(args.vraag);
+  const bevindingen = text(args.bevindingen);
+  if (!vraag || !bevindingen) return { ok: false, message: "vraag en bevindingen zijn verplicht" };
+
+  const onderwerp = text(args.onderwerp) || "overig";
+  const verouderd = text(args.verouderd_na);
+  const bronnen = Array.isArray(args.bronnen) ? args.bronnen : [];
+
+  const entry = await db.researchEntry.create({
+    data: {
+      agentId: context.agentId,
+      question: vraag.slice(0, 500),
+      subject: onderwerp as never,
+      about: text(args.waarover).slice(0, 200) || null,
+      findings: bevindingen.slice(0, 6000),
+      insight: text(args.inzicht).slice(0, 3000) || null,
+      conclusion: text(args.conclusie).slice(0, 2000) || null,
+      risks: text(args.risicos).slice(0, 2000) || null,
+      opportunities: text(args.kansen).slice(0, 2000) || null,
+      advice: text(args.advies).slice(0, 2000) || null,
+      sources: bronnen.length ? (bronnen as Prisma.InputJsonValue) : undefined,
+      staleAfter: /^\d{4}-\d{2}-\d{2}$/.test(verouderd) ? new Date(`${verouderd}T12:00:00.000Z`) : null,
+    },
+  });
+
+  await logActivity({
+    agentId: context.agentId,
+    kind: "onderzoek",
+    level: "info",
+    message: `Onderzoek vastgelegd: ${vraag.slice(0, 160)}`,
+  });
+
+  return {
+    ok: true,
+    message:
+      bronnen.length === 0
+        ? `Vastgelegd in het archief (${entry.id}). Let op: je hebt geen bronnen meegegeven — vermeld dan in je antwoord dat deze bevindingen niet herleidbaar zijn.`
+        : `Vastgelegd in het archief (${entry.id}) met ${bronnen.length} bron${bronnen.length === 1 ? "" : "nen"}.`,
   };
 }
