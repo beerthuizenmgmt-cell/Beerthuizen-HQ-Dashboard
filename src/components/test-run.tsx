@@ -13,6 +13,8 @@ export function TestRun({ agents }: { agents: { id: string; name: string; emoji:
   const [agentId, setAgentId] = useState(agents[0]?.id ?? "");
   const [instruction, setInstruction] = useState(SUGGESTIONS[0]);
   const [result, setResult] = useState<TestRunResult | null>(null);
+  // Uit tenzij je hem aanzet: een proef hoort standaard geen sporen na te laten.
+  const [metGereedschap, setMetGereedschap] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -71,14 +73,25 @@ export function TestRun({ agents }: { agents: { id: string; name: string; emoji:
             onClick={() =>
               startTransition(async () => {
                 setResult(null);
-                setResult(await runTestTask(agentId, instruction));
+                setResult(await runTestTask(agentId, instruction, metGereedschap));
               })
             }
           >
             {pending ? "De agent denkt na…" : "Proefopdracht uitvoeren"}
           </button>
+          <label className="flex items-center gap-2 text-xs text-text-muted">
+            <input
+              type="checkbox"
+              checked={metGereedschap}
+              onChange={(event) => setMetGereedschap(event.target.checked)}
+            />
+            Laat hem zijn gereedschap gebruiken
+          </label>
+
           <span className="text-xs text-text-faint">
-            Alleen denken en antwoorden — geen taken, geen berichten, niets naar buiten.
+            {metGereedschap
+              ? "Hij mag nu taken aanmaken, bevindingen vastleggen, een collega bevragen en goedkeuring vragen. Alles binnen het dashboard; naar buiten gaat er niets."
+              : "Alleen denken en antwoorden — geen taken, geen berichten, niets naar buiten."}
           </span>
         </div>
       </div>

@@ -27,10 +27,21 @@ export type TestRunResult = {
   };
 };
 
-/// Eén proefopdracht. De agent mag uitsluitend denken en antwoorden: geen
-/// gereedschap, dus hij kan niets aanmaken, niets vastleggen en niets naar
-/// buiten sturen. Bedoeld om te zien of de keten werkt en wat het kost.
-export async function runTestTask(agentId: string, instruction: string): Promise<TestRunResult> {
+/// Eén proefopdracht.
+///
+/// Standaard mag de agent uitsluitend denken en antwoorden: geen gereedschap,
+/// dus hij kan niets aanmaken en niets vastleggen. Bedoeld om te zien of de
+/// keten werkt en wat het kost.
+///
+/// Met `gereedschap: true` krijgt hij zijn eigen gereedschapskist erbij. Dan
+/// kan hij taken aanmaken, bevindingen vastleggen, een collega bevragen en
+/// goedkeuring vragen — allemaal binnen het dashboard. Naar buiten gaat er ook
+/// dan niets: dat kan geen enkel stuk gereedschap.
+export async function runTestTask(
+  agentId: string,
+  instruction: string,
+  gereedschap = false,
+): Promise<TestRunResult> {
   await requireUser();
 
   const text = instruction.trim();
@@ -59,7 +70,7 @@ export async function runTestTask(agentId: string, instruction: string): Promise
     agentId,
     input: text,
     trigger: "manual",
-    gereedschap: "geen",
+    gereedschap: gereedschap ? "standaard" : "geen",
   });
 
   if (wasPaused) await db.agent.update({ where: { id: agentId }, data: { paused: true } });
