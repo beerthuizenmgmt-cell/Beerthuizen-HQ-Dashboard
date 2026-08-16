@@ -123,3 +123,19 @@ meerdere momenten en controleert `/api/cron/standup` zelf of het hier écht tijd
 Na `prisma migrate` of `prisma generate` **moet de dev-server opnieuw op**. Next houdt de oude
 gegenereerde client vast en je krijgt anders `Unknown argument`-fouten op velden die wel degelijk
 bestaan.
+
+## Agenda
+
+`/agenda` toont de week als planbord. Per dag zie je:
+
+- **wat de agents die ochtend zeiden op te pakken** — rechtstreeks uit hun standup, met blokkades
+  eronder in oranje;
+- **taken met een deadline op die dag**, gekleurd naar prioriteit en met de agent erbij;
+- **of er een overleg was** en of de call is afgerond;
+- afgeronde taken doorgestreept, zodat je ziet wat er die dag klaarkwam.
+
+Taken versleep je naar een andere dag, of naar de strook **Nog geen dag** om ze los te maken van de
+planning. Met **+ inplannen** zet je direct iets op een dag zonder het takenformulier te openen.
+
+Het scherm ververst zichzelf elke minuut, maar alleen als het tabblad zichtbaar is — bedoeld om de
+hele dag open te staan.

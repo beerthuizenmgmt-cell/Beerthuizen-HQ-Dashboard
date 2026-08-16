@@ -54,6 +54,48 @@ export function hourInTimezone(date = new Date()): number {
   );
 }
 
+/// De kalenderdag waar een tijdstip in Amsterdam op valt, als "2026-08-16".
+/// Alles wat per dag gegroepeerd wordt gaat hierlangs, anders vallen taken van
+/// 's avonds laat op de verkeerde dag.
+export function dayKey(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+/// Van een dagsleutel terug naar een Date op middernacht UTC — hetzelfde
+/// ankerpunt dat Meeting.date gebruikt.
+export function fromDayKey(key: string): Date {
+  return new Date(`${key}T00:00:00.000Z`);
+}
+
+/// De maandag van de week waar deze dag in valt.
+export function startOfWeek(key: string): string {
+  const date = fromDayKey(key);
+  // getUTCDay: 0 = zondag. Wij beginnen op maandag.
+  const shift = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - shift);
+  return date.toISOString().slice(0, 10);
+}
+
+export function addDays(key: string, days: number): string {
+  const date = fromDayKey(key);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function formatWeekday(key: string): { short: string; day: string; month: string } {
+  const date = fromDayKey(key);
+  return {
+    short: date.toLocaleDateString("nl-NL", { timeZone: "UTC", weekday: "short" }),
+    day: date.toLocaleDateString("nl-NL", { timeZone: "UTC", day: "numeric" }),
+    month: date.toLocaleDateString("nl-NL", { timeZone: "UTC", month: "short" }),
+  };
+}
+
 /// Is dit tijdstip recenter dan `withinMs`? Staat bewust buiten de componenten,
 /// zodat de klok niet tijdens het renderen wordt gelezen.
 export function isRecent(date: Date | null | undefined, withinMs: number): boolean {
