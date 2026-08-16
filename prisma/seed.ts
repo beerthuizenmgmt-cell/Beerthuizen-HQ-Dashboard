@@ -4,105 +4,12 @@
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient, type AgentCategory } from "../src/generated/prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client";
+import { AGENT_PROFILES, DEFAULT_COMPANY_CONTEXT } from "../src/lib/ai/profiles";
 
 const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
 });
-
-type SeedAgent = {
-  key: string;
-  name: string;
-  role: string;
-  description: string;
-  emoji: string;
-  color: string;
-  category: AgentCategory;
-  isChief?: boolean;
-};
-
-const TEAM: SeedAgent[] = [
-  {
-    key: "chief",
-    name: "Chief",
-    role: "Centrale AI-manager",
-    description:
-      "Stuurt alle agents aan, bewaakt resultaten, maakt rapportages en communiceert met jou via Telegram.",
-    emoji: "🧠",
-    color: "#6366f1",
-    category: "ops",
-    isChief: true,
-  },
-  {
-    key: "research",
-    name: "Research Agent",
-    role: "Onderzoek & marktverkenning",
-    description:
-      "Onderzoekt Nederlandse en internationale concurrenten, trends, tools, agencies en nieuwe kansen.",
-    emoji: "🔎",
-    color: "#0ea5e9",
-    category: "research",
-  },
-  {
-    key: "influencer",
-    name: "Influencer Campaign Agent",
-    role: "Influencer campagnes",
-    description:
-      "Ondersteunt bij influencer campagnes: planning, creators, campagnevoortgang, performance en optimalisatie.",
-    emoji: "📣",
-    color: "#ec4899",
-    category: "marketing",
-  },
-  {
-    key: "analytics",
-    name: "Analytics Agent",
-    role: "Data & KPI's",
-    description:
-      "Verzamelt en analyseert campagnegegevens en berekent KPI's zoals bereik, views, engagement, CPM, CPE, CPC, CPA en ROAS.",
-    emoji: "📊",
-    color: "#f59e0b",
-    category: "analyse",
-  },
-  {
-    key: "creative",
-    name: "Creative Agent",
-    role: "Concept & creatie",
-    description: "Bedenkt campagnes, concepten, hooks, scripts, contentideeën en creatieve formats.",
-    emoji: "🎨",
-    color: "#a855f7",
-    category: "content",
-  },
-  {
-    key: "social",
-    name: "Social Media Agent",
-    role: "Social strategie",
-    description:
-      "Onderzoekt trends en helpt met social strategie, contentplanning, analyses en optimalisatie.",
-    emoji: "📱",
-    color: "#14b8a6",
-    category: "marketing",
-  },
-  {
-    key: "operations",
-    name: "Operations Agent",
-    role: "Processen & automatisering",
-    description:
-      "Zoekt naar handmatig werk en maakt voorstellen om interne processen te automatiseren en efficiënter te maken.",
-    emoji: "⚙️",
-    color: "#64748b",
-    category: "ops",
-  },
-  {
-    key: "bizdev",
-    name: "Business Development Agent",
-    role: "Groei & partnerships",
-    description:
-      "Onderzoekt potentiële klanten, partnerships, nieuwe diensten, markten en commerciële groeikansen.",
-    emoji: "💼",
-    color: "#22c55e",
-    category: "bizdev",
-  },
-];
 
 const CHANNELS = [
   { key: "algemeen", name: "Algemeen", purpose: "Teambreed overleg", sortOrder: 0 },
@@ -135,25 +42,38 @@ async function main() {
   });
   console.log(`✓ gebruiker ${user.email}`);
 
-  for (const [index, agent] of TEAM.entries()) {
+  // Welke agent als eerste mag draaien. De rest staat op pauze tot de proef
+  // geslaagd is, zodat er niet per ongeluk acht agents tegelijk gaan denken.
+  const testAgentKey = process.env.SEED_TEST_AGENT ?? "research";
+
+  for (const [index, profile] of AGENT_PROFILES.entries()) {
+    const { key, isChief, ...rest } = profile;
     await db.agent.upsert({
-      where: { key: agent.key },
+      where: { key },
       update: {
-        // Beschrijvende velden bijwerken, maar de koppeling en status die jij in
-        // de UI hebt ingesteld met rust laten.
-        name: agent.name,
-        role: agent.role,
-        description: agent.description,
-        emoji: agent.emoji,
-        color: agent.color,
-        category: agent.category,
-        isChief: agent.isChief ?? false,
+        // Beschrijvende velden en het profiel bijwerken; wat jij in de UI hebt
+        // ingesteld aan model en koppeling blijft staan.
+        ...rest,
+        isChief: isChief ?? false,
         sortOrder: index,
       },
-      create: { ...agent, sortOrder: index },
+      create: {
+        key,
+        ...rest,
+        isChief: isChief ?? false,
+        sortOrder: index,
+        adapterType: "builtin",
+        paused: key !== testAgentKey,
+      },
     });
   }
-  console.log(`✓ ${TEAM.length} agents`);
+  console.log(`✓ ${AGENT_PROFILES.length} agents (${testAgentKey} staat aan, de rest op pauze)`);
+
+  await db.setting.upsert({
+    where: { key: "company_context" },
+    update: {},
+    create: { key: "company_context", value: { text: DEFAULT_COMPANY_CONTEXT } },
+  });
 
   for (const channel of CHANNELS) {
     await db.channel.upsert({

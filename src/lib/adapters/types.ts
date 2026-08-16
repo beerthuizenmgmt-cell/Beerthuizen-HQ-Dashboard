@@ -37,6 +37,9 @@ export type SendResult = {
   ok: boolean;
   externalId?: string;
   error?: string;
+  /// Ingebouwde agents antwoorden meteen; externe agents pas later via een
+  /// webhook. Dit veld is dus alleen gevuld bij het ingebouwde type.
+  reply?: string;
 };
 
 export interface AgentAdapter {
@@ -55,7 +58,9 @@ export interface AgentAdapter {
   };
   testConnection(config: AdapterConfig): Promise<ConnectionTest>;
   fetchStatus?(config: AdapterConfig): Promise<AgentSnapshot>;
-  sendMessage?(config: AdapterConfig, text: string): Promise<SendResult>;
+  /// `agentId` is alleen nodig voor het ingebouwde type, dat de agent zelf moet
+  /// kunnen opzoeken; externe adapters hebben genoeg aan hun config.
+  sendMessage?(config: AdapterConfig, text: string, agentId?: string): Promise<SendResult>;
 }
 
 /// Zet onbekende fouten om in iets dat een mens kan lezen.

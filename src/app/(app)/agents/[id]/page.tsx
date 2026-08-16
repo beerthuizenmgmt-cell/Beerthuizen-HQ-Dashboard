@@ -6,6 +6,8 @@ import { adapterCatalog, publicConfig, getAdapter } from "@/lib/adapters";
 import { AgentForm } from "@/components/agent-form";
 import { ConnectionTestButton } from "@/components/connection-test";
 import { InboundSetup } from "@/components/inbound-setup";
+import { AgentAiSettings } from "@/components/agent-ai-settings";
+import { getAiConfig } from "@/lib/ai/provider";
 import { ActivityList } from "@/components/activity-list";
 import { StatusBadge } from "@/components/status-dot";
 import { deleteAgent, togglePause } from "@/lib/actions/agents";
@@ -31,6 +33,7 @@ export default async function AgentDetailPage({ params }: PageProps<"/agents/[id
 
   const adapter = getAdapter(agent.adapterType);
   const accent = agent.color ?? "#6366f1";
+  const aiConfig = await getAiConfig();
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -83,6 +86,18 @@ export default async function AgentDetailPage({ params }: PageProps<"/agents/[id
           <span>Ontvangt push: {adapter.capabilities.receive ? "ja" : "nee"}</span>
         </div>
       </section>
+
+      {agent.adapterType === "builtin" && (
+        <section className="card p-5">
+          <h2 className="mb-3 text-sm font-semibold">AI-instellingen</h2>
+          <AgentAiSettings
+            agentId={agent.id}
+            modelId={agent.modelId}
+            defaultModel={aiConfig.defaultModel}
+            paused={agent.paused}
+          />
+        </section>
+      )}
 
       <section className="card p-5">
         <h2 className="mb-3 text-sm font-semibold">Terugpraten</h2>

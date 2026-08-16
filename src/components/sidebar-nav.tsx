@@ -10,6 +10,8 @@ const LINKS = [
   { href: "/taken", label: "Taken", icon: "☑" },
   { href: "/team", label: "Team", icon: "💬" },
   { href: "/agents", label: "Agents", icon: "◉" },
+  { href: "/financien", label: "AI Finance", icon: "€" },
+  { href: "/proefdraaien", label: "Proefdraaien", icon: "▷" },
   { href: "/meldingen", label: "Meldingen", icon: "!" },
   { href: "/activiteit", label: "Activiteit", icon: "≡" },
   { href: "/instellingen", label: "Instellingen", icon: "⚙" },

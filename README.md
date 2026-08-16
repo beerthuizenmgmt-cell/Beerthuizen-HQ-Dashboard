@@ -139,3 +139,25 @@ planning. Met **+ inplannen** zet je direct iets op een dag zonder het takenform
 
 Het scherm ververst zichzelf elke minuut, maar alleen als het tabblad zichtbaar is — bedoeld om de
 hele dag open te staan.
+
+## AI-agents en kosten
+
+De acht agents draaien in het dashboard zelf op een taalmodel (koppeltype `builtin`). De providerlaag
+in `src/lib/ai/provider.ts` ondersteunt OpenRouter, OpenAI en Anthropic; nergens in de agentlogica
+staat een modelnaam. Het model is per agent instelbaar — leeg betekent: gebruik het standaardmodel.
+
+**Sleutelbeheer.** De API-sleutel gaat versleuteld (AES-256-GCM) de database in en wordt alleen
+ontsleuteld op het moment van bellen. Hij komt nooit terug naar de browser, staat niet in de logs en
+zit niet in de context die een agent te zien krijgt.
+
+**Kosten.** Per denkbeurt worden agent, model, aanbieder, tokens, duur en kosten vastgelegd in
+`AgentRun`. De volgorde van betrouwbaarheid: het bedrag dat de aanbieder zelf rapporteert, dan de
+opgehaalde tarieventabel, en anders blijft het bedrag **leeg** — een gat waarvan je weet dat het er
+is, is beter dan een gok in je maandtotaal. `/financien` toont kosten per agent, model, aanbieder en
+type activiteit, met budgetbewaking op 50, 75, 90 en 100 procent.
+
+**Waarde.** Alleen bevestigde regels tellen mee. Een agent mag een besparing vóórstellen, maar tot
+jij hem bevestigt staat hij apart en telt hij nergens in mee.
+
+**Proefdraaien.** `/proefdraaien` laat één agent één opdracht uitvoeren zonder gereedschap: alleen
+denken en antwoorden, niets naar buiten. Daarna zie je de echte tokens, kosten en duur.

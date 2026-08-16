@@ -31,10 +31,11 @@ model User {
   role         UserRole @default(member)
   createdAt    DateTime @default(now())
 
-  createdTasks   Task[]         @relation("TaskCreatedByUser")
-  taskUpdates    TaskUpdate[]
-  messages       Message[]
-  decidedAdvice  AdAdvice[]
+  createdTasks     Task[]         @relation("TaskCreatedByUser")
+  taskUpdates      TaskUpdate[]
+  messages         Message[]
+  decidedAdvice    AdAdvice[]
+  decidedApprovals Approval[]
 }
 
 enum AgentStatus {
@@ -58,6 +59,8 @@ enum AgentCategory {
 }
 
 enum AdapterType {
+  /// Agent die dit dashboard zelf draait op een taalmodel.
+  builtin
   openclaw_gateway
   telegram
   reader_ingest
@@ -74,9 +77,22 @@ model Agent {
   color       String?
   category    AgentCategory @default(other)
 
-  /// Chief stuurt de andere agents aan en is standaard ontvanger van
-  /// rapportages en escalaties.
+  /// De Head of Operations stuurt de andere agents aan en is de enige die
+  /// rechtstreeks met Enriqueo schakelt via Telegram.
   isChief Boolean @default(false)
+
+  /// Wie deze agent is en waar hij op let. Wordt samen met de bedrijfscontext
+  /// het systeemprompt. Leeg betekent: gebruik het standaardprofiel uit de seed.
+  systemPrompt String?
+
+  /// Welk model deze agent draait. Leeg = het standaardmodel uit de
+  /// instellingen. Bewust per agent instelbaar: zwaar denkwerk verdient een
+  /// ander model dan repetitief werk.
+  modelId String?
+
+  /// Hoe ver deze agent zelfstandig mag gaan voordat hij goedkeuring vraagt.
+  /// Externe, financiële en reputatiegevoelige acties vragen altijd akkoord.
+  maxToolCalls Int @default(6)
 
   status      AgentStatus @default(offline)
   statusText  String?
@@ -118,6 +134,9 @@ model Agent {
   advice         AdAdvice[]
   costEntries    CostEntry[]
   notifications  Notification[]
+  approvals      Approval[]
+  runs           AgentRun[]
+  valueEntries   ValueEntry[]
 
   @@index([category])
   @@index([status])
@@ -248,8 +267,11 @@ model Task {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  updates TaskUpdate[]
-  advice  AdAdvice[]
+  updates      TaskUpdate[]
+  advice       AdAdvice[]
+  approvals    Approval[]
+  agentRuns    AgentRun[]
+  valueEntries ValueEntry[]
 
   @@index([status, updatedAt(sort: Desc)])
   @@index([agentId, status])
@@ -526,6 +548,143 @@ model AdAdvice {
 // ============================================================
 // Overig
 // ============================================================
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+  executed
+  failed
+}
+
+/// Alles wat naar buiten gaat, geld kost of de reputatie raakt komt hier eerst
+/// langs. De agent bereidt het volledig voor; Enriqueo beslist.
+model Approval {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  /// email_send | external_message | budget | publish | system_change | other
+  kind    String
+  title   String
+  /// Waarom dit nodig is, in gewone taal.
+  summary String
+  /// De volledig voorbereide actie: ontvanger, onderwerp, tekst, bedrag.
+  payload Json
+
+  status         ApprovalStatus @default(pending)
+  decisionNote   String?
+  decidedAt      DateTime?
+  decidedByUserId String?
+  decidedByUser  User?          @relation(fields: [decidedByUserId], references: [id], onDelete: SetNull)
+
+  executedAt DateTime?
+  error      String?
+
+  linkedTaskId String?
+  linkedTask   Task?   @relation(fields: [linkedTaskId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([status, createdAt(sort: Desc)])
+}
+
+/// Eén keer nadenken door een agent: wat er binnenkwam, welk model het deed,
+/// wat het kostte en wat eruit kwam. Nodig om te zien waar je geld heen gaat en
+/// om te achterhalen waarom een agent iets deed.
+model AgentRun {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  /// task | standup | message | chief_cycle | call | manual
+  trigger String
+  model   String
+  /// Welke aanbieder het model draaide — nodig om kosten per provider te
+  /// kunnen splitsen zodra er meer dan één in gebruik is.
+  provider String @default("openrouter")
+
+  /// Waar deze denkbeurt bij hoorde, zodat kosten per taak toe te rekenen zijn.
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  input     String
+  output    String?
+  toolCalls Json?
+
+  promptTokens     Int   @default(0)
+  completionTokens Int   @default(0)
+  costEur          Float @default(0)
+  /// Of de kosten echt bekend zijn. Zonder tariefinformatie blijft dit false en
+  /// tellen we de run niet mee als een bedrag — liever een gat dan een gok.
+  costKnown  Boolean @default(false)
+  durationMs Int     @default(0)
+
+  ok    Boolean @default(true)
+  error String?
+
+  createdAt DateTime @default(now())
+
+  @@index([agentId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+}
+
+/// Tarieven per model, opgehaald bij de aanbieder. Model- en
+/// provideronafhankelijk: komt er een nieuwe aanbieder bij, dan komen zijn
+/// tarieven hier binnen en telt de kostenberekening vanzelf mee.
+model ModelPrice {
+  id       String @id @default(cuid())
+  provider String
+  modelId  String
+
+  /// Prijs in euro per miljoen tokens.
+  promptPerMillion     Float
+  completionPerMillion Float
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, modelId])
+}
+
+enum ValueKind {
+  hours_saved
+  revenue_opportunity
+  campaign_supported
+  task_automated
+}
+
+enum ValueSource {
+  /// Ingeschat door een agent — telt pas mee zodra Enriqueo het bevestigt.
+  agent_estimate
+  /// Door Enriqueo zelf ingevoerd of bevestigd.
+  user_entered
+}
+
+/// De waardekant tegenover de kosten. Bewust streng: een agent mag een
+/// besparing vóórstellen, maar pas een bevestigde regel telt mee in het
+/// eindbedrag. Zo staat er nooit een verzonnen besparing in je cijfers.
+model ValueEntry {
+  id   String    @id @default(cuid())
+  date DateTime
+  kind ValueKind
+
+  /// Uren bij hours_saved, euro's bij revenue_opportunity, aantal bij de rest.
+  amount Float
+  note   String
+
+  source      ValueSource
+  confirmedAt DateTime?
+
+  agentId String?
+  agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  taskId  String?
+  task    Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@index([kind, confirmedAt])
+}
 
 model CostEntry {
   id       String   @id @default(cuid())

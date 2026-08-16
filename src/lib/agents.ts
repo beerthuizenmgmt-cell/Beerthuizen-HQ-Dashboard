@@ -73,7 +73,7 @@ export async function refreshAgentStatus(agentId: string): Promise<void> {
 export async function sendToAgent(
   agentId: string,
   text: string,
-): Promise<{ ok: boolean; externalId?: string; error?: string }> {
+): Promise<{ ok: boolean; externalId?: string; error?: string; reply?: string }> {
   const agent = await db.agent.findUnique({ where: { id: agentId } });
   if (!agent) return { ok: false, error: "Agent bestaat niet (meer)." };
   if (agent.paused) return { ok: false, error: `${agent.name} staat op pauze.` };
@@ -87,7 +87,7 @@ export async function sendToAgent(
   }
 
   try {
-    return await adapter.sendMessage(decryptConfig(agent.adapterConfig), text);
+    return await adapter.sendMessage(decryptConfig(agent.adapterConfig), text, agent.id);
   } catch (error) {
     return { ok: false, error: readableError(error) };
   }

@@ -1,5 +1,6 @@
 import type { AdapterType } from "@/generated/prisma/enums";
 import { decryptSecret, encryptSecret, maskSecret } from "@/lib/crypto";
+import { builtinAdapter } from "./builtin";
 import { manualAdapter } from "./manual";
 import { openclawGatewayAdapter } from "./openclaw-gateway";
 import { readerIngestAdapter } from "./reader-ingest";
@@ -9,14 +10,21 @@ import type { AdapterConfig, AgentAdapter } from "./types";
 export * from "./types";
 
 export const ADAPTERS: Record<AdapterType, AgentAdapter> = {
+  builtin: builtinAdapter,
   openclaw_gateway: openclawGatewayAdapter,
   telegram: telegramAdapter,
   reader_ingest: readerIngestAdapter,
   manual: manualAdapter,
 };
 
-/// Volgorde in de wizard: eerst wat waarschijnlijk werkt, dan de uitwijkopties.
-export const ADAPTER_ORDER: AdapterType[] = ["telegram", "openclaw_gateway", "reader_ingest", "manual"];
+/// Volgorde in de wizard: eerst wat we zelf draaien, daarna externe koppelingen.
+export const ADAPTER_ORDER: AdapterType[] = [
+  "builtin",
+  "telegram",
+  "openclaw_gateway",
+  "reader_ingest",
+  "manual",
+];
 
 export function getAdapter(type: AdapterType): AgentAdapter {
   return ADAPTERS[type];

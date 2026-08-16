@@ -4,6 +4,7 @@ import { StatusDot, statusLabel } from "./status-dot";
 import { categoryLabel, timeAgo } from "@/lib/format";
 
 const ADAPTER_LABELS: Record<AdapterType, string> = {
+  builtin: "AI-agent",
   openclaw_gateway: "Gateway",
   telegram: "Telegram",
   reader_ingest: "Reader",

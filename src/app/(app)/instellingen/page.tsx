@@ -1,6 +1,11 @@
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { InstanceManager } from "@/components/instance-manager";
+import { AiSettings, FinanceSettings, ContextSettings } from "@/components/ai-settings";
+import { SystemStatus, type StatusItem } from "@/components/system-status";
+import { getAiConfig } from "@/lib/ai/provider";
+import { getFinanceSettings } from "@/lib/ai/cost";
+import { getCompanyContext } from "@/lib/ai/run";
 import { isRecent } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +21,72 @@ export default async function SettingsPage() {
     db.setting.findUnique({ where: { key: "standup" } }),
     db.setting.findUnique({ where: { key: "alerts" } }),
   ]);
+
+  const [aiConfig, finance, companyContext, builtinAgents, activeAgents, runCount] = await Promise.all([
+    getAiConfig(),
+    getFinanceSettings(),
+    getCompanyContext(),
+    db.agent.count({ where: { adapterType: "builtin" } }),
+    db.agent.count({ where: { adapterType: "builtin", paused: false } }),
+    db.agentRun.count(),
+  ]);
+
+  const telegramReady = Boolean(process.env.TELEGRAM_ALERT_BOT_TOKEN && process.env.TELEGRAM_ALERT_CHAT_ID);
+
+  const statusItems: StatusItem[] = [
+    {
+      name: "Dashboard, taken, agenda en kanalen",
+      level: "live",
+      detail: "Volledig werkend en getest. Geen externe afhankelijkheden, geen kosten.",
+    },
+    {
+      name: "Reader-koppeling met OpenClaw",
+      level: instances.length > 0 ? "live" : "wacht",
+      detail:
+        instances.length > 0
+          ? `${instances.length} koppeling(en) aangemaakt; snapshots en activiteit komen binnen.`
+          : "Werkend en getest, maar er is nog geen koppeling aangemaakt.",
+    },
+    {
+      name: "Ingebouwde AI-agents",
+      level: aiConfig.apiKey ? (runCount > 0 ? "live" : "deels") : "wacht",
+      detail: aiConfig.apiKey
+        ? runCount > 0
+          ? `${activeAgents} van ${builtinAgents} agents actief, ${runCount} aanroepen gedaan.`
+          : "Sleutel staat er, maar er heeft nog geen agent gedraaid. Doe eerst een proefopdracht."
+        : "Profielen en machinerie staan klaar. Er is nog geen API-sleutel, dus er draait niets en is €0 uitgegeven.",
+    },
+    {
+      name: "Kostenregistratie en budget",
+      level: aiConfig.apiKey ? "live" : "wacht",
+      detail:
+        "Per aanroep worden model, aanbieder, tokens, kosten en duur vastgelegd. Bedragen die de aanbieder niet meldt blijven leeg in plaats van geschat.",
+    },
+    {
+      name: "Ochtendoverleg en ochtendcall",
+      level: aiConfig.apiKey ? "deels" : "wacht",
+      detail:
+        "De schermen, de uitvraag en de vragenwachtrij werken en zijn getest met gesimuleerde antwoorden. Echte inhoud komt er zodra de agents draaien.",
+    },
+    {
+      name: "Goedkeuringen voor externe acties",
+      level: "deels",
+      detail:
+        "Agents kunnen een actie ter goedkeuring aanbieden en dat wordt vastgelegd; het beslisscherm bouw ik hierna.",
+    },
+    {
+      name: "Head of Operations met Telegram-rapport",
+      level: telegramReady ? "deels" : "niet",
+      detail: telegramReady
+        ? "Telegram is ingesteld voor alerts. De dagelijkse cyclus en het ochtendrapport bouw ik hierna."
+        : "Nog geen bot-token en chat-ID ingesteld, en de dagelijkse cyclus moet nog gebouwd worden.",
+    },
+    {
+      name: "Meta Ads, web search en e-mail",
+      level: "niet",
+      detail: "Nog niet gebouwd. Agents kunnen dus nog niet zoeken, mailen of advertentiecijfers ophalen.",
+    },
+  ];
 
   const standupValue = (standup?.value ?? {}) as {
     time?: string;
@@ -105,6 +176,50 @@ export default async function SettingsPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">Taalmodel</h2>
+        <p className="text-sm text-text-muted">
+          Waar de agents op denken. De sleutel wordt versleuteld opgeslagen en komt nooit terug naar
+          dit scherm.
+        </p>
+        <AiSettings
+          provider={aiConfig.provider}
+          defaultModel={aiConfig.defaultModel}
+          fastModel={aiConfig.fastModel}
+          hasKey={Boolean(aiConfig.apiKey)}
+        />
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold">Budget en tarieven</h2>
+        <FinanceSettings
+          monthlyBudgetEur={finance.monthlyBudgetEur}
+          usdToEur={finance.usdToEur}
+          hourlyRateEur={finance.hourlyRateEur}
+        />
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Bedrijfscontext</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Elke agent leest dit bij elke opdracht. Dit is de grootste knop aan de kwaliteit van wat ze
+            teruggeven — en meteen de grootste knop aan je kosten.
+          </p>
+        </div>
+        <ContextSettings context={companyContext} />
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">Systeemstatus</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Wat er echt draait en wat er nog niet is. Geen demo-data verstopt in een mooi scherm.
+          </p>
+        </div>
+        <SystemStatus items={statusItems} />
       </section>
 
       <section className="space-y-3">
