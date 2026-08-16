@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { encryptSecret } from "@/lib/crypto";
+import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import {
   assertUsableApiKey,
+  keyProbleem,
   clearModelCache,
   listModels,
   type ModelOption,
@@ -50,6 +51,23 @@ export async function saveAiSettings(
     apiKey?: string;
     defaultModel?: string;
   };
+
+  // Een leeg veld betekent normaal "laat staan wat er staat". Maar staat daar
+  // iets onbruikbaars, dan houdt opslaan de storing in stand terwijl het scherm
+  // "opgeslagen" meldt. Dan liever weigeren en zeggen wat er moet gebeuren.
+  if (!apiKey && current.apiKey) {
+    let bestaandProbleem: string | null = null;
+    try {
+      bestaandProbleem = keyProbleem(decryptSecret(current.apiKey));
+    } catch {
+      bestaandProbleem = "De opgeslagen sleutel kan niet ontcijferd worden.";
+    }
+    if (bestaandProbleem) {
+      return {
+        error: `Het veld was leeg, dus de oude sleutel zou blijven staan — en die is onbruikbaar. ${bestaandProbleem}`,
+      };
+    }
+  }
 
   const value = {
     provider,
