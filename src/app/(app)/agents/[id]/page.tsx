@@ -7,7 +7,12 @@ import { AgentForm } from "@/components/agent-form";
 import { ConnectionTestButton } from "@/components/connection-test";
 import { InboundSetup } from "@/components/inbound-setup";
 import { AgentAiSettings } from "@/components/agent-ai-settings";
+import { AgentAvatar } from "@/components/agent-avatar";
+import { AgentIdentity } from "@/components/agent-identity";
+import { AgentTools } from "@/components/agent-tools";
 import { getAiStatus } from "@/lib/ai/provider";
+import { toolCatalogForUi, getToolEntry, decryptToolConfig } from "@/lib/ai/toolkit";
+import { maskSecret } from "@/lib/crypto";
 import { ActivityList } from "@/components/activity-list";
 import { StatusBadge } from "@/components/status-dot";
 import { deleteAgent, togglePause } from "@/lib/actions/agents";
@@ -32,8 +37,32 @@ export default async function AgentDetailPage({ params }: PageProps<"/agents/[id
   if (!agent) notFound();
 
   const adapter = getAdapter(agent.adapterType);
-  const accent = agent.color ?? "#6366f1";
   const aiConfig = await getAiStatus();
+
+  const tools = await db.agentTool.findMany({
+    where: { agentId: agent.id },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const attachedTools = tools.map((tool) => {
+    const entry = getToolEntry(tool.toolKey);
+    const secrets = new Set((entry?.fields ?? []).filter((f) => f.secret).map((f) => f.name));
+    const decrypted = decryptToolConfig(tool.config);
+    const safeConfig: Record<string, string> = {};
+    for (const [key, value] of Object.entries(decrypted)) {
+      safeConfig[key] = secrets.has(key) ? maskSecret(value) : value;
+    }
+
+    return {
+      id: tool.id,
+      toolKey: tool.toolKey,
+      label: tool.label ?? entry?.name ?? tool.toolKey,
+      enabled: tool.enabled,
+      implemented: entry?.implemented ?? false,
+      lastError: tool.lastError,
+      config: safeConfig,
+    };
+  });
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -43,12 +72,7 @@ export default async function AgentDetailPage({ params }: PageProps<"/agents/[id
         </Link>
 
         <div className="mt-3 flex flex-wrap items-start gap-4">
-          <div
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl"
-            style={{ background: `color-mix(in srgb, ${accent} 18%, transparent)` }}
-          >
-            {agent.emoji ?? "◉"}
-          </div>
+          <AgentAvatar agent={agent} size="lg" />
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -110,7 +134,39 @@ export default async function AgentDetailPage({ params }: PageProps<"/agents/[id
       </section>
 
       <section className="card p-6">
-        <h2 className="mb-5 text-sm font-semibold">Instellingen</h2>
+        <h2 className="mb-1 text-sm font-semibold">Identiteit</h2>
+        <p className="mb-5 text-xs text-text-muted">
+          Naam, functietitel, beschrijving en gezicht. Dit zie je terug op elk scherm waar {agent.name}{" "}
+          voorkomt.
+        </p>
+        <AgentIdentity
+          agentId={agent.id}
+          name={agent.name}
+          role={agent.role}
+          description={agent.description}
+          emoji={agent.emoji}
+          color={agent.color}
+          avatarUrl={agent.avatarUrl}
+        />
+      </section>
+
+      <section className="card p-6">
+        <h2 className="mb-1 text-sm font-semibold">Tools &amp; koppelingen</h2>
+        <p className="mb-5 text-xs text-text-muted">
+          Systemen die alleen {agent.name} mag gebruiken. Een koppeling hier maakt hem niet beschikbaar
+          voor de rest van het team.
+        </p>
+        <AgentTools
+          agentId={agent.id}
+          agentKey={agent.key}
+          agentName={agent.name}
+          catalog={toolCatalogForUi()}
+          attached={attachedTools}
+        />
+      </section>
+
+      <section className="card p-6">
+        <h2 className="mb-5 text-sm font-semibold">Koppeling en categorie</h2>
         <AgentForm
           catalog={adapterCatalog()}
           values={{

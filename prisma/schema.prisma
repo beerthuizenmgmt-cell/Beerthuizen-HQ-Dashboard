@@ -77,6 +77,10 @@ model Agent {
   color       String?
   category    AgentCategory @default(other)
 
+  /// Het gezicht van de agent. Een URL of een data-URI van een geüpload beeld.
+  /// Valt terug op de emoji en daarna op initialen, zodat er altijd iets staat.
+  avatarUrl String?
+
   /// De Head of Operations stuurt de andere agents aan en is de enige die
   /// rechtstreeks met Enriqueo schakelt via Telegram.
   isChief Boolean @default(false)
@@ -139,6 +143,7 @@ model Agent {
   valueEntries   ValueEntry[]
   watches        AgentWatch[]
   insights       AgentInsight[]
+  tools          AgentTool[]
 
   @@index([category])
   @@index([status])
@@ -689,6 +694,36 @@ model ValueEntry {
 
   @@index([date])
   @@index([kind, confirmedAt])
+}
+
+/// Een koppeling die aan één specifieke agent hangt. Bewust per agent: de
+/// Creative Director heeft Canva nodig, de Analytics Manager niet. Nieuwe
+/// tooltypes komen uit de catalogus in src/lib/ai/toolkit.ts, zodat er niets
+/// herbouwd hoeft te worden als er een systeem bijkomt.
+model AgentTool {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  /// Sleutel uit de catalogus, bijvoorbeeld canva of custom_webhook.
+  toolKey String
+  /// Eigen naam, handig als je twee koppelingen van hetzelfde type hebt.
+  label   String?
+
+  /// Instellingen van deze koppeling. Geheimen staan hierin versleuteld.
+  config Json?
+
+  enabled Boolean @default(true)
+
+  /// Uitkomst van de laatste verbindingstest.
+  lastCheckedAt DateTime?
+  lastError     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([agentId, toolKey])
+  @@index([agentId])
 }
 
 /// Een onderwerp dat een agent in de gaten houdt. De kern van het

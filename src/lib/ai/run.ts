@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { chat, getAiConfig, AiNotConfiguredError, type ChatMessage, type ToolDefinition } from "./provider";
 import { resolveCost, checkBudget, assertWithinBudget } from "./cost";
 import { AGENT_TOOLS, CHIEF_TOOLS, runTool } from "./tools";
+import { toolsForAgent, runAgentTool } from "./toolkit";
 import { DEFAULT_COMPANY_CONTEXT, SHARED_FRAMEWORK } from "./profiles";
 import { formatDayLong } from "@/lib/format";
 
@@ -138,12 +139,19 @@ export async function runAgent(options: {
 
   // Op één niveau diep mag de Head collega's bevragen; dieper wordt het een
   // kettingreactie die niemand meer kan volgen.
+  //
+  // Daarbovenop krijgt elke agent zijn eigen gekoppelde tools. Die zijn per
+  // agent: Canva bij de Creative Director maakt Canva niet beschikbaar voor
+  // Analytics.
+  const ownTools = options.gereedschap === "geen" ? [] : await toolsForAgent(agent.id);
+
   const tools: ToolDefinition[] =
     options.gereedschap === "geen"
       ? []
-      : agent.isChief && depth === 0
-        ? [...AGENT_TOOLS, ...CHIEF_TOOLS]
-        : AGENT_TOOLS;
+      : [
+          ...(agent.isChief && depth === 0 ? [...AGENT_TOOLS, ...CHIEF_TOOLS] : AGENT_TOOLS),
+          ...ownTools.map((tool) => tool.definition),
+        ];
 
   const messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
@@ -186,11 +194,13 @@ export async function runAgent(options: {
         const outcome =
           call.name === "vraag_agent"
             ? await askColleague(call.arguments, agent.name, depth)
-            : await runTool(call.name, call.arguments, {
+            : // Eerst zijn eigen koppelingen, dan het standaardgereedschap.
+              ((await runAgentTool(agent.id, call.name, call.arguments)) ??
+              (await runTool(call.name, call.arguments, {
                 agentId: agent.id,
                 agentName: agent.name,
                 isChief: agent.isChief,
-              });
+              })));
 
         performed.push({ name: call.name, arguments: call.arguments, result: outcome.message });
         messages.push({

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { AdapterType, AgentCategory, AgentStatus } from "@/generated/prisma/enums";
 import { StatusDot, statusLabel } from "./status-dot";
+import { AgentAvatar } from "./agent-avatar";
 import { categoryLabel, timeAgo } from "@/lib/format";
 
 const ADAPTER_LABELS: Record<AdapterType, string> = {
@@ -17,6 +18,7 @@ export type AgentCardData = {
   role: string;
   emoji: string | null;
   color: string | null;
+  avatarUrl: string | null;
   category: AgentCategory;
   status: AgentStatus;
   statusText: string | null;
@@ -42,12 +44,7 @@ export function AgentCard({ agent }: { agent: AgentCardData }) {
       />
 
       <div className="flex items-start gap-3">
-        <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg"
-          style={{ background: `color-mix(in srgb, ${accent} 18%, transparent)` }}
-        >
-          {agent.emoji ?? "◉"}
-        </div>
+        <AgentAvatar agent={agent} size="md" />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
