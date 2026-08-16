@@ -111,8 +111,17 @@ const CHANNELS = [
 ];
 
 async function main() {
-  const email = process.env.SEED_EMAIL ?? "jacey_music@live.nl";
-  const password = process.env.SEED_PASSWORD ?? "welkom123";
+  const email = process.env.SEED_EMAIL ?? "info@bhmanagement.nl";
+  const password = process.env.SEED_PASSWORD;
+
+  if (!password) {
+    // Bewust geen standaardwachtwoord in de broncode: dat zou meeverhuizen naar
+    // productie en daar jarenlang blijven staan.
+    throw new Error(
+      "Zet SEED_PASSWORD als je een nieuw eigenaarsaccount wilt aanmaken.\n" +
+        "Bijvoorbeeld: SEED_PASSWORD='...' npm run db:seed",
+    );
+  }
 
   const user = await db.user.upsert({
     where: { email },
@@ -185,8 +194,7 @@ async function main() {
     create: { key: "alerts", value: { inApp: true, telegram: true, email: false } },
   });
 
-  console.log("\nKlaar. Inloggen kan met:");
-  console.log(`  ${email} / ${password}`);
+  console.log(`\nKlaar. Inloggen kan met ${email}.`);
 }
 
 main()

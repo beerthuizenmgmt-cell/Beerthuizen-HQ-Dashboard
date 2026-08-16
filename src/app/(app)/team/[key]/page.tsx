@@ -26,7 +26,9 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
       include: {
         agent: true,
         messages: {
-          orderBy: { createdAt: "asc" },
+          // Nieuwste 200 ophalen en pas daarna omdraaien voor weergave. Met
+          // "asc" zou je in een vol kanaal alleen de oudste berichten zien.
+          orderBy: { createdAt: "desc" },
           take: 200,
           include: {
             fromUser: { select: { name: true } },
@@ -106,7 +108,7 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
             </p>
           )}
 
-          {channel.messages.map((message) => {
+          {channel.messages.toReversed().map((message) => {
             const isUser = message.fromType === "user";
             const author = isUser
               ? (message.fromUser?.name ?? "Jij")

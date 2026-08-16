@@ -3,6 +3,7 @@ import "server-only";
 import bcrypt from "bcryptjs";
 import { db } from "./db";
 import { randomToken } from "./crypto";
+import { clientKey, rateLimit } from "./rate-limit";
 
 export type IngestAuthError = "missing_auth" | "malformed_auth" | "unknown_instance" | "bad_key";
 
@@ -12,7 +13,12 @@ type InstanceRecord = Awaited<ReturnType<typeof db.instance.findUniqueOrThrow>>;
 /// Exact het formaat dat de bestaande reader in ~/.elara-reader al stuurt.
 export async function authenticateInstance(
   request: Request,
-): Promise<{ error: IngestAuthError } | { instance: InstanceRecord }> {
+): Promise<{ error: IngestAuthError } | { instance: InstanceRecord } | { limited: number }> {
+  // De reader stuurt hooguit één verzoek per 10s per endpoint; 60 per minuut
+  // geeft ruimte voor drie readers zonder ooit een echte push te blokkeren.
+  const limit = rateLimit(clientKey(request, "ingest"), { limit: 60, windowMs: 60_000 });
+  if (!limit.ok) return { limited: limit.retryAfterSeconds };
+
   const header = request.headers.get("authorization") ?? "";
   const match = /^Bearer\s+(.+)$/i.exec(header.trim());
   if (!match) return { error: "missing_auth" as const };

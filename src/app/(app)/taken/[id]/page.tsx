@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { getAdapter } from "@/lib/adapters";
 import { TaskActions } from "@/components/task-actions";
 import { TaskComment } from "@/components/task-comment";
-import { formatDateTime, timeAgo } from "@/lib/format";
+import { formatDate, formatDateTime, timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +67,7 @@ export default async function TaskDetailPage({ params }: PageProps<"/taken/[id]"
         <p className="mt-1 text-sm text-text-muted">
           {STATUS_LABEL[task.status]} · aangemaakt door {task.createdByUser?.name ?? "systeem"}{" "}
           {timeAgo(task.createdAt)}
-          {task.dueAt && ` · deadline ${task.dueAt.toLocaleDateString("nl-NL")}`}
+          {task.dueAt && ` · deadline ${formatDate(task.dueAt)}`}
         </p>
       </header>
 

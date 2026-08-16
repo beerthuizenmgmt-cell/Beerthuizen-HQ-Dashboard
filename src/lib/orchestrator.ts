@@ -3,6 +3,7 @@ import "server-only";
 import { db } from "./db";
 import { sendToAgent, logActivity } from "./agents";
 import { notify } from "./notifications";
+import { formatDate } from "./format";
 import type { ActorType } from "@/generated/prisma/enums";
 
 /// Elk bericht in het team loopt hier langs: van jou naar een agent, en van
@@ -116,7 +117,7 @@ export function buildTaskBrief(task: {
     `Nieuwe taak van BHMGMT HQ: ${task.title}`,
     task.description ? `\n${task.description}` : "",
     `\nPrioriteit: ${task.priority}`,
-    task.dueAt ? `Deadline: ${task.dueAt.toLocaleDateString("nl-NL")}` : "",
+    task.dueAt ? `Deadline: ${formatDate(task.dueAt)}` : "",
     `\nAls je klaar bent, meld je resultaat terug:`,
     `POST ${replyUrl}`,
     `Header: Authorization: Bearer ${inboundToken}`,

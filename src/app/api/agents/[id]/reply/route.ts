@@ -2,6 +2,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { logActivity } from "@/lib/agents";
 import { notify } from "@/lib/notifications";
+import { recordStandupReply } from "@/lib/standup";
+import { clientKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import type { TaskStatus } from "@/generated/prisma/enums";
 
 // Hiermee praat een agent terug. Auth is één token per agent, dat hij meekrijgt
@@ -24,6 +26,11 @@ const ALLOWED_STATUSES: TaskStatus[] = ["in_progress", "blocked", "review", "don
 
 export async function POST(request: Request, { params }: RouteContext<"/api/agents/[id]/reply">) {
   const { id } = await params;
+
+  // Dit endpoint is de enige plek waar een token te raden valt, dus hier zit de
+  // strengste rem: 30 pogingen per minuut per afzender.
+  const limit = rateLimit(clientKey(request, "reply"), { limit: 30, windowMs: 60_000 });
+  if (!limit.ok) return tooManyRequests(limit.retryAfterSeconds);
 
   const header = request.headers.get("authorization") ?? "";
   const token = /^Bearer\s+(.+)$/i.exec(header.trim())?.[1];
@@ -100,7 +107,19 @@ export async function POST(request: Request, { params }: RouteContext<"/api/agen
     return Response.json({ ok: true, task: { id: task.id, status: nextStatus ?? task.status } });
   }
 
-  // Geen taak erbij: als los bericht in het DM-kanaal van deze agent.
+  // Geen taak erbij? Dan is dit waarschijnlijk het antwoord op de standup van
+  // vanochtend. Alleen als daar geen openstaande uitvraag ligt, valt het terug
+  // op een los bericht.
+  if (await recordStandupReply(agent.id, message)) {
+    await logActivity({
+      agentId: agent.id,
+      kind: "standup",
+      level: "success",
+      message: `${agent.name} heeft zijn standup gegeven`,
+    });
+    return Response.json({ ok: true, standup: true });
+  }
+
   const channel = await db.channel.findUnique({ where: { agentId: agent.id } });
   if (!channel) {
     return Response.json({ error: "no_channel", message: "Deze agent heeft geen gesprekskanaal" }, { status: 404 });

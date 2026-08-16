@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { authenticateInstance, ingestError } from "@/lib/ingest";
+import { tooManyRequests } from "@/lib/rate-limit";
 
 const HeartbeatSchema = z.object({
   instance_id: z.string().optional(),
@@ -11,6 +12,7 @@ const HeartbeatSchema = z.object({
 
 export async function POST(request: Request) {
   const auth = await authenticateInstance(request);
+  if ("limited" in auth) return tooManyRequests(auth.limited);
   if ("error" in auth) return ingestError(auth.error);
 
   const parsed = HeartbeatSchema.safeParse(await request.json().catch(() => ({})));

@@ -1,8 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { createSession, destroySession, verifyPassword } from "@/lib/auth";
+import { rateLimit } from "@/lib/rate-limit";
 
 export type LoginState = { error?: string };
 
@@ -11,6 +13,14 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) return { error: "Vul je e-mailadres en wachtwoord in." };
+
+  // Het inlogscherm staat straks open op internet; tien pogingen per vijf
+  // minuten is ruim voor een vergeten wachtwoord en te weinig om te raden.
+  const forwarded = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim();
+  const attempt = rateLimit(`login:${forwarded ?? "lokaal"}`, { limit: 10, windowMs: 5 * 60_000 });
+  if (!attempt.ok) {
+    return { error: `Te veel inlogpogingen. Probeer het over ${attempt.retryAfterSeconds}s opnieuw.` };
+  }
 
   const user = await db.user.findUnique({ where: { email } });
   // Zelfde melding bij onbekend account en verkeerd wachtwoord, zodat je hier

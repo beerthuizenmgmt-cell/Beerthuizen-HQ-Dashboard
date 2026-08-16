@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { authenticateInstance, ingestError, resolveAgent } from "@/lib/ingest";
+import { tooManyRequests } from "@/lib/rate-limit";
 import type { ActivityLevel } from "@/generated/prisma/enums";
 
 const LEVELS: ActivityLevel[] = ["info", "warn", "error", "success"];
@@ -24,6 +25,7 @@ const ActivitySchema = z.object({
 
 export async function POST(request: Request) {
   const auth = await authenticateInstance(request);
+  if ("limited" in auth) return tooManyRequests(auth.limited);
   if ("error" in auth) return ingestError(auth.error);
   const { instance } = auth;
 

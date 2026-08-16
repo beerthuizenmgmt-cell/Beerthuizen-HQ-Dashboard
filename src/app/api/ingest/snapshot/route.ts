@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { authenticateInstance, derivedKey, ingestError, resolveAgent } from "@/lib/ingest";
+import { tooManyRequests } from "@/lib/rate-limit";
 import type { AgentCategory, AgentStatus } from "@/generated/prisma/enums";
 
 // Payloadvorm van de bestaande reader (~/.elara-reader). Onbekende velden worden
@@ -75,6 +76,7 @@ function toDate(value?: string): Date | undefined {
 
 export async function POST(request: Request) {
   const auth = await authenticateInstance(request);
+  if ("limited" in auth) return tooManyRequests(auth.limited);
   if ("error" in auth) return ingestError(auth.error);
   const { instance } = auth;
 

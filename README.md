@@ -51,8 +51,12 @@ npm run db:seed
 npm run dev
 ```
 
-Inloggen kan met het account uit de seed (`SEED_EMAIL` / `SEED_PASSWORD`, standaard
-`jacey_music@live.nl` / `welkom123`). **Wijzig dat wachtwoord voordat de app online staat.**
+De seed maakt het eigenaarsaccount aan. Er staat bewust geen standaardwachtwoord in de code,
+dus geef er zelf een mee:
+
+```bash
+SEED_PASSWORD='...' npm run db:seed
+```
 
 ## Koppeltypes
 

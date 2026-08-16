@@ -3,11 +3,12 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { AgentCard } from "@/components/agent-card";
 import { ActivityList } from "@/components/activity-list";
+import { formatDayLong, hourInTimezone } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 function greeting(): string {
-  const hour = new Date().getHours();
+  const hour = hourInTimezone();
   if (hour < 6) return "Goedenacht";
   if (hour < 12) return "Goedemorgen";
   if (hour < 18) return "Goedemiddag";
@@ -53,11 +54,7 @@ export default async function HQPage() {
             {greeting()}, {user.name}
           </h1>
           <p className="mt-1 text-sm text-text-muted">
-            {new Date().toLocaleDateString("nl-NL", {
-              weekday: "long",
-              day: "numeric",
-              month: "long",
-            })}
+            {formatDayLong(new Date())}
             {unread > 0 && ` · ${unread} nieuwe melding${unread === 1 ? "" : "en"}`}
           </p>
         </div>
