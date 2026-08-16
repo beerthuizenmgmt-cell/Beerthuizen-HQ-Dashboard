@@ -45,3 +45,24 @@ export async function sendTestMessage(): Promise<{ ok: boolean; message: string 
     ? { ok: true, message: "Proefbericht verstuurd — kijk in Telegram." }
     : { ok: false, message: result.error ?? "Versturen mislukt." };
 }
+
+/// Haalt nieuwe berichten op en laat de Head erop antwoorden. Werkt ook lokaal,
+/// waar Telegram geen webhook kan afleveren.
+export async function checkTelegram(): Promise<{ ok: boolean; message: string }> {
+  await requireUser();
+
+  const { pollUpdates } = await import("@/lib/telegram");
+  const result = await pollUpdates();
+
+  revalidatePath("/instellingen");
+  revalidatePath("/team/dm-chief");
+
+  if (result.error) return { ok: false, message: result.error };
+  return {
+    ok: true,
+    message:
+      result.handled === 0
+        ? "Geen nieuwe berichten."
+        : `${result.handled} bericht(en) verwerkt — de Head heeft geantwoord.`,
+  };
+}

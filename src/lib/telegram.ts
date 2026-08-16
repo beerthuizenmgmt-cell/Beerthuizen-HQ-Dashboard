@@ -137,6 +137,99 @@ export async function resolveChatId(): Promise<{ ok: boolean; message: string; c
   }
 }
 
+/// Haalt nieuwe Telegram-berichten op en laat de Head erop antwoorden.
+///
+/// Waarom ophalen en niet wachten op een webhook: Telegram kan localhost niet
+/// bereiken. Zodra het dashboard online staat werkt de webhook ook, maar deze
+/// route werkt altijd — ook vanaf je eigen Mac.
+export async function pollUpdates(): Promise<{ handled: number; error?: string }> {
+  const config = await getTelegramConfig();
+  if (!config.botToken || !config.chatId) return { handled: 0, error: "Telegram is nog niet gekoppeld." };
+
+  const setting = await db.setting.findUnique({ where: { key: SETTING_KEY } });
+  const stored = (setting?.value ?? {}) as Record<string, unknown>;
+  const offset = typeof stored.updateOffset === "number" ? stored.updateOffset : undefined;
+
+  try {
+    const updates = await call<
+      { update_id: number; message?: { text?: string; chat?: { id?: number }; from?: { is_bot?: boolean } } }[]
+    >(config.botToken, "getUpdates", offset ? { offset } : {});
+
+    if (updates.length === 0) return { handled: 0 };
+
+    const chief = await db.agent.findFirst({ where: { isChief: true } });
+    let handled = 0;
+    let highest = offset ?? 0;
+
+    for (const update of updates) {
+      highest = Math.max(highest, update.update_id);
+
+      const text = update.message?.text?.trim();
+      const from = update.message?.chat?.id;
+      // Alleen jouw eigen chat, en geen berichten van bots.
+      if (!text || !chief || String(from) !== config.chatId || update.message?.from?.is_bot) continue;
+
+      await handleIncoming(chief.id, text);
+      handled += 1;
+    }
+
+    // Offset één hoger, anders krijg je dezelfde berichten opnieuw.
+    await db.setting.upsert({
+      where: { key: SETTING_KEY },
+      update: { value: { ...stored, updateOffset: highest + 1 } },
+      create: { key: SETTING_KEY, value: { ...stored, updateOffset: highest + 1 } },
+    });
+
+    return { handled };
+  } catch (error) {
+    return { handled: 0, error: error instanceof Error ? error.message : "Ophalen mislukt." };
+  }
+}
+
+/// Eén binnengekomen bericht: vastleggen, de Head laten nadenken, en zijn
+/// antwoord terugsturen. Zo kun je vanaf je telefoon gewoon met hem praten.
+export async function handleIncoming(chiefId: string, text: string): Promise<void> {
+  const channel = await db.channel.findUnique({ where: { agentId: chiefId } });
+
+  if (channel) {
+    await db.message.create({
+      data: {
+        channelId: channel.id,
+        fromType: "user",
+        toAgentId: chiefId,
+        body: text,
+        delivery: "delivered",
+      },
+    });
+  }
+
+  const { runAgent } = await import("./ai/run");
+  const result = await runAgent({
+    agentId: chiefId,
+    input: `Enriqueo stuurt je dit via Telegram:\n\n${text}\n\nAntwoord kort en direct — dit leest hij op zijn telefoon.`,
+    trigger: "message",
+    reason: "bericht via Telegram",
+  });
+
+  const reply = result.ok
+    ? result.text
+    : `Ik kon hier niet op antwoorden: ${result.error}`;
+
+  if (channel) {
+    await db.message.create({
+      data: {
+        channelId: channel.id,
+        fromType: "agent",
+        fromAgentId: chiefId,
+        body: reply,
+        delivery: "delivered",
+      },
+    });
+  }
+
+  await sendTelegram(reply);
+}
+
 /// Stuurt een bericht namens de Head of Operations.
 export async function sendTelegram(text: string): Promise<{ ok: boolean; error?: string }> {
   const config = await getTelegramConfig();

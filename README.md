@@ -174,3 +174,12 @@ niet terugkomt.
 
 Akkoord geven voert de actie hier niet zelf uit: er is nog geen koppeling die namens het bureau kan
 mailen of publiceren. Zodra die er is, voert die het uit op basis van dit akkoord.
+
+## Terugpraten via Telegram
+
+Stuur de bot een bericht en de Head of Operations leest het, denkt erover na met de bedrijfscontext
+en de stand van zaken erbij, en antwoordt in Telegram. Het gesprek staat ook in zijn DM-kanaal in het
+dashboard, zodat je later kunt terugzoeken wat er is afgesproken.
+
+Lokaal moet je op **Nieuwe berichten ophalen** klikken: Telegram kan je eigen Mac niet bereiken.
+Zodra het dashboard online staat gaat dat vanzelf via de webhook.

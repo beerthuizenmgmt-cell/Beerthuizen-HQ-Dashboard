@@ -1,7 +1,13 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { connectBot, findMyChat, sendTestMessage, type TelegramState } from "@/lib/actions/telegram";
+import {
+  checkTelegram,
+  connectBot,
+  findMyChat,
+  sendTestMessage,
+  type TelegramState,
+} from "@/lib/actions/telegram";
 
 const initial: TelegramState = {};
 
@@ -102,22 +108,40 @@ export function TelegramSettings({
       )}
 
       {ready && (
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            className="btn btn-ghost"
-            disabled={busy}
-            onClick={() =>
-              startTransition(async () => {
-                setFeedback(await sendTestMessage());
-              })
-            }
-          >
-            {busy ? "Versturen…" : "Stuur een proefbericht"}
-          </button>
-          <span className="text-xs text-text-muted">
-            Hier komt het ochtendrapport, urgente problemen en verzoeken om akkoord.
-          </span>
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-ghost"
+              disabled={busy}
+              onClick={() =>
+                startTransition(async () => {
+                  setFeedback(await sendTestMessage());
+                })
+              }
+            >
+              {busy ? "Bezig…" : "Stuur een proefbericht"}
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={busy}
+              onClick={() =>
+                startTransition(async () => {
+                  setFeedback(await checkTelegram());
+                })
+              }
+            >
+              {busy ? "Bezig…" : "Nieuwe berichten ophalen"}
+            </button>
+          </div>
+
+          <p className="text-xs text-text-muted">
+            Stuur de bot een bericht en klik op ophalen — de Head leest het, denkt na en antwoordt in
+            Telegram. Zolang het dashboard lokaal draait moet dat handmatig: Telegram kan je eigen Mac
+            niet bereiken. Online gaat dat vanzelf.
+          </p>
         </div>
       )}
 

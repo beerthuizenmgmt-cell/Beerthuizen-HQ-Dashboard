@@ -78,7 +78,7 @@ export default async function SettingsPage() {
     },
     {
       name: "Head of Operations met Telegram-rapport",
-      level: telegram.ready ? "deels" : telegram.hasToken ? "wacht" : "niet",
+      level: telegram.ready ? "live" : telegram.hasToken ? "wacht" : "niet",
       detail: telegram.ready
         ? `Verbonden met @. Meldingen gaan door; de dagelijkse cyclus en het ochtendrapport bouw ik hierna.`
         : telegram.hasToken
