@@ -343,7 +343,17 @@ export default async function AgentDossierPage({ params }: PageProps<"/agents/[i
         <ul className="mt-3 divide-y divide-border text-sm">
           {dossier.gereedschap.map((tool) => (
             <li key={tool.toolKey} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span>{tool.naam}</span>
+              <span>
+                {tool.naam}
+                {tool.permissie && (
+                  <span className="ml-2 chip text-xs">mag {tool.permissie}</span>
+                )}
+                {tool.laatstGebruikt && (
+                  <span className="ml-2 text-xs text-text-faint">
+                    laatst gebruikt {timeAgo(tool.laatstGebruikt)}
+                  </span>
+                )}
+              </span>
               <span className="text-xs">
                 {tool.ingebouwd ? (
                   <span className="text-success">ingebouwd</span>
@@ -364,7 +374,12 @@ export default async function AgentDossierPage({ params }: PageProps<"/agents/[i
         </ul>
         <p className="mt-3 border-t border-border pt-3 text-xs text-text-muted">
           Een koppeling hier geldt alleen voor {agent.name}. De rest van het team krijgt hem niet
-          automatisch.
+          automatisch.{" "}
+          {user.role === "owner" && (
+            <Link href="/tools" className="underline">
+              Koppelen en rechten instellen
+            </Link>
+          )}
         </p>
       </section>
 

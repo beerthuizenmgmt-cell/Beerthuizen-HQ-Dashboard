@@ -29,10 +29,37 @@ export type ToolField = {
   help?: string;
 };
 
+/// De toolboxen zoals ze bij Beerthuizen Management heten. Eén tool zit in één
+/// box; waar hij thuishoort bepaalt waar je hem zoekt, niet wie hem mag.
+export type ToolCategory =
+  | "creatief"
+  | "content"
+  | "onderzoek"
+  | "monitoring"
+  | "data"
+  | "sales"
+  | "financieel"
+  | "automatisering"
+  | "communicatie"
+  | "overig";
+
+export const CATEGORIE_LABELS: Record<ToolCategory, string> = {
+  creatief: "Creative",
+  content: "Content & copy",
+  onderzoek: "Research & SEO",
+  monitoring: "Monitoring & intelligence",
+  data: "Data & analytics",
+  sales: "Sales & commercieel",
+  financieel: "Financieel",
+  automatisering: "Automatisering",
+  communicatie: "Communicatie",
+  overig: "Overig",
+};
+
 export type ToolCatalogEntry = {
   key: string;
   name: string;
-  category: "creatief" | "data" | "onderzoek" | "communicatie" | "overig";
+  category: ToolCategory;
   description: string;
   /// Bij welke agents dit voor de hand ligt — puur als suggestie in de UI.
   suggestedFor: string[];
@@ -316,6 +343,306 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
       { name: "address", label: "E-mailadres", type: "text", required: true },
       { name: "password", label: "Wachtwoord", type: "password", required: true, secret: true },
     ],
+  ),
+  planned(
+    "surfer",
+    "Surfer SEO",
+    "onderzoek",
+    "Contentbriefings en SEO-analyses. Wordt ook gebruikt om copy te toetsen voordat die de deur uit gaat.",
+    ["research", "creative", "social", "bizdev"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "semrush",
+    "Semrush",
+    "onderzoek",
+    "Zoekwoorden, concurrentieposities en zichtbaarheid in zoekmachines.",
+    ["research", "analytics"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "ahrefs",
+    "Ahrefs",
+    "onderzoek",
+    "Backlinks, verkeersschattingen en concurrentieonderzoek.",
+    ["research", "analytics"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "paradigma_ai",
+    "Paradigma AI",
+    "onderzoek",
+    "Marktsignalen en trendonderzoek.",
+    ["research"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "google_search",
+    "Google & web research",
+    "onderzoek",
+    "Openbare bronnen doorzoeken. Vult web_fetch aan, dat één pagina leest.",
+    ["research", "bizdev"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "brand24",
+    "Brand24",
+    "monitoring",
+    "Vermeldingen van merken, campagnes en concurrenten volgen.",
+    ["research", "analytics", "chief", "influencer", "social", "bizdev"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "browse_ai",
+    "Browse AI",
+    "monitoring",
+    "Pagina's automatisch uitlezen en wijzigingen signaleren. Handig om concurrenten te volgen zonder handwerk.",
+    ["chief", "research", "analytics", "operations", "influencer", "bizdev"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "fullstory",
+    "FullStory",
+    "monitoring",
+    "Gedrag van bezoekers terugkijken: waar haken mensen af.",
+    ["chief", "analytics", "operations"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "meta",
+    "Meta",
+    "data",
+    "Pagina's, campagnes en advertentieresultaten van Facebook en Instagram.",
+    ["analytics", "influencer", "social", "research"],
+    [
+      { name: "accessToken", label: "Access token", type: "password", required: true, secret: true },
+      { name: "accountId", label: "Account-ID", type: "text", required: false },
+    ],
+  ),
+  planned(
+    "tiktok",
+    "TikTok",
+    "data",
+    "Bereik, views en engagement van TikTok-content.",
+    ["analytics", "social", "influencer"],
+    [
+      { name: "accessToken", label: "Access token", type: "password", required: true, secret: true },
+      { name: "accountId", label: "Account-ID", type: "text", required: false },
+    ],
+  ),
+  planned(
+    "youtube",
+    "YouTube",
+    "data",
+    "Kijkcijfers, kijktijd en engagement van video's.",
+    ["analytics", "social", "influencer"],
+    [
+      { name: "accessToken", label: "Access token", type: "password", required: true, secret: true },
+      { name: "accountId", label: "Account-ID", type: "text", required: false },
+    ],
+  ),
+  planned(
+    "influencity",
+    "Influencity",
+    "data",
+    "Creatorprofielen, bereik, doelgroepoverlap en campagneresultaten.",
+    ["influencer", "analytics", "bizdev"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "algolia",
+    "Algolia",
+    "data",
+    "Zoeken door je eigen gegevens: campagnes, creators, documenten.",
+    ["operations", "analytics", "chief"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "campaign_intelligence",
+    "Campaign Intelligence",
+    "data",
+    "Eigen campagnedatabase: wat er gedraaid heeft en wat het opleverde.",
+    ["influencer", "analytics"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "photoroom",
+    "Photoroom",
+    "creatief",
+    "Productbeelden vrijstaand maken en achtergronden vervangen.",
+    ["creative", "social"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "kling_ai",
+    "Kling AI",
+    "creatief",
+    "Video genereren vanuit een concept of still.",
+    ["creative", "social"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "v0",
+    "v0",
+    "creatief",
+    "Werkende schermen en prototypes genereren vanuit een beschrijving.",
+    ["creative", "operations"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "lexica",
+    "Lexica",
+    "creatief",
+    "Beeld zoeken en genereren voor moodboards en concepten.",
+    ["creative"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "midjourney",
+    "Midjourney",
+    "creatief",
+    "Beeld genereren voor concepten, moodboards en social.",
+    ["creative", "social"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "higgsfield",
+    "Higgsfield",
+    "creatief",
+    "Bewegend beeld genereren voor social formats.",
+    ["creative", "social"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "ai_arcade",
+    "AI Arcade",
+    "creatief",
+    "Verzameling beeld- en videogereedschap voor concepten.",
+    ["creative"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "brandwell",
+    "Brandwell",
+    "creatief",
+    "Merkgestuurde content en visuals produceren.",
+    ["creative", "social"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "writer_com",
+    "Writer.com",
+    "content",
+    "Copy schrijven binnen een vastgelegde merkstem.",
+    ["creative", "social", "bizdev", "research"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "grammarly",
+    "Grammarly",
+    "content",
+    "Taal- en stijlcontrole voordat tekst de deur uit gaat.",
+    ["creative", "social", "bizdev"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "jasper",
+    "Jasper",
+    "content",
+    "Campagnecopy, hooks en varianten genereren.",
+    ["creative", "social", "bizdev"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "copy_ai",
+    "Copy.ai",
+    "content",
+    "Snel copyvarianten maken om uit te kiezen.",
+    ["creative", "social", "bizdev"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "contentshake",
+    "ContentShake",
+    "content",
+    "Contentideeën en artikelen vanuit zoekdata.",
+    ["creative", "social", "research"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "hubspot_ai",
+    "HubSpot AI",
+    "sales",
+    "Contacten, deals en opvolging. Berichten blijven altijd voorbereid tot jij akkoord geeft.",
+    ["bizdev", "chief"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "reply_io",
+    "Reply.io",
+    "sales",
+    "Opvolgreeksen voorbereiden. Versturen blijft aan jou.",
+    ["bizdev"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "albert_ai",
+    "Albert.ai",
+    "sales",
+    "Campagnes op advertentienetwerken sturen en optimaliseren.",
+    ["bizdev", "analytics"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "linkedin",
+    "LinkedIn",
+    "sales",
+    "Bedrijven en beslissers opzoeken voor prospectonderzoek.",
+    ["bizdev", "research"],
+    [
+      { name: "accessToken", label: "Access token", type: "password", required: true, secret: true },
+      { name: "accountId", label: "Account-ID", type: "text", required: false },
+    ],
+  ),
+  planned(
+    "userbot_ai",
+    "Userbot.ai",
+    "sales",
+    "Chat- en gespreksautomatisering richting geïnteresseerden.",
+    ["bizdev", "chief"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "boekhouding",
+    "Boekhoudsysteem",
+    "financieel",
+    "Grootboek, facturen en betaalstatus uitlezen.",
+    ["finance"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "facturatie",
+    "Facturatiesysteem",
+    "financieel",
+    "Facturen opstellen en de status ervan volgen. Versturen blijft approval.",
+    ["finance"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "crm",
+    "CRM",
+    "financieel",
+    "Klantgegevens en contactmomenten, zodra je een CRM kiest.",
+    ["bizdev", "finance", "influencer"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
+  ),
+  planned(
+    "automations",
+    "Automations / workflow-engine",
+    "automatisering",
+    "Terugkerend werk laten lopen via Make, Zapier of n8n. Werkt vandaag al via de eigen webhook.",
+    ["chief", "operations", "analytics"],
+    [{ name: "apiKey", label: "API-sleutel", type: "password", required: true, secret: true }],
   ),
 ];
 

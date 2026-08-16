@@ -41,6 +41,10 @@ export type Dossier = {
     fout: string | null;
     /// Ingebouwd gereedschap heeft geen koppeling nodig.
     ingebouwd: boolean;
+    /// Wat deze agent hiermee mag. Leeg bij ingebouwd gereedschap: daarvoor
+    /// gelden zijn algemene permissies uit het functieprofiel.
+    permissie: string | null;
+    laatstGebruikt: Date | null;
   }[];
   vandaag: {
     runs: number;
@@ -125,6 +129,8 @@ export async function buildDossier(agentId: string): Promise<Dossier> {
     ingeschakeld: true,
     fout: null,
     ingebouwd: true,
+    permissie: null,
+    laatstGebruikt: null,
   }));
 
   // Wat het functieprofiel vraagt, ook als het nog niet gekoppeld is — anders
@@ -143,6 +149,8 @@ export async function buildDossier(agentId: string): Promise<Dossier> {
       ingeschakeld: koppeling?.enabled ?? false,
       fout: koppeling?.lastError ?? null,
       ingebouwd: false,
+      permissie: koppeling?.permission ?? null,
+      laatstGebruikt: koppeling?.lastUsedAt ?? null,
     });
   }
 

@@ -744,15 +744,64 @@ model AgentTool {
 
   enabled Boolean @default(true)
 
+  /// Wat deze agent met deze tool mag. Bewust per koppeling en niet per tool:
+  /// dezelfde Canva mag voor de Creative Director schrijven en voor Analytics
+  /// alleen leesbaar zijn.
+  ///
+  /// lezen       — ophalen en bekijken, verandert niets
+  /// voorstellen — mag iets klaarzetten, maar het gaat pas door na akkoord
+  /// schrijven   — mag zelfstandig wijzigen binnen die tool
+  permission ToolPermission @default(lezen)
+
   /// Uitkomst van de laatste verbindingstest.
   lastCheckedAt DateTime?
   lastError     String?
+
+  /// Wanneer een agent deze tool voor het laatst echt gebruikte. Laat zien wat
+  /// leeft en wat er alleen maar bij staat.
+  lastUsedAt DateTime?
+  useCount   Int       @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([agentId, toolKey])
   @@index([agentId])
+}
+
+enum ToolPermission {
+  lezen
+  voorstellen
+  schrijven
+}
+
+/// Wat er op tool-niveau geldt, los van wie hem gebruikt.
+///
+/// Een tool kan aan drie agents hangen maar één abonnement hebben, één
+/// API-status en één maandbedrag. Dat hoort hier, niet drie keer in AgentTool.
+model ToolIntegration {
+  id      String @id @default(cuid())
+  toolKey String @unique
+
+  /// Of deze tool überhaupt in gebruik is bij Beerthuizen Management. Staat hij
+  /// uit, dan kan geen enkele agent hem koppelen.
+  enabled Boolean @default(true)
+
+  /// Wat jij per maand voor dit platform betaalt. Handmatig ingevoerd — dit is
+  /// abonnementsgeld dat nergens automatisch uit af te leiden valt. Leeg
+  /// betekent onbekend, nooit nul.
+  monthlyCostEur Float?
+
+  /// Vrije aantekening: welk account, welk abonnement, wat er nog moet.
+  notes String?
+
+  /// Laatste keer dat de verbinding met succes getest is.
+  lastTestAt DateTime?
+  lastTestOk Boolean?
+  lastTestError String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 /// Een onderwerp dat een agent in de gaten houdt. De kern van het
