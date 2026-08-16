@@ -27,10 +27,13 @@ async function main() {
 
   // Identiteit
   console.log("IDENTITEIT");
-  daan.avatarUrl ? ok("gezicht ingesteld") : wacht("nog geen gezicht");
-  daan.systemPrompt ? ok("eigen profieltekst") : wacht("geen eigen profieltekst");
+  if (daan.avatarUrl) ok("gezicht ingesteld");
+  else wacht("nog geen gezicht");
+  if (daan.systemPrompt) ok("eigen profieltekst");
+  else wacht("geen eigen profieltekst");
   ok(`autonomie via maxToolCalls: ${daan.maxToolCalls} denkbeurten per opdracht`);
-  daan.paused ? wacht("staat op pauze") : ok("niet gepauzeerd");
+  if (daan.paused) wacht("staat op pauze");
+  else ok("niet gepauzeerd");
 
   // Signalen
   const watches = await db.agentWatch.findMany({ where: { agentId: daan.id } });
@@ -51,7 +54,8 @@ async function main() {
   console.log("\nGEREEDSCHAP");
   ok("ingebouwd: taken, kanalen, goedkeuring, bevinding, onthouden, collega bevragen");
   for (const tool of tools) {
-    tool.enabled ? ok(`gekoppeld: ${tool.label ?? tool.toolKey}`) : wacht(`uit: ${tool.toolKey}`);
+    if (tool.enabled) ok(`gekoppeld: ${tool.label ?? tool.toolKey}`);
+    else wacht(`uit: ${tool.toolKey}`);
   }
 
   // Geheugen
@@ -59,9 +63,8 @@ async function main() {
     where: { agentId: daan.id, archivedAt: null },
   });
   console.log("\nGEHEUGEN");
-  memories.length
-    ? ok(`${memories.length} herinneringen, waarvan ${memories.filter((m) => m.pinned).length} vastgezet`)
-    : wacht("leeg");
+  if (memories.length) ok(`${memories.length} herinneringen, waarvan ${memories.filter((m) => m.pinned).length} vastgezet`);
+  else wacht("leeg");
 
   // Telegram
   console.log("\nTELEGRAM");
@@ -70,19 +73,21 @@ async function main() {
     | undefined;
   const heeftToken = Boolean(telegram?.botToken);
   const heeftChat = Boolean(telegram?.chatId);
-  heeftToken ? ok("bottoken aanwezig") : wacht("bottoken ontbreekt — zelf invoeren via Instellingen");
-  heeftChat ? ok(`chat bekend (${telegram!.chatId})`) : wacht("chat-ID onbekend");
+  if (heeftToken) ok("bottoken aanwezig");
+  else wacht("bottoken ontbreekt — zelf invoeren via Instellingen");
+  if (heeftChat) ok(`chat bekend (${telegram!.chatId})`);
+  else wacht("chat-ID onbekend");
   if (telegram?.botUsername) ok(`bot: @${telegram.botUsername}`);
-  heeftToken && heeftChat
-    ? ok("de lijn kan berichten versturen")
-    : wacht("de lijn is nog niet compleet — het rapport blijft dan in het dashboard staan");
+  if (heeftToken && heeftChat) ok("de lijn kan berichten versturen");
+  else wacht("de lijn is nog niet compleet — het rapport blijft dan in het dashboard staan");
 
   // AI en kosten
   console.log("\nAI EN KOSTEN");
   const ai = (await db.setting.findUnique({ where: { key: "ai" } }))?.value as
     | Record<string, unknown>
     | undefined;
-  ai?.apiKey ? ok("API-sleutel aanwezig") : wacht("API-sleutel ontbreekt — zonder dit kan hij niet denken");
+  if (ai?.apiKey) ok("API-sleutel aanwezig");
+  else wacht("API-sleutel ontbreekt — zonder dit kan hij niet denken");
   ok(`aanbieder ${ai?.provider ?? "—"}, model ${ai?.defaultModel ?? "—"}`);
 
   const runs = await db.agentRun.findMany({
@@ -101,18 +106,20 @@ async function main() {
   }
 
   const prijzen = await db.modelPrice.count();
-  prijzen > 0
-    ? ok(`${prijzen} modeltarieven bekend — kosten worden per run berekend`)
-    : wacht("geen modeltarieven bekend; kosten komen dan van de aanbieder zelf of blijven onbekend");
+  if (prijzen > 0) ok(`${prijzen} modeltarieven bekend — kosten worden per run berekend`);
+  else wacht("geen modeltarieven bekend; kosten komen dan van de aanbieder zelf of blijven onbekend");
 
   // Ochtendrapport
   console.log("\nOCHTENDRAPPORT");
   const laatste = (await db.setting.findUnique({ where: { key: "last_head_report" } }))?.value as
     | { at?: string; usedAi?: boolean }
     | undefined;
-  laatste?.at
-    ? ok(`laatste rapport ${new Date(laatste.at).toLocaleString("nl-NL")}${laatste.usedAi ? " (met AI)" : " (zonder AI — er was niets nieuws)"}`)
-    : wacht("nog geen rapport gedraaid");
+  if (laatste?.at) {
+    const wanneer = new Date(laatste.at).toLocaleString("nl-NL");
+    ok(`laatste rapport ${wanneer}${laatste.usedAi ? " (met AI)" : " (zonder AI — er was niets nieuws)"}`);
+  } else {
+    wacht("nog geen rapport gedraaid");
+  }
 
   const cron = process.env.CRON_SECRET ? "beveiligd" : "GEEN CRON_SECRET";
   console.log(`  ${process.env.CRON_SECRET ? "🟢" : "🔴"} cron-route ${cron}`);

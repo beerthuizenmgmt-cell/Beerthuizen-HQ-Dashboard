@@ -1,12 +1,11 @@
 import type { Charter } from "./charters";
 
-// Voorstellen voor agent 2 tot en met 9.
+// De functieprofielen van agent 2 tot en met 8.
 //
-// Dit zijn functieprofielen die klaarliggen ter beoordeling. Ze staan bewust op
-// `status: "voorstel"`: ze zijn zichtbaar in het dossier en in het
-// opbouwoverzicht, maar ze gaan niet mee in het systeemprompt en veranderen dus
-// niets aan hoe een agent zich gedraagt. Pas als Enriqueo akkoord geeft, gaat
-// er één op "actief".
+// Deze stonden eerst als voorstel klaar; op 16 augustus 2026 heeft Enriqueo ze
+// alle zeven geactiveerd. Ze gaan nu mee in het systeemprompt en sturen dus
+// echt gedrag aan. Een profiel aanpassen betekent daarmee: het werk van die
+// agent aanpassen.
 //
 // Elke KPI hieronder is bewust zo gekozen dat hij uit echte gegevens te
 // berekenen valt. Waar dat nog niet kan — omdat de koppeling met Meta of
@@ -14,7 +13,7 @@ import type { Charter } from "./charters";
 
 const FLEUR: Charter = {
   agentKey: "influencer",
-  status: "voorstel",
+  status: "actief",
   missie:
     "Influencer- en creatorcampagnes van begin tot eind laten lopen, zodat merken de juiste creators krijgen en creators een campagne die klopt.",
 
@@ -126,7 +125,7 @@ const FLEUR: Charter = {
 
 const MILA: Charter = {
   agentKey: "analytics",
-  status: "voorstel",
+  status: "actief",
   missie:
     "Van cijfers naar besluiten: laten zien wat werkt, wat niet werkt en wat het bureau daaraan moet doen.",
 
@@ -227,7 +226,7 @@ const MILA: Charter = {
 
 const SANNE: Charter = {
   agentKey: "research",
-  status: "voorstel",
+  status: "actief",
   missie:
     "Zorgen dat Beerthuizen Management beter geïnformeerd aan tafel zit dan de concurrent — over markt, merken en creators.",
 
@@ -314,7 +313,7 @@ const SANNE: Charter = {
 
 const JESSE: Charter = {
   agentKey: "creative",
-  status: "voorstel",
+  status: "actief",
   missie: "Concepten bedenken die passen bij het merk én bij het platform waarop ze landen.",
 
   verantwoordelijkheden: [
@@ -392,7 +391,7 @@ const JESSE: Charter = {
 
 const NOOR: Charter = {
   agentKey: "social",
-  status: "voorstel",
+  status: "actief",
   missie: "Zorgen dat er op elk kanaal op het juiste moment het juiste staat.",
 
   verantwoordelijkheden: [
@@ -472,7 +471,7 @@ const NOOR: Charter = {
 
 const BRAM: Charter = {
   agentKey: "operations",
-  status: "voorstel",
+  status: "actief",
   missie: "Zorgen dat het werk soepel door de organisatie loopt en niemand op iemand hoeft te wachten.",
 
   verantwoordelijkheden: [
@@ -548,7 +547,7 @@ const BRAM: Charter = {
 
 const LARS: Charter = {
   agentKey: "bizdev",
-  status: "voorstel",
+  status: "actief",
   missie: "Nieuwe samenwerkingen voorbereiden, zodat Enriqueo alleen nog het gesprek hoeft te voeren.",
 
   verantwoordelijkheden: [

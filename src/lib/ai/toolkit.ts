@@ -1,5 +1,7 @@
 import "server-only";
 
+import { GEBOUWD_GEREEDSCHAP } from "./tool-keys";
+
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { db } from "@/lib/db";
@@ -316,6 +318,22 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
     ],
   ),
 ];
+
+// Onderhoudsscripts kunnen dit bestand niet lezen — het is server-only. Zij
+// gebruiken tool-keys.ts. Deze controle draait bij het opstarten en piept
+// zodra de twee lijsten uiteenlopen, zodat een script nooit een koppeling
+// aanzet die hier niet bestaat.
+{
+  const echtGebouwd = TOOL_CATALOG.filter((entry) => entry.implemented)
+    .map((entry) => entry.key)
+    .sort();
+  const beloofd = [...GEBOUWD_GEREEDSCHAP].sort();
+  if (echtGebouwd.join(",") !== beloofd.join(",")) {
+    console.warn(
+      `[toolkit] tool-keys.ts loopt uit de pas: gebouwd is [${echtGebouwd}], daar staat [${beloofd}]`,
+    );
+  }
+}
 
 export function getToolEntry(key: string): ToolCatalogEntry | undefined {
   return TOOL_CATALOG.find((entry) => entry.key === key);
