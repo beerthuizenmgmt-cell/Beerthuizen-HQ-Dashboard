@@ -237,6 +237,18 @@ export async function runAgent(options: {
         });
       }
 
+      // Eén ronde voor het einde waarschuwen. De afrondingsronde heeft geen
+      // gereedschap meer, dus wie dan nog iets moet vastleggen is te laat —
+      // dat kostte een onderzoek van veertig seconden dat nergens terechtkwam.
+      if (round === rounds - 2) {
+        messages.push({
+          role: "user",
+          content:
+            "Je hebt nog één ronde gereedschap. Leg nu vast wat vastgelegd moet worden — " +
+            "onderzoek, bevindingen, taken — daarna kun je alleen nog antwoorden.",
+        });
+      }
+
       // Laatste ronde en nog steeds gereedschap? Dan vragen we om een afronding.
       if (round === rounds - 1) {
         messages.push({
