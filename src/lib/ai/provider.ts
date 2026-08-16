@@ -171,14 +171,20 @@ export function assertUsableApiKey(apiKey: string): void {
 }
 
 /// Wat er mis is met de opgeslagen sleutel, in gewone taal. Null betekent: die
-/// is bruikbaar. Geeft nooit de sleutel zelf terug, alleen wat eraan mankeert.
+/// is bruikbaar. Geeft nooit een wérkende sleutel terug.
+///
+/// Bij een kapotte sleutel tonen we wél het begin ervan. Dat is geen geheim —
+/// hij werkt aantoonbaar niet — en zonder dat kun je alleen maar raden wat er
+/// per ongeluk in het veld beland is.
 export function keyProbleem(apiKey: string | null): string | null {
   if (!apiKey) return null;
   try {
     assertUsableApiKey(apiKey);
     return null;
   } catch (error) {
-    return error instanceof Error ? error.message : "Deze sleutel is niet bruikbaar.";
+    const melding = error instanceof Error ? error.message : "Deze sleutel is niet bruikbaar.";
+    const begin = apiKey.slice(0, 40).replace(/\s+/g, " ");
+    return `${melding} Wat er nu staat begint met: "${begin}…"`;
   }
 }
 
