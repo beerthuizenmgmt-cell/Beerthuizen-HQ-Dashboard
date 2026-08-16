@@ -72,9 +72,9 @@ export default async function SettingsPage() {
     },
     {
       name: "Goedkeuringen voor externe acties",
-      level: "deels",
+      level: "live",
       detail:
-        "Agents kunnen een actie ter goedkeuring aanbieden en dat wordt vastgelegd; het beslisscherm bouw ik hierna.",
+        "Agents bieden externe acties ter goedkeuring aan en jij beslist op /goedkeuringen. Akkoord wordt een taak; afwijzen stuurt je uitleg naar de agent.",
     },
     {
       name: "Head of Operations met Telegram-rapport",

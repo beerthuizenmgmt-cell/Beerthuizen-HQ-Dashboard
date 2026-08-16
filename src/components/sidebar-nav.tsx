@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/overleg", label: "Overleg", icon: "☀" },
   { href: "/agenda", label: "Agenda", icon: "▦" },
   { href: "/taken", label: "Taken", icon: "☑" },
+  { href: "/goedkeuringen", label: "Goedkeuringen", icon: "✓" },
   { href: "/team", label: "Team", icon: "💬" },
   { href: "/agents", label: "Agents", icon: "◉" },
   { href: "/monitoring", label: "Monitoring", icon: "◎" },

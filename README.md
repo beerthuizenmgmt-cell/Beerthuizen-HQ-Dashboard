@@ -161,3 +161,16 @@ jij hem bevestigt staat hij apart en telt hij nergens in mee.
 
 **Proefdraaien.** `/proefdraaien` laat één agent één opdracht uitvoeren zonder gereedschap: alleen
 denken en antwoorden, niets naar buiten. Daarna zie je de echte tokens, kosten en duur.
+
+## Goedkeuringen
+
+Alles wat naar buiten gaat, geld kost of de reputatie raakt loopt via `/goedkeuringen`. Een agent
+bereidt de actie volledig voor met het gereedschap `vraag_goedkeuring` — ontvanger, onderwerp,
+complete tekst, bedrag — en biedt hem aan. Jij ziet wat er klaarstaat en beslist.
+
+**Akkoord** legt de beslissing vast en maakt er een taak van bij de agent die het vroeg, met jouw
+opmerking erbij. **Niet doen** stuurt je uitleg naar zijn DM-kanaal, zodat hetzelfde verzoek morgen
+niet terugkomt.
+
+Akkoord geven voert de actie hier niet zelf uit: er is nog geen koppeling die namens het bureau kan
+mailen of publiceren. Zodra die er is, voert die het uit op basis van dit akkoord.
