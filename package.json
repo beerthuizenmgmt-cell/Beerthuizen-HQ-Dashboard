@@ -14,7 +14,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "backup": "bash scripts/backup.sh",
-    "restore": "bash scripts/restore.sh"
+    "restore": "bash scripts/restore.sh",
+    "export": "tsx scripts/export-data.mts",
+    "import": "tsx scripts/import-data.mts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
