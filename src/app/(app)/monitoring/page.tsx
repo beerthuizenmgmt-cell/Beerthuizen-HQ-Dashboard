@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireOwner } from "@/lib/access";
 import { MonitoringPanel } from "@/components/monitoring-panel";
 import { getLastReport } from "@/lib/ai/head";
 import { formatDateTime, timeAgo } from "@/lib/format";
@@ -8,7 +8,7 @@ import { AgentAvatar } from "@/components/agent-avatar";
 export const dynamic = "force-dynamic";
 
 export default async function MonitoringPage() {
-  await requireUser();
+  await requireOwner();
 
   const [watches, runs, insights, lastReport, signalAgents] = await Promise.all([
     db.agentWatch.findMany({

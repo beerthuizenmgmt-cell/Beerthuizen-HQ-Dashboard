@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireOwner } from "@/lib/access";
 import { ApprovalCard } from "@/components/approval-card";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { formatDateTime, timeAgo } from "@/lib/format";
@@ -15,7 +15,7 @@ const STATUS_STYLE: Record<string, { label: string; color: string }> = {
 };
 
 export default async function ApprovalsPage() {
-  await requireUser();
+  await requireOwner();
 
   const agentSelect = { name: true, emoji: true, color: true, avatarUrl: true } as const;
 

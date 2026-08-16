@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
-import { createSession, destroySession, verifyPassword } from "@/lib/auth";
+import { createSession, destroySession, getCurrentUser, verifyPassword } from "@/lib/auth";
+import { audit } from "@/lib/access";
 import { rateLimit } from "@/lib/rate-limit";
 
 export type LoginState = { error?: string };
@@ -30,10 +31,13 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
   }
 
   await createSession(user.id);
+  await audit(user, "login", `Ingelogd vanaf ${forwarded ?? "lokaal"}`);
   redirect("/hq");
 }
 
 export async function logout() {
+  const user = await getCurrentUser();
+  if (user) await audit(user, "logout");
   await destroySession();
   redirect("/login");
 }

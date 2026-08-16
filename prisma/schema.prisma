@@ -19,8 +19,35 @@ datasource db {
 // ============================================================
 
 enum UserRole {
+  /// Enriqueo: alles, inclusief sleutels, budget en goedkeuringen.
   owner
+  /// Dagelijkse kantooromgeving, zonder instellingen en zonder geldzaken.
   member
+}
+
+/// Wie heeft wat gedaan. Bewust apart van de activiteitenfeed: die gaat over
+/// wat de agents doen, dit gaat over wat mensen doen.
+model AuditLog {
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// Naam op het moment van handelen, zodat de regel leesbaar blijft als een
+  /// account later wordt hernoemd of verwijderd.
+  userName String
+  userRole UserRole
+
+  /// login | logout | task_create | approval_decide | agent_update | …
+  action String
+  detail String?
+
+  targetType String?
+  targetId   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model User {
@@ -36,6 +63,7 @@ model User {
   messages         Message[]
   decidedAdvice    AdAdvice[]
   decidedApprovals Approval[]
+  auditLogs        AuditLog[]
 }
 
 enum AgentStatus {

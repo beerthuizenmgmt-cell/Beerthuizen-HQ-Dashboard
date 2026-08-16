@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireOwner } from "@/lib/access";
 import { getAiStatus } from "@/lib/ai/provider";
 import { TestRun } from "@/components/test-run";
 import { timeAgo } from "@/lib/format";
@@ -9,7 +9,7 @@ import { AgentAvatar } from "@/components/agent-avatar";
 export const dynamic = "force-dynamic";
 
 export default async function TestRunPage() {
-  await requireUser();
+  await requireOwner();
 
   const [agents, config, recent] = await Promise.all([
     db.agent.findMany({

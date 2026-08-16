@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireOwner } from "@/lib/access";
 import { InstanceManager } from "@/components/instance-manager";
 import { AiSettings, FinanceSettings, ContextSettings } from "@/components/ai-settings";
 import { SystemStatus, type StatusItem } from "@/components/system-status";
@@ -13,7 +13,7 @@ import { isRecent } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const user = await requireUser();
+  const user = await requireOwner();
 
   const [instances, standup, alerts] = await Promise.all([
     db.instance.findMany({

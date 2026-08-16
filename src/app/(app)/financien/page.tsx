@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireOwner } from "@/lib/access";
 import { getAiStatus } from "@/lib/ai/provider";
 import { getFinanceSettings, monthRange, providerBalance } from "@/lib/ai/cost";
 import { dayKey, fromDayKey, startOfWeek } from "@/lib/format";
@@ -30,7 +30,7 @@ const TRIGGER_LABELS: Record<string, string> = {
 };
 
 export default async function FinancePage() {
-  await requireUser();
+  await requireOwner();
 
   const { start: monthStart, end: monthEnd, label: monthLabel } = monthRange();
   const todayStart = fromDayKey(dayKey(new Date()));
