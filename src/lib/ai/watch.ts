@@ -56,6 +56,23 @@ const PROBES: Record<string, Probe> = {
     );
   },
 
+  /// Voor de Head: het werk van het hele team, niet alleen dat van hemzelf.
+  async team_tasks() {
+    const tasks = await db.task.findMany({
+      where: { status: { not: "cancelled" } },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, status: true, updatedAt: true, title: true },
+    });
+    const open = tasks.filter((task) => task.status !== "done").length;
+    return fingerprint(
+      tasks.map((task) => [task.id, task.status, task.updatedAt.getTime()]),
+      tasks.length
+        ? `${tasks.length} taken (${open} open), laatst gewijzigd: "${tasks[0].title}" → ${tasks[0].status}`
+        : "geen taken",
+      tasks.length,
+    );
+  },
+
   async ad_metrics() {
     const [count, latest, totals] = await Promise.all([
       db.adMetric.count(),
@@ -355,6 +372,13 @@ export const DEFAULT_WATCHES: {
   probe: string;
   minIntervalMinutes: number;
 }[] = [
+  {
+    agentKey: "chief",
+    key: "chief-teamwerk",
+    label: "Werk van het team",
+    probe: "team_tasks",
+    minIntervalMinutes: 60,
+  },
   {
     agentKey: "analytics",
     key: "analytics-campagnecijfers",

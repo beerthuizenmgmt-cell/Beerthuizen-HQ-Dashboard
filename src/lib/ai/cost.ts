@@ -116,6 +116,45 @@ export async function monthSpend(now = new Date()): Promise<number> {
   return result._sum.costEur ?? 0;
 }
 
+export type BudgetState = {
+  budget: number | null;
+  spent: number;
+  percentage: number | null;
+  /// Boven het budget: automatische runs worden geblokkeerd. Alleen wat jij
+  /// zelf start blijft mogelijk, zodat je nooit klemzit in je eigen dashboard.
+  blocked: boolean;
+};
+
+export async function getBudgetState(): Promise<BudgetState> {
+  const finance = await getFinanceSettings();
+  const spent = await monthSpend();
+
+  if (!finance.monthlyBudgetEur || finance.monthlyBudgetEur <= 0) {
+    return { budget: null, spent, percentage: null, blocked: false };
+  }
+
+  const percentage = (spent / finance.monthlyBudgetEur) * 100;
+  return { budget: finance.monthlyBudgetEur, spent, percentage, blocked: percentage >= 100 };
+}
+
+/// De rem. Bewust alleen remmen: bij overschrijding gebeurt er niets naar
+/// buiten, er wordt niets afgesloten en niemand krijgt automatisch bericht
+/// behalve de melding die al bij 90 procent is verstuurd.
+export async function assertWithinBudget(trigger: string): Promise<void> {
+  // Wat jij zelf aanzet blijft altijd mogelijk — anders kun je niet eens meer
+  // controleren waarom je budget op is.
+  if (trigger === "manual") return;
+
+  const state = await getBudgetState();
+  if (!state.blocked) return;
+
+  throw new Error(
+    `Het maandbudget van €${state.budget?.toFixed(2)} is bereikt (€${state.spent.toFixed(2)} uitgegeven). ` +
+      `Automatische analyses zijn gepauzeerd. Verhoog het budget bij Instellingen, of start een run zelf ` +
+      `vanaf Proefdraaien — die blijft wel werken.`,
+  );
+}
+
 /// Waarschuwt bij 50, 75, 90 en 100 procent van het maandbudget — elke drempel
 /// één keer per maand, anders word je bij elke aanroep opnieuw gewaarschuwd.
 export async function checkBudget(): Promise<void> {
@@ -146,9 +185,13 @@ export async function checkBudget(): Promise<void> {
     level: highest >= 100 ? "error" : highest >= 90 ? "warn" : "info",
     title:
       highest >= 100
-        ? `AI-budget van ${label} is op`
+        ? `AI-budget van ${label} is overschreden`
         : `${highest}% van het AI-budget gebruikt`,
-    body: `€${spent.toFixed(2)} van €${finance.monthlyBudgetEur.toFixed(2)} in ${label}.`,
+    body:
+      `€${spent.toFixed(2)} van €${finance.monthlyBudgetEur.toFixed(2)} in ${label}.` +
+      (highest >= 100
+        ? " Automatische analyses zijn gepauzeerd. Er gebeurt verder niets — geen externe acties, niets afgesloten. Verhoog het budget om ze te hervatten."
+        : ""),
     link: "/financien",
     // Vanaf 90 procent wil je het weten zonder het dashboard open te hebben.
     push: highest >= 90,

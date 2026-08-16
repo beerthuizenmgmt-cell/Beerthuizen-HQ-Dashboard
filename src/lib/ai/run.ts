@@ -3,7 +3,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { chat, getAiConfig, AiNotConfiguredError, type ChatMessage, type ToolDefinition } from "./provider";
-import { resolveCost, checkBudget } from "./cost";
+import { resolveCost, checkBudget, assertWithinBudget } from "./cost";
 import { AGENT_TOOLS, CHIEF_TOOLS, runTool } from "./tools";
 import { DEFAULT_COMPANY_CONTEXT, SHARED_FRAMEWORK } from "./profiles";
 import { formatDayLong } from "@/lib/format";
@@ -109,6 +109,8 @@ export async function runAgent(options: {
 
   let config;
   try {
+    // Eerst de rem: boven budget draaien automatische analyses niet meer.
+    await assertWithinBudget(options.trigger);
     config = await getAiConfig();
     if (!config.apiKey) throw new AiNotConfiguredError();
   } catch (error) {
