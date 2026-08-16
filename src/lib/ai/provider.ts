@@ -113,6 +113,34 @@ export class AiNotConfiguredError extends Error {
   }
 }
 
+/// Een API-sleutel gaat mee in een HTTP-header, en die accepteert alleen gewone
+/// leestekens. Zit er een liggend streepje, een aanhalingsteken of een spatie
+/// in, dan weigert de browserlaag de aanroep met een onbegrijpelijke melding
+/// over ByteStrings. Dat komt vaker voor dan je denkt: wie een sleutel kopieert
+/// uit een verkorte weergave (sk-or-v1-10cb40…) neemt zo'n teken zo mee.
+///
+/// Beter om het hier te vangen en te zeggen wat er aan de hand is.
+export class InvalidApiKeyError extends Error {
+  constructor(positie: number, teken: string) {
+    super(
+      `De opgeslagen API-sleutel bevat een teken dat er niet in hoort: "${teken}" op positie ${positie + 1}. ` +
+        `Dat gebeurt meestal bij het kopiëren uit een weergave waar de sleutel verkort wordt getoond. ` +
+        `Haal de sleutel opnieuw op bij je aanbieder en plak hem volledig bij Instellingen → Taalmodel.`,
+    );
+    this.name = "InvalidApiKeyError";
+  }
+}
+
+/// Controleert of de sleutel als header verstuurd kan worden. Geeft de positie
+/// van het eerste rare teken terug, zodat je meteen ziet waar het misging.
+export function assertUsableApiKey(apiKey: string): void {
+  for (let i = 0; i < apiKey.length; i += 1) {
+    const code = apiKey.charCodeAt(i);
+    // Printbare ASCII, zonder spatie: alles wat een sleutel ooit bevat.
+    if (code < 0x21 || code > 0x7e) throw new InvalidApiKeyError(i, apiKey[i]);
+  }
+}
+
 const BASE_URLS: Record<Provider, string> = {
   openrouter: "https://openrouter.ai/api/v1",
   openai: "https://api.openai.com/v1",
@@ -183,6 +211,7 @@ export async function chat(options: {
 }): Promise<ChatResult> {
   const config = await getAiConfig();
   if (!config.apiKey) throw new AiNotConfiguredError();
+  assertUsableApiKey(config.apiKey);
 
   const model = options.model || config.defaultModel;
   const timeout = options.timeoutMs ?? 90_000;
@@ -423,6 +452,7 @@ export type ModelOption = { id: string; name: string; contextLength?: number; pr
 export async function listModels(): Promise<ModelOption[]> {
   const config = await getAiConfig();
   if (!config.apiKey) throw new AiNotConfiguredError();
+  assertUsableApiKey(config.apiKey);
 
   if (config.provider === "anthropic") {
     const response = await fetch(`${BASE_URLS.anthropic}/models`, {

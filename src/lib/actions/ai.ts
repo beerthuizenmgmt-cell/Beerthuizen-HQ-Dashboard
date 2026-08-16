@@ -5,7 +5,13 @@ import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { encryptSecret } from "@/lib/crypto";
-import { clearModelCache, listModels, type ModelOption, type Provider } from "@/lib/ai/provider";
+import {
+  assertUsableApiKey,
+  clearModelCache,
+  listModels,
+  type ModelOption,
+  type Provider,
+} from "@/lib/ai/provider";
 import { refreshModelPrices } from "@/lib/ai/cost";
 import { setCompanyContext } from "@/lib/ai/run";
 
@@ -27,6 +33,17 @@ export async function saveAiSettings(
   const fastModel = String(formData.get("fastModel") ?? "").trim();
 
   if (!(PROVIDERS as string[]).includes(provider)) return { error: "Onbekende aanbieder." };
+
+  // Bij de deur weigeren in plaats van straks bij elke aanroep struikelen. Een
+  // sleutel met een liggend streepje of een spatie erin komt uit een verkorte
+  // weergave; die had nooit opgeslagen mogen worden.
+  if (apiKey) {
+    try {
+      assertUsableApiKey(apiKey);
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Deze sleutel klopt niet." };
+    }
+  }
 
   const existing = await db.setting.findUnique({ where: { key: "ai" } });
   const current = (existing?.value ?? {}) as {
