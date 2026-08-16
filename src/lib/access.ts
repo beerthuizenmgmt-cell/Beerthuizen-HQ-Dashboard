@@ -27,6 +27,7 @@ export const AREAS: Area[] = [
   { path: "/overleg", label: "Overleg", icon: "☀" },
   { path: "/agenda", label: "Agenda", icon: "▦" },
   { path: "/taken", label: "Taken", icon: "☑" },
+  { path: "/projecten", label: "Projecten", icon: "▣" },
   { path: "/campagnes", label: "Campagnes", icon: "◈" },
   { path: "/rapportages", label: "Rapportages", icon: "▤" },
   { path: "/team", label: "Team", icon: "💬" },

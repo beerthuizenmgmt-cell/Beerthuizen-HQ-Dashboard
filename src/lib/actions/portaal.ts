@@ -60,6 +60,150 @@ export async function verwijderAanvraag(id: string): Promise<void> {
   revalidatePath("/klanten");
 }
 
+/// Wat er ontbreekt om echt te kunnen beginnen, en bij wie het opgehaald moet
+/// worden.
+///
+/// Een briefing kan compleet zijn volgens het formulier en toch te dun om mee
+/// te werken. Dit is het verschil tussen "verzonden" en "bruikbaar" — en juist
+/// dat verschil hoort iemand te zien vóórdat er werk in gaat zitten.
+function beoordeelBriefing(ingevuld: Record<string, string>): { wat: string; vanWie: string }[] {
+  const gaten: { wat: string; vanWie: string }[] = [];
+  const heeft = (naam: string) => (ingevuld[naam] ?? "").trim().length > 0;
+
+  if (!heeft("budget") && ingevuld.budgetStatus?.startsWith("Nee")) {
+    gaten.push({
+      wat: "Budgetindicatie — zonder richtbedrag is elk voorstel een gok",
+      vanWie: "klant, via Enriqueo",
+    });
+  }
+
+  if (!heeft("periodeTot")) {
+    gaten.push({ wat: "Einddatum van de campagne", vanWie: "klant" });
+  }
+
+  if (!heeft("deadline")) {
+    gaten.push({ wat: "Wanneer het voorstel verwacht wordt", vanWie: "klant" });
+  }
+
+  // Een doelgroep van drie woorden is geen doelgroep.
+  if ((ingevuld.doelgroep ?? "").trim().length < 40) {
+    gaten.push({
+      wat: "Scherpere doelgroepomschrijving — nu te algemeen voor creatorselectie",
+      vanWie: "klant",
+    });
+  }
+
+  if (!heeft("deliverables") || ingevuld.deliverables?.includes("Weet ik nog niet")) {
+    gaten.push({ wat: "Welke content er gemaakt moet worden", vanWie: "Fleur, in het voorstel" });
+  }
+
+  if (ingevuld.creatorsInGedachten?.startsWith("Nee, we horen") && !heeft("niche")) {
+    gaten.push({
+      wat: "Richting voor creatorselectie — niche, type of voorbeelden",
+      vanWie: "Fleur, samen met de klant",
+    });
+  }
+
+  if (!heeft("hergebruik") || ingevuld.hergebruik?.startsWith("Weet ik nog niet")) {
+    gaten.push({
+      wat: "Of de content ook voor eigen kanalen of advertenties gebruikt wordt",
+      vanWie: "klant — dit bepaalt de afspraken met creators",
+    });
+  }
+
+  if (!heeft("bestanden")) {
+    gaten.push({ wat: "Brandbook, logo's en beeldmateriaal", vanWie: "klant" });
+  }
+
+  return gaten;
+}
+
+/// Maakt het project en zet het werk uit bij Daan en Fleur.
+async function startProject(
+  aanvraagId: string,
+  clientId: string | null,
+  ingevuld: Record<string, string>,
+): Promise<{ projectId: string; gaten: { wat: string; vanWie: string }[] }> {
+  const gaten = beoordeelBriefing(ingevuld);
+  const merk = ingevuld.merk ?? ingevuld.bedrijfsnaam ?? "Onbekend merk";
+
+  const datum = (waarde?: string) => {
+    if (!waarde) return null;
+    const d = new Date(`${waarde}T12:00:00.000Z`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const project = await db.project.create({
+    data: {
+      name: `${merk} — campagne`,
+      clientId,
+      requestId: aanvraagId,
+      status: "nieuw",
+      missingInfo: gaten.map((gat) => `${gat.wat} (${gat.vanWie})`),
+      startsOn: datum(ingevuld.periodeVan),
+      endsOn: datum(ingevuld.periodeTot),
+      deadline: datum(ingevuld.deadline),
+    },
+  });
+
+  // Een samenvatting die iemand in tien seconden leest. De volledige briefing
+  // staat bij de aanvraag; dit is wat er nodig is om te beginnen.
+  const kern = [
+    `Merk: ${merk}`,
+    `Product: ${ingevuld.product ?? "—"}`,
+    `Doel: ${ingevuld.doel ?? "—"}${ingevuld.doelToelichting ? ` — ${ingevuld.doelToelichting}` : ""}`,
+    `Doelgroep: ${ingevuld.doelgroep ?? "—"}`,
+    `Periode: ${ingevuld.periodeVan ?? "?"} tot ${ingevuld.periodeTot ?? "?"}`,
+    `Budget: ${ingevuld.budgetStatus ?? "—"}${ingevuld.budget ? ` — ${ingevuld.budget}` : ""}`,
+    `Platforms: ${ingevuld.platforms ?? "—"}`,
+    `Boodschap: ${ingevuld.boodschap ?? "—"}`,
+    `Actie: ${ingevuld.cta ?? "—"}${ingevuld.ctaToelichting ? ` — ${ingevuld.ctaToelichting}` : ""}`,
+  ].join("\n");
+
+  const gatenTekst = gaten.length
+    ? `\n\nWat er nog ontbreekt:\n${gaten.map((gat) => `- ${gat.wat} → ${gat.vanWie}`).join("\n")}`
+    : `\n\nDe briefing is compleet.`;
+
+  const daan = await db.agent.findUnique({ where: { key: "chief" } });
+  const fleur = await db.agent.findUnique({ where: { key: "influencer" } });
+
+  if (daan) {
+    await db.task.create({
+      data: {
+        title: `Nieuwe aanvraag: ${merk}`,
+        description:
+          `Er is een campagnebriefing binnengekomen. Bepaal de planning, bewaak de deadline en haal op ` +
+          `wat er ontbreekt.\n\n${kern}${gatenTekst}`,
+        agentId: daan.id,
+        projectId: project.id,
+        status: "assigned",
+        priority: gaten.length > 3 ? "high" : "normal",
+        source: "klantportaal",
+        dueAt: datum(ingevuld.deadline),
+      },
+    });
+  }
+
+  if (fleur) {
+    await db.task.create({
+      data: {
+        title: `Creatorstrategie: ${merk}`,
+        description:
+          `Bepaal de creatorstrategie voor deze aanvraag: doelgroepmatch, niches, selectie en aanpak. ` +
+          `Onderbouw met scores; vraag Stefano om onderzoek waar je het niet zeker weet.\n\n${kern}${gatenTekst}`,
+        agentId: fleur.id,
+        projectId: project.id,
+        status: "assigned",
+        priority: "normal",
+        source: "klantportaal",
+        dueAt: datum(ingevuld.deadline),
+      },
+    });
+  }
+
+  return { projectId: project.id, gaten };
+}
+
 /// Het formulier van de klant verwerken.
 ///
 /// Draait zonder ingelogde gebruiker: de klant heeft geen account. Het token is
@@ -115,7 +259,8 @@ export async function verwerkFormulier(
     if (veld.doel && ingevuld[veld.naam]) klantVelden[veld.doel] = ingevuld[veld.naam];
   }
 
-  if (aanvraag.type === "klantgegevens") {
+  // Ook een briefing levert klantgegevens op — die willen we niet kwijtraken.
+  if (aanvraag.type === "klantgegevens" || aanvraag.type === "campagnebriefing") {
     if (clientId) {
       await db.client.update({
         where: { id: clientId },
@@ -144,6 +289,14 @@ export async function verwerkFormulier(
     },
   });
 
+  // Een campagnebriefing wordt een project met werk eraan. Bij klantgegevens
+  // hoeft dat niet: die vullen alleen de administratie aan.
+  let gaten: { wat: string; vanWie: string }[] = [];
+  if (aanvraag.type === "campagnebriefing") {
+    const uitkomst = await startProject(aanvraag.id, clientId, ingevuld);
+    gaten = uitkomst.gaten;
+  }
+
   // Naar de juiste agents. De klant merkt hier niets van.
   const naam = ingevuld.bedrijfsnaam ?? aanvraag.label ?? "een klant";
   for (const agentKey of formulier.naarAgents) {
@@ -157,17 +310,33 @@ export async function verwerkFormulier(
     });
   }
 
-  await notify({
-    level: dubbelReden ? "warn" : "success",
-    title: dubbelReden ? "Klantgegevens ontvangen — mogelijk dubbel" : "Klantgegevens ontvangen",
-    body: dubbelReden
-      ? `${naam} heeft zijn gegevens ingevuld, maar ${dubbelReden}. Controleer of dit dezelfde klant is.`
-      : `${naam} heeft alle gevraagde gegevens ingevuld. Maud kan hiermee factureren.`,
-    link: "/klanten",
-    push: true,
-  });
+  if (aanvraag.type === "campagnebriefing") {
+    await notify({
+      level: gaten.length > 0 ? "warn" : "success",
+      title: gaten.length > 0 ? "Campagnebriefing binnen — informatie ontbreekt" : "Campagnebriefing binnen",
+      body:
+        `${ingevuld.merk ?? naam}: ${ingevuld.doel ?? "doel onbekend"}. ` +
+        (gaten.length > 0
+          ? `Nog nodig: ${gaten.map((gat) => gat.wat.split(" —")[0]).join(", ")}. Daan en Fleur zijn erop gezet.`
+          : `Daan en Fleur zijn erop gezet.`),
+      link: "/projecten",
+      push: true,
+    });
+  } else {
+    await notify({
+      level: dubbelReden ? "warn" : "success",
+      title: dubbelReden ? "Klantgegevens ontvangen — mogelijk dubbel" : "Klantgegevens ontvangen",
+      body: dubbelReden
+        ? `${naam} heeft zijn gegevens ingevuld, maar ${dubbelReden}. Controleer of dit dezelfde klant is.`
+        : `${naam} heeft alle gevraagde gegevens ingevuld. Maud kan hiermee factureren.`,
+      link: "/klanten",
+      push: true,
+    });
+  }
 
   revalidatePath("/klanten");
+  revalidatePath("/projecten");
+  revalidatePath("/taken");
   return { ok: "ontvangen" };
 }
 

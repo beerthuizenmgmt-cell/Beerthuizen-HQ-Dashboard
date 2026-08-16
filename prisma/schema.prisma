@@ -299,6 +299,10 @@ model Task {
   agentId String?
   agent   Agent?  @relation("TaskAssignee", fields: [agentId], references: [id], onDelete: SetNull)
 
+  /// Bij welk project deze taak hoort, als hij ergens uit voortkomt.
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
   createdByUserId  String?
   createdByUser    User?   @relation("TaskCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
   createdByAgentId String?
@@ -1225,6 +1229,7 @@ model Client {
 
   invoices Invoice[]
   requests PortalRequest[]
+  projects Project[]
 
   @@index([name])
 }
@@ -1284,7 +1289,43 @@ model PortalRequest {
   createdByUserId String?
   createdByUser   User?   @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 
+  project Project?
+
   createdAt DateTime @default(now())
+
+  @@index([status, createdAt(sort: Desc)])
+}
+
+/// Een campagne of opdracht van een klant.
+///
+/// Ontstaat uit een briefing en is de plek waar alles omheen hangt: wie ermee
+/// bezig is, wat er ontbreekt, welke taken eruit voortkomen. Bewust licht
+/// gehouden — het werk zelf staat in taken, dit is de omslag eromheen.
+model Project {
+  id       String  @id @default(cuid())
+  name     String
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  /// nieuw | in_voorbereiding | loopt | afgerond | afgewezen
+  status String @default("nieuw")
+
+  /// Waar dit project vandaan komt.
+  requestId String?        @unique
+  request   PortalRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  /// Wat er nog ontbreekt om te kunnen starten, en bij wie het opgehaald moet
+  /// worden. Zonder dit begint iemand aan werk dat later opnieuw moet.
+  missingInfo String[] @default([])
+
+  startsOn DateTime?
+  endsOn   DateTime?
+  deadline DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tasks Task[]
 
   @@index([status, createdAt(sort: Desc)])
 }

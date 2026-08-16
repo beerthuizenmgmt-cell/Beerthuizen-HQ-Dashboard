@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { verwerkFormulier, type PortaalState } from "@/lib/actions/portaal";
 import type { Veld } from "@/lib/portaal";
 
@@ -22,6 +22,14 @@ export function PortaalFormulier({
     {},
   );
 
+  // Antwoorden bijhouden zodat vervolgvragen alleen verschijnen wanneer ze
+  // ergens over gaan. Wie geen budget heeft vastgesteld hoeft geen bedrag te
+  // zien, en dat scheelt een derde van het formulier.
+  const [antwoorden, setAntwoorden] = useState<Record<string, string>>({});
+
+  const zichtbaar = (veld: Veld) =>
+    !veld.toonAls || veld.toonAls.waarden.includes(antwoorden[veld.toonAls.veld] ?? "");
+
   if (state.ok) {
     return (
       <div className="card p-8 text-center">
@@ -41,27 +49,60 @@ export function PortaalFormulier({
           <legend className="eyebrow px-2">{sectie.kop}</legend>
 
           <div className="mt-4 space-y-4">
-            {sectie.velden.map((veld) => (
-              <label key={veld.naam} className="block">
-                <span className="mb-1 block text-sm">
-                  {veld.label}
-                  {!veld.verplicht && <span className="ml-2 text-xs text-text-faint">optioneel</span>}
-                </span>
+            {sectie.velden.filter(zichtbaar).map((veld) => (
+              <div key={veld.naam}>
+                <label className="block">
+                  <span className="mb-1 block text-sm">
+                    {veld.label}
+                    {!veld.verplicht && <span className="ml-2 text-xs text-text-faint">optioneel</span>}
+                  </span>
 
-                {veld.type === "textarea" ? (
-                  <textarea name={veld.naam} className="input min-h-20" required={veld.verplicht} />
-                ) : (
-                  <input
-                    name={veld.naam}
-                    type={veld.type}
-                    className="input"
-                    required={veld.verplicht}
-                    autoComplete={autoComplete(veld)}
-                  />
-                )}
+                  {veld.type === "textarea" ? (
+                    <textarea name={veld.naam} className="input min-h-20" required={veld.verplicht} />
+                  ) : veld.type === "select" ? (
+                    <select
+                      name={veld.naam}
+                      className="input"
+                      required={veld.verplicht}
+                      defaultValue=""
+                      onChange={(event) =>
+                        setAntwoorden({ ...antwoorden, [veld.naam]: event.target.value })
+                      }
+                    >
+                      <option value="" disabled>
+                        Kies…
+                      </option>
+                      {(veld.opties ?? []).map((optie) => (
+                        <option key={optie} value={optie}>
+                          {optie}
+                        </option>
+                      ))}
+                    </select>
+                  ) : veld.type === "multi" ? (
+                    <span className="mt-1 flex flex-wrap gap-2">
+                      {(veld.opties ?? []).map((optie) => (
+                        <label
+                          key={optie}
+                          className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm hover:border-accent"
+                        >
+                          <input type="checkbox" name={veld.naam} value={optie} />
+                          {optie}
+                        </label>
+                      ))}
+                    </span>
+                  ) : (
+                    <input
+                      name={veld.naam}
+                      type={veld.type}
+                      className="input"
+                      required={veld.verplicht}
+                      autoComplete={autoComplete(veld)}
+                    />
+                  )}
+                </label>
 
                 {veld.hint && <span className="mt-1 block text-xs text-text-faint">{veld.hint}</span>}
-              </label>
+              </div>
             ))}
           </div>
         </fieldset>

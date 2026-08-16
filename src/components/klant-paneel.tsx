@@ -32,7 +32,7 @@ export type Aanvraag = {
 
 const TYPES = [
   ["klantgegevens", "Klantgegevens — voor administratie en facturatie"],
-  ["campagnebriefing", "Campagnebriefing — nog niet beschikbaar"],
+  ["campagnebriefing", "Campagnebriefing — voor een nieuwe campagne"],
   ["contentaanlevering", "Contentaanlevering — nog niet beschikbaar"],
   ["projectinformatie", "Projectinformatie — nog niet beschikbaar"],
 ];
@@ -88,7 +88,11 @@ export function KlantPaneel({
               <span className="eyebrow mb-1 block">Welk formulier</span>
               <select name="type" className="input" defaultValue="klantgegevens">
                 {TYPES.map(([waarde, label]) => (
-                  <option key={waarde} value={waarde} disabled={waarde !== "klantgegevens"}>
+                  <option
+                    key={waarde}
+                    value={waarde}
+                    disabled={waarde !== "klantgegevens" && waarde !== "campagnebriefing"}
+                  >
                     {label}
                   </option>
                 ))}
