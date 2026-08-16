@@ -519,7 +519,10 @@ async function readInvoices(args: Record<string, unknown>): Promise<ToolResult> 
   return {
     ok: true,
     message: [
-      `Openstaand €${stand.openstaandEur.toFixed(2)} over ${stand.aantalOpen} facturen, waarvan €${stand.teLaatEur.toFixed(2)} te laat (${stand.aantalTeLaat}).`,
+      `Te ontvangen €${stand.teOntvangenEur.toFixed(2)}, te betalen €${stand.teBetalenEur.toFixed(2)}, ` +
+        `betaald deze maand €${stand.betaaldDezeMaandEur.toFixed(2)}.`,
+      `Te laat: €${stand.teLaatEur.toFixed(2)} over ${stand.aantalTeLaat} facturen. ` +
+        `${stand.herinneringNodig} vragen om een eerste herinnering.`,
       stand.gemiddeldeBetaaltermijn !== null
         ? `Gemiddelde betaaltermijn: ${stand.gemiddeldeBetaaltermijn} dagen.`
         : `Gemiddelde betaaltermijn: nog niet te bepalen.`,

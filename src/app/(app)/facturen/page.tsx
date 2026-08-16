@@ -26,30 +26,36 @@ export default async function FacturenPage() {
         </p>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <div className="card p-4">
-          <p className="text-2xl font-semibold">{formatEuro(stand.openstaandEur)}</p>
-          <p className="text-xs text-text-muted">openstaand · {stand.aantalOpen} facturen</p>
+          <p className="text-xl font-semibold text-success">{formatEuro(stand.teOntvangenEur)}</p>
+          <p className="text-xs text-text-muted">te ontvangen</p>
         </div>
         <div className="card p-4">
-          <p className={`text-2xl font-semibold ${stand.teLaatEur > 0 ? "text-danger" : ""}`}>
+          <p className="text-xl font-semibold">{formatEuro(stand.teBetalenEur)}</p>
+          <p className="text-xs text-text-muted">te betalen</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xl font-semibold">{formatEuro(stand.betaaldDezeMaandEur)}</p>
+          <p className="text-xs text-text-muted">betaald deze maand</p>
+        </div>
+        <div className="card p-4">
+          <p className={`text-xl font-semibold ${stand.teLaatEur > 0 ? "text-danger" : ""}`}>
             {formatEuro(stand.teLaatEur)}
           </p>
-          <p className="text-xs text-text-muted">te laat · {stand.aantalTeLaat} facturen</p>
+          <p className="text-xs text-text-muted">te laat · {stand.aantalTeLaat}</p>
         </div>
         <div className="card p-4">
-          <p className={`text-2xl font-semibold ${stand.wachtOpAkkoord > 0 ? "text-warn" : ""}`}>
+          <p className={`text-xl font-semibold ${stand.herinneringNodig > 0 ? "text-warn" : ""}`}>
+            {stand.herinneringNodig}
+          </p>
+          <p className="text-xs text-text-muted">herinnering nodig</p>
+        </div>
+        <div className="card p-4">
+          <p className={`text-xl font-semibold ${stand.wachtOpAkkoord > 0 ? "text-warn" : ""}`}>
             {stand.wachtOpAkkoord}
           </p>
-          <p className="text-xs text-text-muted">wacht op jouw akkoord</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-2xl font-semibold">
-            {stand.gemiddeldeBetaaltermijn === null ? "—" : `${stand.gemiddeldeBetaaltermijn} dg`}
-          </p>
-          <p className="text-xs text-text-muted">
-            {stand.gemiddeldeBetaaltermijn === null ? "nog niets betaald" : "gemiddelde betaaltermijn"}
-          </p>
+          <p className="text-xs text-text-muted">actie van jou</p>
         </div>
       </div>
 
@@ -73,6 +79,7 @@ export default async function FacturenPage() {
         facturen={facturen.map((f) => ({
           id: f.id,
           nummer: f.nummer,
+          richting: f.richting,
           klant: f.klant,
           email: f.klantEmail,
           factuurdatum: f.factuurdatum.toISOString().slice(0, 10),

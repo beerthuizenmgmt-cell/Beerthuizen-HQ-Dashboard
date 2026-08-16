@@ -981,14 +981,23 @@ model Setting {
 // ============================================================
 
 enum InvoiceStatus {
-  /// Aangemaakt, nog niet de deur uit.
+  /// Aangemaakt, nog niet goedgekeurd.
   concept
+  /// Door Enriqueo goedgekeurd, klaar om te versturen.
+  goedgekeurd
   verzonden
   deels_betaald
   betaald
   /// Afgeboekt: hier komt niets meer binnen.
   oninbaar
   vervallen_verklaard
+}
+
+/// Krijgen we geld, of moeten we betalen. Beide horen in één administratie:
+/// anders weet je wel wat er binnenkomt maar niet wat eruit gaat.
+enum InvoiceDirection {
+  uitgaand
+  inkomend
 }
 
 /// Waar een factuur staat in de opvolging. Elke stap naar buiten — herinnering,
@@ -1002,6 +1011,9 @@ enum FollowUpStatus {
   herinnering2_verstuurd
   gemeld_aan_eigenaar
   vervolgstap_voorgesteld
+  /// Dossier klaargezet voor een externe partij. Gaat nooit zonder akkoord.
+  escalatie_voorbereid
+  escalatie_overgedragen
   afgehandeld
 }
 
@@ -1009,14 +1021,32 @@ model Invoice {
   id     String @id @default(cuid())
   number String
 
-  clientName  String
-  clientEmail String?
+  direction InvoiceDirection @default(uitgaand)
+
+  /// Bij een uitgaande factuur de klant, bij een inkomende de leverancier.
+  clientName    String
+  clientEmail   String?
+  clientAddress String?
+  clientVatId   String?
+  clientKvk     String?
+
+  /// Waarvoor gefactureerd wordt, zoals het op de factuur komt te staan.
+  description String?
+
+  /// Betalingstermijn in dagen. Bewaard naast de vervaldatum, zodat je bij het
+  /// aanmaken van een volgende factuur voor dezelfde klant weet wat gebruikelijk is.
+  paymentTermDays Int @default(30)
 
   issuedOn DateTime
   dueOn    DateTime
 
-  /// Bedrag inclusief btw, in euro. Het bedrag dat de klant moet overmaken.
+  /// Bedrag inclusief btw, in euro. Het bedrag dat overgemaakt moet worden.
   amountEur Float
+  /// Het bedrag exclusief btw en het btw-bedrag apart. Leeg wanneer er geen
+  /// btw van toepassing is of het niet is opgegeven.
+  netAmountEur Float?
+  vatEur       Float?
+  vatRate      Float?
   /// Wat er werkelijk binnen is. Leeg zolang er niets betaald is.
   paidAmountEur Float?
 

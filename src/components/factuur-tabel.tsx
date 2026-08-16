@@ -18,6 +18,7 @@ import {
 export type FactuurRij = {
   id: string;
   nummer: string;
+  richting: string;
   klant: string;
   email: string | null;
   factuurdatum: string;
@@ -179,7 +180,7 @@ export function FactuurTabel({ facturen }: { facturen: FactuurRij[] }) {
             <thead>
               <tr className="border-b border-border text-left">
                 <th className="px-3 py-3 font-medium">Factuur</th>
-                <th className="px-3 py-3 font-medium">Klant</th>
+                <th className="px-3 py-3 font-medium">Klant / leverancier</th>
                 <th className="px-3 py-3 font-medium">Vervalt</th>
                 <th className="px-3 py-3 text-right font-medium">Bedrag</th>
                 <th className="px-3 py-3 text-right font-medium">Open</th>
@@ -193,7 +194,12 @@ export function FactuurTabel({ facturen }: { facturen: FactuurRij[] }) {
               {facturen.map((factuur) => (
                 <tr key={factuur.id} className={factuur.teLaat ? "bg-danger/5" : ""}>
                   <td className="px-3 py-3 font-medium">{factuur.nummer}</td>
-                  <td className="px-3 py-3">{factuur.klant}</td>
+                  <td className="px-3 py-3">
+                    {factuur.klant}
+                    {factuur.richting === "inkomend" && (
+                      <span className="ml-2 chip text-xs">inkomend</span>
+                    )}
+                  </td>
                   <td className="px-3 py-3 text-xs">{factuur.vervaldatumLabel}</td>
                   <td className="px-3 py-3 text-right">{factuur.bedragLabel}</td>
                   <td className="px-3 py-3 text-right">{factuur.openstaandLabel}</td>

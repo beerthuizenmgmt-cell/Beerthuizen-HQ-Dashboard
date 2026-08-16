@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import type { InvoiceStatus, FollowUpStatus } from "@/generated/prisma/enums";
+import type { InvoiceStatus, FollowUpStatus, InvoiceDirection } from "@/generated/prisma/enums";
 
 // De facturenadministratie.
 //
@@ -18,6 +18,7 @@ const DAG = 24 * 60 * 60_000;
 
 export const STATUS_LABELS: Record<InvoiceStatus, string> = {
   concept: "Concept",
+  goedgekeurd: "Goedgekeurd — klaar om te versturen",
   verzonden: "Verzonden",
   deels_betaald: "Deels betaald",
   betaald: "Betaald",
@@ -33,6 +34,8 @@ export const OPVOLGING_LABELS: Record<FollowUpStatus, string> = {
   herinnering2_verstuurd: "Tweede herinnering verstuurd",
   gemeld_aan_eigenaar: "Aan jou gemeld",
   vervolgstap_voorgesteld: "Vervolgstap voorgesteld — wacht op jou",
+  escalatie_voorbereid: "Incassodossier klaar — wacht op jou",
+  escalatie_overgedragen: "Overgedragen aan externe partij",
   afgehandeld: "Afgehandeld",
 };
 
@@ -52,6 +55,8 @@ export const WORKFLOW = [
 export type FactuurRegel = {
   id: string;
   nummer: string;
+  richting: InvoiceDirection;
+  omschrijving: string | null;
   klant: string;
   klantEmail: string | null;
   factuurdatum: Date;
@@ -90,7 +95,8 @@ function volgendeStap(factuur: {
 }): string {
   if (factuur.status === "betaald") return "niets — betaald";
   if (factuur.status === "oninbaar" || factuur.status === "vervallen_verklaard") return "niets — afgeboekt";
-  if (factuur.status === "concept") return "versturen (jouw akkoord)";
+  if (factuur.status === "concept") return "jouw akkoord op de factuur";
+  if (factuur.status === "goedgekeurd") return "versturen";
   if (!factuur.sentAt) return "verzenddatum vastleggen";
 
   const overTijd = dagenTussen(factuur.dueOn, new Date());
@@ -108,7 +114,11 @@ function volgendeStap(factuur: {
     case "herinnering2_verstuurd":
       return overTijd >= 30 ? "aan Enriqueo melden" : "betaling afwachten";
     case "gemeld_aan_eigenaar":
-      return "vervolgstap voorstellen";
+      return overTijd >= 45 ? "incassodossier voorbereiden" : "vervolgstap voorstellen";
+    case "escalatie_voorbereid":
+      return "jouw besluit over incasso";
+    case "escalatie_overgedragen":
+      return "bij de externe partij";
     default:
       return "niets";
   }
@@ -117,6 +127,8 @@ function volgendeStap(factuur: {
 export function verrijk(factuur: {
   id: string;
   number: string;
+  direction: InvoiceDirection;
+  description: string | null;
   clientName: string;
   clientEmail: string | null;
   issuedOn: Date;
@@ -142,6 +154,8 @@ export function verrijk(factuur: {
   return {
     id: factuur.id,
     nummer: factuur.number,
+    richting: factuur.direction,
+    omschrijving: factuur.description,
     klant: factuur.clientName,
     klantEmail: factuur.clientEmail,
     factuurdatum: factuur.issuedOn,
@@ -171,10 +185,15 @@ export async function alleFacturen(): Promise<FactuurRegel[]> {
 }
 
 export type Debiteurenstand = {
-  openstaandEur: number;
+  /// Wat er nog binnen moet komen van klanten.
+  teOntvangenEur: number;
+  /// Wat wij nog aan leveranciers moeten betalen.
+  teBetalenEur: number;
+  betaaldDezeMaandEur: number;
   teLaatEur: number;
   aantalOpen: number;
   aantalTeLaat: number;
+  herinneringNodig: number;
   wachtOpAkkoord: number;
   gemiddeldeBetaaltermijn: number | null;
 };
@@ -184,18 +203,36 @@ export type Debiteurenstand = {
 export async function debiteurenstand(): Promise<Debiteurenstand> {
   const facturen = await alleFacturen();
 
-  const open = facturen.filter((f) => f.openstaandEur > 0 && f.status !== "oninbaar" && f.status !== "vervallen_verklaard");
+  const open = facturen.filter(
+    (f) => f.openstaandEur > 0 && f.status !== "oninbaar" && f.status !== "vervallen_verklaard",
+  );
   const teLaat = open.filter((f) => f.teLaat);
 
+  const maandStart = new Date();
+  maandStart.setDate(1);
+  maandStart.setHours(0, 0, 0, 0);
+
   const betaald = facturen.filter((f) => f.betaaldOp !== null);
-  const termijnen = betaald.map((f) => dagenTussen(f.factuurdatum, f.betaaldOp!));
+  // Alleen uitgaande facturen: wat wij betalen is geen omzet.
+  const termijnen = betaald
+    .filter((f) => f.richting === "uitgaand")
+    .map((f) => dagenTussen(f.factuurdatum, f.betaaldOp!));
 
   return {
-    openstaandEur: open.reduce((som, f) => som + f.openstaandEur, 0),
+    teOntvangenEur: open.filter((f) => f.richting === "uitgaand").reduce((som, f) => som + f.openstaandEur, 0),
+    teBetalenEur: open.filter((f) => f.richting === "inkomend").reduce((som, f) => som + f.openstaandEur, 0),
+    betaaldDezeMaandEur: betaald
+      .filter((f) => f.richting === "uitgaand" && f.betaaldOp! >= maandStart)
+      .reduce((som, f) => som + f.bedragEur, 0),
     teLaatEur: teLaat.reduce((som, f) => som + f.openstaandEur, 0),
     aantalOpen: open.length,
     aantalTeLaat: teLaat.length,
-    wachtOpAkkoord: facturen.filter((f) => f.opvolging.endsWith("voorbereid") || f.opvolging === "vervolgstap_voorgesteld").length,
+    herinneringNodig: open.filter(
+      (f) => f.richting === "uitgaand" && f.teLaat && f.opvolging === "geen",
+    ).length,
+    wachtOpAkkoord: facturen.filter(
+      (f) => f.status === "concept" || f.opvolging.endsWith("voorbereid") || f.opvolging === "vervolgstap_voorgesteld",
+    ).length,
     gemiddeldeBetaaltermijn: termijnen.length
       ? Math.round(termijnen.reduce((som, d) => som + d, 0) / termijnen.length)
       : null,
@@ -224,7 +261,8 @@ export async function factuurContext(): Promise<string> {
 
   return [
     `## Debiteurenstand`,
-    `Openstaand: €${stand.openstaandEur.toFixed(2)} over ${stand.aantalOpen} facturen.`,
+    `Te ontvangen: €${stand.teOntvangenEur.toFixed(2)}. Te betalen: €${stand.teBetalenEur.toFixed(2)}.`,
+    `Betaald deze maand: €${stand.betaaldDezeMaandEur.toFixed(2)}. Open: ${stand.aantalOpen} facturen.`,
     `Daarvan te laat: €${stand.teLaatEur.toFixed(2)} over ${stand.aantalTeLaat} facturen.`,
     stand.gemiddeldeBetaaltermijn !== null
       ? `Gemiddelde betaaltermijn tot nu toe: ${stand.gemiddeldeBetaaltermijn} dagen.`
