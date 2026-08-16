@@ -37,12 +37,18 @@ export default async function HQPage() {
     }),
   ]);
 
-  const connected = agents.filter((a) => a.adapterType !== "manual").length;
-  const problems = agents.filter((a) => a.status === "error" || (a.lastError && !a.paused)).length;
+  // Een reader-koppeling is geen collega. Hij levert data uit de OpenClaw-
+  // omgeving aan en hoort daarom bij de techniek, niet bij het team — anders
+  // klopt de telling van je medewerkers niet.
+  const medewerkers = agents.filter((a) => a.adapterType !== "reader_ingest");
+  const koppelingen = agents.filter((a) => a.adapterType === "reader_ingest");
+
+  const connected = medewerkers.filter((a) => a.adapterType !== "manual").length;
+  const problems = medewerkers.filter((a) => a.status === "error" || (a.lastError && !a.paused)).length;
 
   const stats = [
-    { label: "Agents in dienst", value: agents.length },
-    { label: "Gekoppeld", value: `${connected}/${agents.length}` },
+    { label: "AI-medewerkers", value: medewerkers.length },
+    { label: "Gekoppeld", value: `${connected}/${medewerkers.length}` },
     { label: "Open taken", value: openTasks },
     { label: "Aandacht nodig", value: problems, alert: problems > 0 },
   ];
@@ -95,11 +101,25 @@ export default async function HQPage() {
           </Link>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {agents.map((agent) => (
+          {medewerkers.map((agent) => (
             <AgentCard key={agent.id} agent={agent} />
           ))}
         </div>
       </section>
+
+      {koppelingen.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="eyebrow-rule start">Technische koppelingen</h2>
+            <span className="text-xs text-text-faint">geen medewerkers</span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {koppelingen.map((agent) => (
+              <AgentCard key={agent.id} agent={agent} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {recentTasks.length > 0 && (
         <section>

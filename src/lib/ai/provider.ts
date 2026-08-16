@@ -89,18 +89,36 @@ export async function getAiStatus(): Promise<{
   fastModel: string | null;
   connected: boolean;
   label: string;
+  /// Wat er mis is met de opgeslagen sleutel. Zonder dit staat er "verbonden"
+  /// terwijl geen enkele agent kan denken — en dat kost je een middag zoeken.
+  probleem: string | null;
 }> {
   const setting = await db.setting.findUnique({ where: { key: SETTING_KEY } });
   const stored = (setting?.value ?? {}) as Partial<AiConfig> & { apiKey?: string };
   const provider = stored.provider ?? "openrouter";
   const connected = await hasApiKey();
 
+  // Alleen de klacht verlaat de server, nooit de sleutel zelf.
+  let probleem: string | null = null;
+  if (stored.apiKey) {
+    try {
+      probleem = keyProbleem(decryptSecret(stored.apiKey));
+    } catch {
+      probleem = "De opgeslagen sleutel kan niet ontcijferd worden. Voer hem opnieuw in.";
+    }
+  }
+
   return {
     provider,
     defaultModel: stored.defaultModel || SUGGESTED_DEFAULT_MODEL,
     fastModel: stored.fastModel || null,
-    connected,
-    label: connected ? `${provider}: verbonden` : `${provider}: geen sleutel ingesteld`,
+    connected: connected && !probleem,
+    label: probleem
+      ? `${provider}: sleutel klopt niet`
+      : connected
+        ? `${provider}: verbonden`
+        : `${provider}: geen sleutel ingesteld`,
+    probleem,
   };
 }
 
@@ -134,10 +152,33 @@ export class InvalidApiKeyError extends Error {
 /// Controleert of de sleutel als header verstuurd kan worden. Geeft de positie
 /// van het eerste rare teken terug, zodat je meteen ziet waar het misging.
 export function assertUsableApiKey(apiKey: string): void {
+  // Geen enkele aanbieder geeft een sleutel van meer dan een paar honderd
+  // tekens. Is hij veel langer, dan is er een stuk tekst meegekomen — dat
+  // melden we apart, want "teken op positie 10" helpt dan niet.
+  if (apiKey.length > 300) {
+    throw new Error(
+      `Dit is ${apiKey.length} tekens lang; een API-sleutel is er ongeveer 73. ` +
+        `Er lijkt meer tekst meegekomen dan alleen de sleutel. Plak alleen de sleutel zelf, ` +
+        `zonder aanhalingstekens, uitleg of regeleindes eromheen.`,
+    );
+  }
+
   for (let i = 0; i < apiKey.length; i += 1) {
     const code = apiKey.charCodeAt(i);
     // Printbare ASCII, zonder spatie: alles wat een sleutel ooit bevat.
     if (code < 0x21 || code > 0x7e) throw new InvalidApiKeyError(i, apiKey[i]);
+  }
+}
+
+/// Wat er mis is met de opgeslagen sleutel, in gewone taal. Null betekent: die
+/// is bruikbaar. Geeft nooit de sleutel zelf terug, alleen wat eraan mankeert.
+export function keyProbleem(apiKey: string | null): string | null {
+  if (!apiKey) return null;
+  try {
+    assertUsableApiKey(apiKey);
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Deze sleutel is niet bruikbaar.";
   }
 }
 

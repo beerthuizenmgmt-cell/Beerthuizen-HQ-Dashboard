@@ -188,6 +188,11 @@ export default async function SettingsPage() {
           Waar de agents op denken. De sleutel wordt versleuteld opgeslagen en komt nooit terug naar
           dit scherm.
         </p>
+        {aiConfig.probleem && (
+          <p className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
+            Er staat wel een sleutel, maar hij is onbruikbaar: {aiConfig.probleem}
+          </p>
+        )}
         <AiSettings
           provider={aiConfig.provider}
           defaultModel={aiConfig.defaultModel}
