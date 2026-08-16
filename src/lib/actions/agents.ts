@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { encryptConfig, getAdapter, mergeWithExisting, type AdapterConfig } from "@/lib/adapters";
+import {
+  ADAPTER_ORDER,
+  encryptConfig,
+  getAdapter,
+  mergeWithExisting,
+  type AdapterConfig,
+} from "@/lib/adapters";
 import { testAgentConnection } from "@/lib/agents";
 import type { AdapterType, AgentCategory } from "@/generated/prisma/enums";
 
@@ -18,7 +24,11 @@ const CATEGORIES: AgentCategory[] = [
   "bizdev",
   "other",
 ];
-const ADAPTER_TYPES: AdapterType[] = ["openclaw_gateway", "telegram", "reader_ingest", "manual"];
+// Uit de bron, niet overgetikt. Toen `builtin` erbij kwam is deze lijst ooit
+// niet meegegroeid, waardoor het opslaan van het formulier een ingebouwde
+// agent stilletjes op `manual` zette — en hij daarna niet meer meedeed aan
+// proefdraaien en het ochtendoverleg.
+const ADAPTER_TYPES: AdapterType[] = ADAPTER_ORDER;
 
 export type SaveAgentState = { error?: string; ok?: boolean };
 
