@@ -7,8 +7,18 @@ import { dayKey, fromDayKey, startOfWeek } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const euro = (value: number) =>
-  value.toLocaleString("nl-NL", { style: "currency", currency: "EUR", minimumFractionDigits: 2 });
+/// Bedragen onder een cent zijn hier normaal — één agentaanroep kost al snel
+/// €0,0005. Afronden op twee decimalen zou overal €0,00 tonen en de indruk
+/// wekken dat er niets geregistreerd is.
+const euro = (value: number) => {
+  const decimals = value > 0 && value < 0.01 ? 4 : 2;
+  return value.toLocaleString("nl-NL", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+};
 
 const TRIGGER_LABELS: Record<string, string> = {
   manual: "Proefopdrachten",
