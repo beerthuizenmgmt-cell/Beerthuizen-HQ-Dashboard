@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { adapterCatalog, publicConfig, getAdapter } from "@/lib/adapters";
 import { AgentForm } from "@/components/agent-form";
 import { ConnectionTestButton } from "@/components/connection-test";
+import { InboundSetup } from "@/components/inbound-setup";
 import { ActivityList } from "@/components/activity-list";
 import { StatusBadge } from "@/components/status-dot";
 import { deleteAgent, togglePause } from "@/lib/actions/agents";
@@ -81,6 +82,16 @@ export default async function AgentDetailPage({ params }: PageProps<"/agents/[id
           <span>Status ophalen: {adapter.capabilities.poll ? "ja" : "nee"}</span>
           <span>Ontvangt push: {adapter.capabilities.receive ? "ja" : "nee"}</span>
         </div>
+      </section>
+
+      <section className="card p-5">
+        <h2 className="mb-3 text-sm font-semibold">Terugpraten</h2>
+        <InboundSetup
+          agentId={agent.id}
+          token={agent.inboundToken}
+          appUrl={(process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "")}
+          isTelegram={agent.adapterType === "telegram"}
+        />
       </section>
 
       <section className="card p-6">

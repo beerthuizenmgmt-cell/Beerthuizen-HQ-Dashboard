@@ -89,6 +89,11 @@ model Agent {
   /// en verlaten de server nooit — zie src/lib/crypto.ts.
   adapterConfig Json?
 
+  /// Waarmee deze agent zichzelf identificeert als hij terugpraat, via
+  /// /api/agents/[id]/reply of de Telegram-webhook. Eén token per agent, zodat
+  /// je hem kunt intrekken zonder de rest te raken.
+  inboundToken String? @unique
+
   lastActiveAt   DateTime?
   lastCheckedAt  DateTime?
   lastError      String?

@@ -3,7 +3,9 @@
 Het digitale kantoor van Beerthuizen Management: één plek waar het AI-team van acht agents
 zichtbaar is, aangestuurd wordt en verantwoording aflegt.
 
-## Wat er nu werkt (fase 1)
+## Wat er nu werkt
+
+**Fase 1 — fundament en teamoverzicht**
 
 - **Inloggen** met e-mail en wachtwoord; sessie in een httpOnly-cookie.
 - **HQ-overzicht** met het hele team, live status, en wat er aandacht nodig heeft.
@@ -13,7 +15,20 @@ zichtbaar is, aangestuurd wordt en verantwoording aflegt.
   `elara-reader`, dus die draait er zonder aanpassing op.
 - **Activiteitenfeed** van alles wat de agents doen.
 
-Fase 2 (taken en teamcommunicatie), 3 (ochtendoverleg) en 4 (Meta ads-manager) staan in het plan.
+**Fase 2 — taken en teamcommunicatie**
+
+- **Takenbord** van inbox tot klaar; taak aanmaken, toewijzen en uitbesteden.
+- **Dispatch via de adapter** van de agent, met de opdracht én het token om terug te melden.
+- **Terugpraten**: agents melden voortgang, blokkades en resultaat op `/api/agents/[id]/reply`,
+  of via de Telegram-webhook.
+- **Teamkanalen en DM's** met @mentions; agent-naar-agent verkeer loopt via de orchestrator en
+  blijft daardoor meeleesbaar.
+- **Meldingen** in het dashboard, met een Telegram-push bij vastlopers en afrondingen.
+
+Fase 3 (ochtendoverleg) en 4 (Meta ads-manager) staan in het plan.
+
+Overal geldt: als iets niet bezorgd kan worden, zegt de app **waarom**, in plaats van stilletjes
+te falen. Een taak toewijzen aan een niet-gekoppelde agent blokkeert de verzendknop met uitleg.
 
 ## Aan de praat krijgen
 

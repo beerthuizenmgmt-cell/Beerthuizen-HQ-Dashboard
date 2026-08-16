@@ -17,7 +17,7 @@ function greeting(): string {
 export default async function HQPage() {
   const user = await requireUser();
 
-  const [agents, activity, unread, instances] = await Promise.all([
+  const [agents, activity, unread, instances, openTasks, recentTasks] = await Promise.all([
     db.agent.findMany({ orderBy: [{ isChief: "desc" }, { sortOrder: "asc" }] }),
     db.activityEvent.findMany({
       orderBy: { occurredAt: "desc" },
@@ -26,16 +26,22 @@ export default async function HQPage() {
     }),
     db.notification.count({ where: { readAt: null } }),
     db.instance.count({ where: { active: true } }),
+    db.task.count({ where: { status: { notIn: ["done", "cancelled"] } } }),
+    db.task.findMany({
+      where: { status: { notIn: ["done", "cancelled"] } },
+      orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
+      take: 5,
+      include: { agent: { select: { name: true, emoji: true } } },
+    }),
   ]);
 
   const connected = agents.filter((a) => a.adapterType !== "manual").length;
-  const working = agents.filter((a) => a.status === "active" && !a.paused).length;
   const problems = agents.filter((a) => a.status === "error" || (a.lastError && !a.paused)).length;
 
   const stats = [
     { label: "Agents in dienst", value: agents.length },
     { label: "Gekoppeld", value: `${connected}/${agents.length}` },
-    { label: "Nu actief", value: working },
+    { label: "Open taken", value: openTasks },
     { label: "Aandacht nodig", value: problems, alert: problems > 0 },
   ];
 
@@ -95,6 +101,31 @@ export default async function HQPage() {
           ))}
         </div>
       </section>
+
+      {recentTasks.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Loopt nu</h2>
+            <Link href="/taken" className="text-xs text-text-muted hover:text-text">
+              Takenbord →
+            </Link>
+          </div>
+          <div className="card divide-y divide-border">
+            {recentTasks.map((task) => (
+              <Link
+                key={task.id}
+                href={`/taken/${task.id}`}
+                className="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover"
+              >
+                <span className="min-w-0 flex-1 truncate text-sm">{task.title}</span>
+                <span className="shrink-0 text-xs text-text-faint">
+                  {task.agent ? `${task.agent.emoji ?? ""} ${task.agent.name}` : "niemand"}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <div className="mb-3 flex items-center justify-between">
