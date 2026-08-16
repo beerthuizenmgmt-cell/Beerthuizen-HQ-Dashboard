@@ -73,13 +73,14 @@ export default async function HQPage() {
       </section>
 
       {connected === 0 && (
-        <div className="card border-accent/30 bg-accent/5 p-5">
-          <h2 className="text-sm font-semibold">Je team staat klaar, maar praat nog nergens mee</h2>
-          <p className="mt-1.5 text-sm text-text-muted">
-            Alle acht agents staan in het overzicht, maar zijn nog niet gekoppeld. Open een agent en kies
-            een koppeling — Telegram werkt het snelst, de OpenClaw-gateway geeft het meeste terug.
+        <div className="card-cream p-6">
+          <p className="eyebrow-rule start">Aan de slag</p>
+          <h2 className="mt-2 text-2xl">Je team staat klaar, maar praat nog nergens mee</h2>
+          <p className="muted mt-2 max-w-xl text-sm">
+            De agents staan in het overzicht, maar zijn nog niet gekoppeld. Open een agent en kies een
+            koppeling — ingebouwd werkt meteen, Telegram als je ze op je telefoon wilt.
           </p>
-          <Link href={`/agents/${agents[0]?.id ?? ""}`} className="btn btn-primary mt-4">
+          <Link href={`/agents/${agents[0]?.id ?? ""}`} className="btn btn-primary mt-5">
             Eerste agent koppelen
           </Link>
         </div>
@@ -87,7 +88,7 @@ export default async function HQPage() {
 
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Het team</h2>
+          <h2 className="eyebrow-rule start">Het team</h2>
           <Link href="/agents" className="text-xs text-text-muted hover:text-text">
             Alles beheren →
           </Link>
@@ -102,7 +103,7 @@ export default async function HQPage() {
       {recentTasks.length > 0 && (
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Loopt nu</h2>
+            <h2 className="eyebrow-rule start">Loopt nu</h2>
             <Link href="/taken" className="text-xs text-text-muted hover:text-text">
               Takenbord →
             </Link>
@@ -126,7 +127,7 @@ export default async function HQPage() {
 
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Laatste activiteit</h2>
+          <h2 className="eyebrow-rule start">Laatste activiteit</h2>
           <Link href="/activiteit" className="text-xs text-text-muted hover:text-text">
             Alles bekijken →
           </Link>

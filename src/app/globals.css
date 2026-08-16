@@ -199,4 +199,47 @@ h3 {
     text-transform: uppercase;
     color: var(--text-faint);
   }
+
+  /* Het kopje met streepjes ernaast, zoals — COVERSHOOT — op de site */
+  .eyebrow-rule {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .eyebrow-rule::before,
+  .eyebrow-rule::after {
+    content: "";
+    width: 1.5rem;
+    height: 1px;
+    background: var(--accent);
+    opacity: 0.7;
+  }
+  /* Aan het begin van een regel hoort links geen streepje */
+  .eyebrow-rule.start::before {
+    display: none;
+  }
+
+  /* Het crèmekleurige blok van de site, voor het ene ding dat er echt toe doet.
+     Spaarzaam gebruiken — de kracht zit in het contrast. */
+  .card-cream {
+    background: var(--cream);
+    color: #0d0d0d;
+    border: none;
+    border-radius: 1.25rem;
+  }
+  .card-cream .muted {
+    color: #0d0d0daa;
+  }
+
+  /* Blauwe scheidingslijn tussen blokken, zoals boven de crèmesecties */
+  .rule-blue {
+    height: 2px;
+    background: var(--brand-blue);
+    border: none;
+  }
 }

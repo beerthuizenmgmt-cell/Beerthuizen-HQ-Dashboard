@@ -6,6 +6,7 @@ import { getAdapter } from "@/lib/adapters";
 import { StandupControls } from "@/components/standup-controls";
 import { closeMeeting, refreshSummary, taskFromBlocker } from "@/lib/actions/standup";
 import { formatDayLong, formatDateTime } from "@/lib/format";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function StandupPage() {
       include: {
         entries: {
           orderBy: { agent: { sortOrder: "asc" } },
-          include: { agent: { select: { id: true, name: true, emoji: true, color: true } } },
+          include: { agent: { select: { id: true, name: true, emoji: true, color: true, avatarUrl: true } } },
         },
         questions: { select: { answeredAt: true, skippedAt: true } },
       },
@@ -77,9 +78,9 @@ export default async function StandupPage() {
       )}
 
       {meeting?.summaryMd && (
-        <section className="card border-accent/30 bg-accent/5 p-5">
-          <h2 className="mb-2 text-sm font-semibold">De korte versie</h2>
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">{meeting.summaryMd}</p>
+        <section className="card-cream p-6">
+          <p className="eyebrow-rule start">De korte versie</p>
+          <p className="mt-3 text-[15px] leading-relaxed whitespace-pre-wrap">{meeting.summaryMd}</p>
         </section>
       )}
 
@@ -87,21 +88,15 @@ export default async function StandupPage() {
         <>
           {received.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-sm font-semibold">Wat het team meldt</h2>
+              <h2 className="eyebrow-rule start">Wat het team meldt</h2>
 
               {received.map((entry) => {
-                const accent = entry.agent.color ?? "#6366f1";
                 const hasBlocker = entry.blockers && !NO_BLOCKER.test(entry.blockers.trim());
 
                 return (
                   <article key={entry.id} className="card p-4">
                     <div className="flex items-center gap-2.5">
-                      <span
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-base"
-                        style={{ background: `color-mix(in srgb, ${accent} 18%, transparent)` }}
-                      >
-                        {entry.agent.emoji ?? "◉"}
-                      </span>
+                      <AgentAvatar agent={entry.agent} size="sm" />
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-semibold">{entry.agent.name}</p>
                         <p className="text-[11px] text-text-faint">
@@ -151,7 +146,7 @@ export default async function StandupPage() {
 
           {waiting.length > 0 && (
             <section>
-              <h2 className="mb-2 text-sm font-semibold">Nog niet gereageerd</h2>
+              <h2 className="eyebrow-rule start mb-2">Nog niet gereageerd</h2>
               <div className="card divide-y divide-border">
                 {waiting.map((entry) => (
                   <div key={entry.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">

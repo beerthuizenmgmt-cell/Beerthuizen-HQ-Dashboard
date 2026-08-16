@@ -46,7 +46,7 @@ export default async function MonitoringPage() {
       <MonitoringPanel hasWatches={watches.length > 0} signalAgents={signalAgents} />
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold">Bewaakte onderwerpen</h2>
+        <h2 className="eyebrow-rule start mb-3">Bewaakte onderwerpen</h2>
         {watches.length === 0 ? (
           <div className="card p-6 text-center text-sm text-text-muted">
             Detectie staat nog uit. Zet hem aan met de knop hierboven — daarna wordt er per onderwerp
@@ -120,7 +120,7 @@ export default async function MonitoringPage() {
 
       {insights.length > 0 && (
         <section>
-          <h2 className="mb-3 text-sm font-semibold">Opgeslagen inzichten</h2>
+          <h2 className="eyebrow-rule start mb-3">Opgeslagen inzichten</h2>
           <div className="card divide-y divide-border">
             {insights.map((insight) => (
               <div key={insight.id} className="px-4 py-3">
@@ -143,7 +143,7 @@ export default async function MonitoringPage() {
       )}
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold">Activeringen</h2>
+        <h2 className="eyebrow-rule start mb-3">Activeringen</h2>
         <div className="card divide-y divide-border">
           {runs.length === 0 && (
             <p className="px-4 py-8 text-center text-sm text-text-faint">

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { logout } from "@/lib/actions/auth";
 import { SidebarNav } from "@/components/sidebar-nav";
-import { Logo, Wordmark } from "@/components/logo";
+import { Logo, LogoMark } from "@/components/logo";
 import { db } from "@/lib/db";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
@@ -12,9 +12,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-bg-elevated md:flex">
-        <div className="flex items-center gap-2.5 px-5 py-5">
+        <div className="px-5 py-6">
           <Logo />
-          <Wordmark />
         </div>
 
         <SidebarNav unread={unread} />
@@ -34,7 +33,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         {/* Mobiele navigatie */}
         <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:hidden">
           <Link href="/hq">
-            <Logo />
+            <LogoMark />
           </Link>
           <SidebarNav unread={unread} compact />
         </header>
