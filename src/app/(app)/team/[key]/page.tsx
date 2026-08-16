@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { getAdapter } from "@/lib/adapters";
 import { MessageComposer } from "@/components/message-composer";
 import { formatDateTime } from "@/lib/format";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
           take: 200,
           include: {
             fromUser: { select: { name: true } },
-            fromAgent: { select: { name: true, emoji: true, color: true } },
+            fromAgent: { select: { name: true, emoji: true, color: true, avatarUrl: true } },
             toAgent: { select: { name: true } },
           },
         },
@@ -40,7 +41,7 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
     }),
     db.channel.findMany({
       orderBy: [{ kind: "asc" }, { sortOrder: "asc" }],
-      include: { agent: { select: { emoji: true, paused: true } } },
+      include: { agent: { select: { name: true, emoji: true, color: true, avatarUrl: true, paused: true } } },
     }),
     db.agent.findMany({ orderBy: { sortOrder: "asc" }, select: { key: true, name: true } }),
   ]);
@@ -85,7 +86,11 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
                   entry.key === key ? "bg-surface font-medium" : "text-text-muted hover:bg-surface-hover"
                 } ${entry.agent?.paused ? "opacity-50" : ""}`}
               >
-                <span>{entry.agent?.emoji ?? "◉"}</span>
+                {entry.agent ? (
+                  <AgentAvatar agent={entry.agent} size="xs" />
+                ) : (
+                  <span>◉</span>
+                )}
                 <span className="truncate">{entry.name}</span>
               </Link>
             ))}
@@ -95,7 +100,14 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="border-b border-border pb-3">
           <h1 className="text-lg font-semibold">
-            {channel.kind === "team" ? `# ${channel.name}` : `${channel.agent?.emoji ?? ""} ${channel.name}`}
+            {channel.kind === "team" ? (
+              `# `
+            ) : (
+              <span className="flex items-center gap-2">
+                {channel.agent && <AgentAvatar agent={channel.agent} size="sm" />}
+                {channel.name}
+              </span>
+            )}
           </h1>
           {channel.purpose && <p className="mt-0.5 text-xs text-text-muted">{channel.purpose}</p>}
         </header>
@@ -110,9 +122,7 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
 
           {channel.messages.toReversed().map((message) => {
             const isUser = message.fromType === "user";
-            const author = isUser
-              ? (message.fromUser?.name ?? "Jij")
-              : `${message.fromAgent?.emoji ?? ""} ${message.fromAgent?.name ?? "Systeem"}`;
+            const author = isUser ? (message.fromUser?.name ?? "Jij") : (message.fromAgent?.name ?? "Systeem");
 
             return (
               <div key={message.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -121,7 +131,10 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
                     isUser ? "bg-accent/15 border border-accent/25" : "card"
                   }`}
                 >
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-center gap-2">
+                    {!isUser && message.fromAgent && (
+                      <AgentAvatar agent={message.fromAgent} size="xs" />
+                    )}
                     <span className="text-xs font-medium">{author}</span>
                     <span className="text-[11px] text-text-faint">{formatDateTime(message.createdAt)}</span>
                   </div>

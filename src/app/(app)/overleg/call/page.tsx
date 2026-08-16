@@ -5,6 +5,7 @@ import { meetingDate } from "@/lib/standup";
 import { startCall } from "@/lib/actions/call";
 import { CallRoom } from "@/components/call-room";
 import { formatDayLong, formatDateTime } from "@/lib/format";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +18,11 @@ export default async function CallPage() {
     include: {
       questions: {
         orderBy: { sortOrder: "asc" },
-        include: { agent: { select: { id: true, name: true, emoji: true, color: true } } },
+        include: { agent: { select: { id: true, name: true, emoji: true, color: true, avatarUrl: true } } },
       },
       entries: {
         orderBy: { agent: { sortOrder: "asc" } },
-        include: { agent: { select: { name: true, emoji: true } } },
+        include: { agent: { select: { name: true, emoji: true, avatarUrl: true } } },
       },
     },
   });
@@ -94,7 +95,7 @@ export default async function CallPage() {
               {planning.map((entry) => (
                 <div key={entry.id} className="px-4 py-3">
                   <p className="text-xs font-medium text-text-muted">
-                    {entry.agent.emoji ?? "◉"} {entry.agent.name}
+                    <AgentAvatar agent={entry.agent} size="xs" /> {entry.agent.name}
                   </p>
                   <p className="mt-1 text-sm leading-snug">{entry.today}</p>
                   {entry.blockers && (
@@ -116,7 +117,7 @@ export default async function CallPage() {
                 .map((question) => (
                   <div key={question.id} className="px-4 py-3">
                     <p className="text-xs text-text-faint">
-                      {question.agent.emoji ?? "◉"} {question.agent.name}
+                      <AgentAvatar agent={question.agent} size="xs" /> {question.agent.name}
                     </p>
                     <p className="mt-0.5 line-clamp-2 text-xs text-text-muted">{question.body}</p>
                     <p className="mt-1 line-clamp-3 text-sm">{question.answer}</p>

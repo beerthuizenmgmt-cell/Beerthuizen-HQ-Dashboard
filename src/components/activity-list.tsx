@@ -1,5 +1,6 @@
 import type { ActivityLevel } from "@/generated/prisma/enums";
 import { timeAgo } from "@/lib/format";
+import { AgentAvatar } from "./agent-avatar";
 
 const LEVEL_COLOR: Record<ActivityLevel, string> = {
   info: "var(--text-faint)",
@@ -14,7 +15,7 @@ export type ActivityRow = {
   kind: string;
   level: ActivityLevel;
   message: string;
-  agent: { name: string; emoji: string | null; color: string | null } | null;
+  agent: { name: string; emoji: string | null; color: string | null; avatarUrl: string | null } | null;
 };
 
 export function ActivityList({
@@ -32,14 +33,18 @@ export function ActivityList({
     <>
       {events.map((event) => (
         <div key={event.id} className="flex items-start gap-3 px-4 py-3">
-          <span
-            className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ background: LEVEL_COLOR[event.level] }}
-          />
+          {event.agent ? (
+            <AgentAvatar agent={event.agent} size="sm" className="mt-0.5" />
+          ) : (
+            <span
+              className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ background: LEVEL_COLOR[event.level] }}
+            />
+          )}
           <div className="min-w-0 flex-1">
             <p className="text-sm leading-snug">{event.message}</p>
             <p className="mt-0.5 text-xs text-text-faint">
-              {event.agent ? `${event.agent.emoji ?? ""} ${event.agent.name} · ` : ""}
+              {event.agent ? `${event.agent.name} · ` : ""}
               {event.kind}
             </p>
           </div>

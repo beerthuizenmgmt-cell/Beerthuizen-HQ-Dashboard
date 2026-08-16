@@ -395,6 +395,9 @@ async function describeFailure(response: Response, model: string): Promise<strin
   if (response.status === 401 || response.status === 403) {
     return `De API-sleutel werd geweigerd (${response.status}). Controleer hem bij Instellingen → Taalmodel.`;
   }
+  if (response.status === 402) {
+    return `Je saldo bij de aanbieder is op (402). Waardeer je account op, dan werken de agents meteen weer. Er is niets kapot en niets verloren.`;
+  }
   if (response.status === 404 || /model/i.test(detail)) {
     return `Model "${model}" werd niet geaccepteerd: ${detail}. Kies een bestaand model bij Instellingen → Taalmodel.`;
   }

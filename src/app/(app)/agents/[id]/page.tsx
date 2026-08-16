@@ -30,7 +30,7 @@ export default async function AgentDetailPage({ params }: PageProps<"/agents/[id
       activityEvents: {
         orderBy: { occurredAt: "desc" },
         take: 10,
-        include: { agent: { select: { name: true, emoji: true, color: true } } },
+        include: { agent: { select: { name: true, emoji: true, color: true, avatarUrl: true } } },
       },
     },
   });

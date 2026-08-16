@@ -2,7 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { getAiStatus } from "@/lib/ai/provider";
-import { getFinanceSettings, monthRange } from "@/lib/ai/cost";
+import { getFinanceSettings, monthRange, providerBalance } from "@/lib/ai/cost";
 import { dayKey, fromDayKey, startOfWeek } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +36,11 @@ export default async function FinancePage() {
   const todayStart = fromDayKey(dayKey(new Date()));
   const weekStart = fromDayKey(startOfWeek(dayKey(new Date())));
 
-  const [config, finance] = await Promise.all([getAiStatus(), getFinanceSettings()]);
+  const [config, finance, balance] = await Promise.all([
+    getAiStatus(),
+    getFinanceSettings(),
+    providerBalance(),
+  ]);
 
   const spendWhere = { createdAt: { gte: monthStart, lt: monthEnd } };
 
@@ -177,6 +181,34 @@ export default async function FinancePage() {
           }
         />
       </section>
+
+      {balance.supported && balance.remaining !== undefined && (
+        <div
+          className={`card p-4 text-sm ${
+            balance.remaining <= 0 ? "border-danger/40 bg-danger/5" : ""
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              Saldo bij {config.provider}:{" "}
+              <strong>${balance.remaining.toFixed(2)}</strong>
+              <span className="text-text-faint">
+                {" "}
+                · ${(balance.used ?? 0).toFixed(2)} verbruikt
+              </span>
+            </span>
+            {balance.remaining <= 0 && (
+              <span className="chip text-danger">saldo op — agents kunnen niet draaien</span>
+            )}
+          </div>
+          {balance.remaining <= 0 && (
+            <p className="mt-2 text-xs text-text-muted">
+              Dit is het saldo bij je aanbieder, niet je maandbudget hierboven. Waardeer je account op
+              en alles werkt meteen weer — er is niets kapot en niets verloren.
+            </p>
+          )}
+        </div>
+      )}
 
       {unknownCount > 0 && (
         <div className="card border-warn/40 bg-warn/5 p-4 text-sm">

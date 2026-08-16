@@ -104,7 +104,7 @@ export async function toolConfigForUi(toolId: string): Promise<Record<string, st
 
 export type IdentityState = { error?: string; ok?: string };
 
-const MAX_AVATAR_BYTES = 400_000;
+const MAX_UPLOAD_BYTES = 8_000_000;
 
 /// Naam, functietitel, beschrijving en gezicht. De avatar mag een adres zijn of
 /// een geüpload bestand; dat laatste bewaren we als data-URI in de database, dan
@@ -131,13 +131,21 @@ export async function saveIdentity(_prev: IdentityState, formData: FormData): Pr
     const file = formData.get("avatarFile");
     if (file instanceof File && file.size > 0) {
       if (!file.type.startsWith("image/")) return { error: "Kies een afbeelding." };
-      if (file.size > MAX_AVATAR_BYTES) {
+      if (file.size > MAX_UPLOAD_BYTES) {
         return {
-          error: `Die afbeelding is ${Math.round(file.size / 1024)} kB. Houd het onder ${MAX_AVATAR_BYTES / 1024} kB — hij wordt klein getoond, dus dat is ruim genoeg.`,
+          error: `Die afbeelding is ${Math.round(file.size / 1024 / 1024)} MB. Houd het onder ${MAX_UPLOAD_BYTES / 1024 / 1024} MB.`,
         };
       }
-      const buffer = Buffer.from(await file.arrayBuffer());
-      avatarUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
+
+      // Verkleinen naar een vierkant van 256 pixels: dat is wat je ziet, en het
+      // scheelt megabytes bij elk paginabezoek.
+      const { shrinkToAvatar } = await import("@/lib/ai/avatar-image");
+      try {
+        const shrunk = await shrinkToAvatar(Buffer.from(await file.arrayBuffer()));
+        avatarUrl = shrunk.dataUrl;
+      } catch {
+        return { error: "Die afbeelding kon niet verwerkt worden. Probeer een JPG of PNG." };
+      }
     } else if (avatarUrlField) {
       if (!/^https?:\/\//.test(avatarUrlField)) return { error: "Een adres moet met http of https beginnen." };
       avatarUrl = avatarUrlField;
@@ -162,4 +170,18 @@ export async function saveIdentity(_prev: IdentityState, formData: FormData): Pr
   revalidatePath("/agents");
   revalidatePath("/hq");
   return { ok: "Opgeslagen." };
+}
+
+/// Laat een portret maken met dezelfde sleutel die de agents al gebruiken.
+export async function makePortrait(agentId: string): Promise<{ ok: boolean; message: string }> {
+  await requireUser();
+
+  const { generatePortrait } = await import("@/lib/ai/portrait");
+  const result = await generatePortrait(agentId);
+
+  revalidatePath(`/agents/${agentId}`);
+  revalidatePath("/agents");
+  revalidatePath("/hq");
+
+  return { ok: result.ok, message: result.message };
 }

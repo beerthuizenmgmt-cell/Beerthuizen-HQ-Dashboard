@@ -10,7 +10,7 @@ export default async function ActivityPage() {
   const events = await db.activityEvent.findMany({
     orderBy: { occurredAt: "desc" },
     take: 100,
-    include: { agent: { select: { name: true, emoji: true, color: true } } },
+    include: { agent: { select: { name: true, emoji: true, color: true, avatarUrl: true } } },
   });
 
   return (

@@ -150,7 +150,7 @@ export default async function StandupPage() {
               <div className="card divide-y divide-border">
                 {waiting.map((entry) => (
                   <div key={entry.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                    <span>{entry.agent.emoji ?? "◉"}</span>
+                    <AgentAvatar agent={entry.agent} size="xs" />
                     <span className="flex-1">{entry.agent.name}</span>
                     <span className={`text-xs ${entry.error ? "text-danger" : "text-text-faint"}`}>
                       {entry.error ?? "wachten op antwoord"}

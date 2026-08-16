@@ -41,13 +41,13 @@ export default async function AgendaPage({ searchParams }: PageProps<"/agenda">)
     db.task.findMany({
       where: { dueAt: { gte: rangeStart, lt: rangeEnd }, status: { not: "cancelled" } },
       orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
-      include: { agent: { select: { name: true, emoji: true, color: true } } },
+      include: { agent: { select: { name: true, emoji: true, color: true, avatarUrl: true } } },
     }),
     db.task.findMany({
       where: { dueAt: null, status: { notIn: ["done", "cancelled"] } },
       orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
       take: 30,
-      include: { agent: { select: { name: true, emoji: true, color: true } } },
+      include: { agent: { select: { name: true, emoji: true, color: true, avatarUrl: true } } },
     }),
     db.meeting.findMany({
       where: { date: { gte: rangeStart, lt: rangeEnd } },
@@ -55,14 +55,14 @@ export default async function AgendaPage({ searchParams }: PageProps<"/agenda">)
         entries: {
           where: { today: { not: null } },
           orderBy: { agent: { sortOrder: "asc" } },
-          include: { agent: { select: { name: true, emoji: true } } },
+          include: { agent: { select: { name: true, emoji: true, avatarUrl: true } } },
         },
       },
     }),
     db.agent.findMany({
       where: { paused: false },
       orderBy: [{ isChief: "desc" }, { sortOrder: "asc" }],
-      select: { id: true, name: true, emoji: true },
+      select: { id: true, name: true, emoji: true, avatarUrl: true },
     }),
   ]);
 

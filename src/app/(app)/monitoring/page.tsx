@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { MonitoringPanel } from "@/components/monitoring-panel";
 import { getLastReport } from "@/lib/ai/head";
 import { formatDateTime, timeAgo } from "@/lib/format";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -12,24 +13,24 @@ export default async function MonitoringPage() {
   const [watches, runs, insights, lastReport, signalAgents] = await Promise.all([
     db.agentWatch.findMany({
       orderBy: { key: "asc" },
-      include: { agent: { select: { name: true, emoji: true, paused: true } } },
+      include: { agent: { select: { name: true, emoji: true, avatarUrl: true, paused: true } } },
     }),
     db.agentRun.findMany({
       where: { trigger: { in: ["watch", "chief_cycle"] } },
       orderBy: { createdAt: "desc" },
       take: 15,
-      include: { agent: { select: { name: true, emoji: true } } },
+      include: { agent: { select: { name: true, emoji: true, avatarUrl: true } } },
     }),
     db.agentInsight.findMany({
       orderBy: { createdAt: "desc" },
       take: 10,
-      include: { agent: { select: { name: true, emoji: true } } },
+      include: { agent: { select: { name: true, emoji: true, avatarUrl: true } } },
     }),
     getLastReport(),
     db.agent.findMany({
       where: { adapterType: "builtin" },
       orderBy: { sortOrder: "asc" },
-      select: { key: true, name: true, emoji: true },
+      select: { key: true, name: true, emoji: true, avatarUrl: true },
     }),
   ]);
 
@@ -63,7 +64,7 @@ export default async function MonitoringPage() {
                       <p className="text-sm font-semibold">
                         {watch.label}{" "}
                         <span className="font-normal text-text-faint">
-                          — {watch.agent.emoji ?? ""} {watch.agent.name}
+                          — {watch.agent.name}
                           {watch.agent.paused && " (op pauze)"}
                         </span>
                       </p>
@@ -125,9 +126,8 @@ export default async function MonitoringPage() {
             {insights.map((insight) => (
               <div key={insight.id} className="px-4 py-3">
                 <div className="flex items-center gap-2 text-xs text-text-faint">
-                  <span className="font-medium text-text-muted">
-                    {insight.agent.emoji ?? ""} {insight.agent.name}
-                  </span>
+                  <AgentAvatar agent={insight.agent} size="xs" />
+                  <span className="font-medium text-text-muted">{insight.agent.name}</span>
                   <span className="chip px-1.5 py-0 text-[10px]">{insight.relevance}</span>
                   <span className="ml-auto">
                     {insight.reportedAt ? "in rapport verwerkt" : "nog niet gerapporteerd"} ·{" "}
@@ -153,9 +153,8 @@ export default async function MonitoringPage() {
           {runs.map((run) => (
             <div key={run.id} className="px-4 py-3">
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="font-medium">
-                  {run.agent.emoji ?? ""} {run.agent.name}
-                </span>
+                <AgentAvatar agent={run.agent} size="xs" />
+                <span className="font-medium">{run.agent.name}</span>
                 <span className="chip px-1.5 py-0 text-[10px]">{run.trigger}</span>
                 <code className="font-mono text-[10px] text-text-faint">{run.model}</code>
                 <span className="ml-auto text-text-faint">{formatDateTime(run.createdAt)}</span>

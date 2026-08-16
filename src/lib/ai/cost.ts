@@ -197,3 +197,34 @@ export async function checkBudget(): Promise<void> {
     push: highest >= 90,
   });
 }
+
+/// Saldo bij de aanbieder. Nu je met echt geld draait wil je dit zien vóórdat
+/// een agent midden in een analyse tegen een lege rekening loopt.
+export async function providerBalance(): Promise<{
+  supported: boolean;
+  credits?: number;
+  used?: number;
+  remaining?: number;
+  error?: string;
+}> {
+  const { getAiConfig } = await import("./provider");
+  const config = await getAiConfig();
+
+  if (config.provider !== "openrouter" || !config.apiKey) return { supported: false };
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/credits", {
+      headers: { authorization: `Bearer ${config.apiKey}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) return { supported: true, error: `saldo opvragen gaf ${response.status}` };
+
+    const data = (await response.json()) as { data?: { total_credits?: number; total_usage?: number } };
+    const credits = data.data?.total_credits ?? 0;
+    const used = data.data?.total_usage ?? 0;
+
+    return { supported: true, credits, used, remaining: credits - used };
+  } catch (error) {
+    return { supported: true, error: error instanceof Error ? error.message : "onbekend" };
+  }
+}

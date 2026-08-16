@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { markNotificationsRead } from "@/lib/actions/notifications";
 import { timeAgo } from "@/lib/format";
+import { AgentAvatar } from "@/components/agent-avatar";
 import type { ActivityLevel } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function NotificationsPage() {
     db.notification.findMany({
       orderBy: { createdAt: "desc" },
       take: 100,
-      include: { agent: { select: { name: true, emoji: true } } },
+      include: { agent: { select: { name: true, emoji: true, avatarUrl: true } } },
     }),
     db.notification.count({ where: { readAt: null } }),
   ]);
@@ -54,17 +55,21 @@ export default async function NotificationsPage() {
         {notifications.map((notification) => {
           const content = (
             <div className={`flex items-start gap-3 px-4 py-3 ${notification.readAt ? "opacity-60" : ""}`}>
-              <span
-                className="mt-1.5 h-2 w-2 shrink-0 rounded-full"
-                style={{ background: LEVEL_COLOR[notification.level] }}
-              />
+              {notification.agent ? (
+                <AgentAvatar agent={notification.agent} size="sm" className="mt-0.5" />
+              ) : (
+                <span
+                  className="mt-2 h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: LEVEL_COLOR[notification.level] }}
+                />
+              )}
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{notification.title}</p>
                 {notification.body && (
                   <p className="mt-0.5 line-clamp-2 text-sm text-text-muted">{notification.body}</p>
                 )}
                 <p className="mt-1 text-xs text-text-faint">
-                  {notification.agent ? `${notification.agent.emoji ?? ""} ${notification.agent.name} · ` : ""}
+                  {notification.agent ? ` · ` : ""}
                   {timeAgo(notification.createdAt)}
                   {notification.pushedAt && " · ook naar Telegram"}
                 </p>

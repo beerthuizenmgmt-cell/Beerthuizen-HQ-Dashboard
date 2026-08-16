@@ -6,6 +6,7 @@ import { getAdapter } from "@/lib/adapters";
 import { TaskActions } from "@/components/task-actions";
 import { TaskComment } from "@/components/task-comment";
 import { formatDate, formatDateTime, timeAgo } from "@/lib/format";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,7 @@ export default async function TaskDetailPage({ params }: PageProps<"/taken/[id]"
           orderBy: { createdAt: "asc" },
           include: {
             authorUser: { select: { name: true } },
-            authorAgent: { select: { name: true, emoji: true } },
+            authorAgent: { select: { name: true, emoji: true, avatarUrl: true } },
           },
         },
       },
@@ -49,7 +50,7 @@ export default async function TaskDetailPage({ params }: PageProps<"/taken/[id]"
     db.agent.findMany({
       where: { paused: false },
       orderBy: [{ isChief: "desc" }, { sortOrder: "asc" }],
-      select: { id: true, name: true, emoji: true },
+      select: { id: true, name: true, emoji: true, avatarUrl: true },
     }),
   ]);
 
@@ -106,10 +107,9 @@ export default async function TaskDetailPage({ params }: PageProps<"/taken/[id]"
           {task.updates.map((update) => (
             <div key={update.id} className="px-4 py-3">
               <div className="flex items-center gap-2 text-xs text-text-faint">
+                {update.authorAgent && <AgentAvatar agent={update.authorAgent} size="xs" />}
                 <span className="font-medium text-text-muted">
-                  {update.authorAgent
-                    ? `${update.authorAgent.emoji ?? ""} ${update.authorAgent.name}`
-                    : (update.authorUser?.name ?? "Systeem")}
+                  {update.authorAgent ? update.authorAgent.name : (update.authorUser?.name ?? "Systeem")}
                 </span>
                 <span className="chip px-1.5 py-0 text-[10px]">{KIND_LABEL[update.kind] ?? update.kind}</span>
                 <span className="ml-auto">{formatDateTime(update.createdAt)}</span>

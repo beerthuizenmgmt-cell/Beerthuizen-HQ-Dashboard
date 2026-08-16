@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { TaskForm } from "@/components/task-form";
 import { getAdapter } from "@/lib/adapters";
 import { timeAgo } from "@/lib/format";
+import { AgentAvatar } from "@/components/agent-avatar";
 import type { TaskPriority, TaskStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export default async function TasksPage() {
     db.task.findMany({
       where: { status: { not: "cancelled" } },
       orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
-      include: { agent: { select: { name: true, emoji: true, color: true } } },
+      include: { agent: { select: { name: true, emoji: true, color: true, avatarUrl: true } } },
     }),
     db.agent.findMany({
       where: { paused: false },
@@ -96,8 +97,15 @@ export default async function TasksPage() {
                     </div>
 
                     <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-text-faint">
-                      <span className="truncate">
-                        {task.agent ? `${task.agent.emoji ?? ""} ${task.agent.name}` : "niemand"}
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        {task.agent ? (
+                          <>
+                            <AgentAvatar agent={task.agent} size="xs" />
+                            <span className="truncate">{task.agent.name}</span>
+                          </>
+                        ) : (
+                          <span className="truncate">niemand</span>
+                        )}
                       </span>
                       <span className="shrink-0">{timeAgo(task.updatedAt)}</span>
                     </div>

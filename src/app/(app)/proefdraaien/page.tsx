@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { getAiStatus } from "@/lib/ai/provider";
 import { TestRun } from "@/components/test-run";
 import { timeAgo } from "@/lib/format";
+import { AgentAvatar } from "@/components/agent-avatar";
 
 export const dynamic = "force-dynamic";
 
@@ -14,14 +15,14 @@ export default async function TestRunPage() {
     db.agent.findMany({
       where: { adapterType: "builtin" },
       orderBy: [{ isChief: "desc" }, { sortOrder: "asc" }],
-      select: { id: true, name: true, emoji: true, paused: true },
+      select: { id: true, name: true, emoji: true, avatarUrl: true, paused: true },
     }),
     getAiStatus(),
     db.agentRun.findMany({
       where: { trigger: "manual" },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { agent: { select: { name: true, emoji: true } } },
+      include: { agent: { select: { name: true, emoji: true, avatarUrl: true } } },
     }),
   ]);
 
@@ -69,9 +70,8 @@ export default async function TestRunPage() {
             {recent.map((run) => (
               <div key={run.id} className="px-4 py-3">
                 <div className="flex items-center gap-2 text-xs text-text-faint">
-                  <span className="font-medium text-text-muted">
-                    {run.agent.emoji ?? ""} {run.agent.name}
-                  </span>
+                  <AgentAvatar agent={run.agent} size="xs" />
+                  <span className="font-medium text-text-muted">{run.agent.name}</span>
                   <code className="font-mono">{run.model}</code>
                   <span className="ml-auto">{timeAgo(run.createdAt)}</span>
                 </div>

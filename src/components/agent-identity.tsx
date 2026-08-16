@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { saveIdentity, type IdentityState } from "@/lib/actions/agent-tools";
+import { useActionState, useState, useTransition } from "react";
+import { makePortrait, saveIdentity, type IdentityState } from "@/lib/actions/agent-tools";
 import { AgentAvatar } from "./agent-avatar";
 
 const initial: IdentityState = {};
@@ -27,6 +27,8 @@ export function AgentIdentity({
   const [preview, setPreview] = useState<string | null>(null);
   const [draftName, setDraftName] = useState(name);
   const [draftEmoji, setDraftEmoji] = useState(emoji ?? "");
+  const [portraitMessage, setPortraitMessage] = useState<string | null>(null);
+  const [portraitPending, startPortrait] = useTransition();
 
   return (
     <form action={formAction} className="space-y-4">
@@ -39,6 +41,21 @@ export function AgentIdentity({
             size="xl"
             className="mx-auto"
           />
+          <button
+            type="button"
+            className="btn btn-ghost w-full px-2 py-1 text-[10px]"
+            disabled={portraitPending}
+            onClick={() =>
+              startPortrait(async () => {
+                setPortraitMessage(null);
+                const result = await makePortrait(agentId);
+                setPortraitMessage(result.message);
+                if (result.ok) setPreview(null);
+              })
+            }
+          >
+            {portraitPending ? "Bezig…" : "Portret laten maken"}
+          </button>
           <p className="text-[11px] text-text-faint">zo ziet hij eruit</p>
         </div>
 
@@ -132,6 +149,7 @@ export function AgentIdentity({
         </div>
       </div>
 
+      {portraitMessage && <p className="text-sm text-text-muted">{portraitMessage}</p>}
       {state.error && <p className="text-sm text-danger">{state.error}</p>}
       {state.ok && <p className="text-sm text-ok">{state.ok}</p>}
 

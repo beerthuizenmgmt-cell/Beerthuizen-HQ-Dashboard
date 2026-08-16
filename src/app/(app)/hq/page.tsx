@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { AgentCard } from "@/components/agent-card";
 import { ActivityList } from "@/components/activity-list";
+import { AgentAvatar } from "@/components/agent-avatar";
 import { formatDayLong, hourInTimezone } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export default async function HQPage() {
     db.activityEvent.findMany({
       orderBy: { occurredAt: "desc" },
       take: 12,
-      include: { agent: { select: { name: true, emoji: true, color: true } } },
+      include: { agent: { select: { name: true, emoji: true, color: true, avatarUrl: true } } },
     }),
     db.notification.count({ where: { readAt: null } }),
     db.instance.count({ where: { active: true } }),
@@ -32,7 +33,7 @@ export default async function HQPage() {
       where: { status: { notIn: ["done", "cancelled"] } },
       orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
       take: 5,
-      include: { agent: { select: { name: true, emoji: true } } },
+      include: { agent: { select: { name: true, emoji: true, avatarUrl: true } } },
     }),
   ]);
 
@@ -116,9 +117,14 @@ export default async function HQPage() {
                 className="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover"
               >
                 <span className="min-w-0 flex-1 truncate text-sm">{task.title}</span>
-                <span className="shrink-0 text-xs text-text-faint">
-                  {task.agent ? `${task.agent.emoji ?? ""} ${task.agent.name}` : "niemand"}
-                </span>
+                {task.agent ? (
+                  <span className="flex shrink-0 items-center gap-1.5 text-xs text-text-faint">
+                    <AgentAvatar agent={task.agent} size="xs" />
+                    {task.agent.name}
+                  </span>
+                ) : (
+                  <span className="shrink-0 text-xs text-text-faint">niemand</span>
+                )}
               </Link>
             ))}
           </div>
