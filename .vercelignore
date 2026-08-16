@@ -1,0 +1,20 @@
+# Wat niet mee mag naar de server.
+#
+# Vercel kijkt niet naar .gitignore maar naar dit bestand. Zonder deze regels
+# reist je lokale .env mee en wijst de live app naar de database op je Mac —
+# die vanaf internet onbereikbaar is, waardoor inloggen stukloopt.
+#
+# De echte instellingen staan in Vercel zelf (Project → Settings → Environment
+# Variables) en worden bij het draaien ingespoten; er hoeft dus niets mee.
+
+.env
+.env.*
+!.env.example
+
+# Databaseback-ups bevatten accountgegevens en wachtwoordhashes.
+backups/
+
+# Alleen nodig op deze Mac.
+.claude/
+docs/
+*.log
