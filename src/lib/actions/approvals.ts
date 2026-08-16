@@ -17,6 +17,31 @@ import { sendTelegram } from "@/lib/telegram";
 
 export type DecisionResult = { ok: boolean; message: string };
 
+/// Jouw correctie is de leerstof van de agent.
+///
+/// Zonder dit krijg je dezelfde fout elke week opnieuw voorgelegd: de agent
+/// weet dat dit verzoek is afgewezen, maar niet waarom, en dus ook niet wat
+/// hij de volgende keer anders moet doen. Met dit staat je opmerking bij zijn
+/// volgende denkbeurt in zijn geheugen.
+async function leerVanBeslissing(
+  agentId: string,
+  titel: string,
+  opmerking: string,
+  besluit: "goedgekeurd" | "afgewezen",
+): Promise<void> {
+  const tekst = opmerking.trim();
+  if (!tekst) return;
+
+  const { remember } = await import("@/lib/ai/memory");
+  await remember({
+    agentId,
+    kind: "leerpunt",
+    title: `${besluit === "afgewezen" ? "Afgewezen" : "Bijgestuurd"}: ${titel}`.slice(0, 200),
+    body: `Enriqueo zei hierover: "${tekst}" — houd hier voortaan rekening mee.`,
+    source: "user",
+  });
+}
+
 export async function approveRequest(approvalId: string, note: string): Promise<DecisionResult> {
   const user = await requireUser();
 
@@ -66,6 +91,8 @@ export async function approveRequest(approvalId: string, note: string): Promise<
     message: `Akkoord gegeven: ${approval.title}`,
   });
 
+  await leerVanBeslissing(approval.agent.id, approval.title, note, "goedgekeurd");
+
   await sendTelegram(
     `✅ *Akkoord gegeven*\n${approval.title}\n\n${approval.agent.name} kan door.${note.trim() ? `\n\nJouw opmerking: ${note.trim()}` : ""}`,
   );
@@ -99,6 +126,8 @@ export async function rejectRequest(approvalId: string, note: string): Promise<D
       decidedByUserId: user.id,
     },
   });
+
+  await leerVanBeslissing(approval.agent.id, approval.title, note, "afgewezen");
 
   // De agent moet weten waaróm, anders komt hetzelfde verzoek morgen terug.
   await db.message.create({
