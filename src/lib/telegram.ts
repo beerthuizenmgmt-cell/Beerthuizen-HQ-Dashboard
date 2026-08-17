@@ -152,7 +152,15 @@ export async function pollUpdates(): Promise<{ handled: number; error?: string }
 
   try {
     const updates = await call<
-      { update_id: number; message?: { text?: string; chat?: { id?: number }; from?: { is_bot?: boolean } } }[]
+      {
+        update_id: number;
+        message?: {
+          text?: string;
+          chat?: { id?: number };
+          from?: { is_bot?: boolean };
+          reply_to_message?: { message_id?: number };
+        };
+      }[]
     >(config.botToken, "getUpdates", offset ? { offset } : {});
 
     if (updates.length === 0) return { handled: 0 };
@@ -169,7 +177,7 @@ export async function pollUpdates(): Promise<{ handled: number; error?: string }
       // Alleen jouw eigen chat, en geen berichten van bots.
       if (!text || !chief || String(from) !== config.chatId || update.message?.from?.is_bot) continue;
 
-      await handleIncoming(chief.id, text);
+      await handleIncoming(chief.id, text, update.message?.reply_to_message?.message_id);
       handled += 1;
     }
 
@@ -188,8 +196,26 @@ export async function pollUpdates(): Promise<{ handled: number; error?: string }
 
 /// Eén binnengekomen bericht: vastleggen, de Head laten nadenken, en zijn
 /// antwoord terugsturen. Zo kun je vanaf je telefoon gewoon met hem praten.
-export async function handleIncoming(chiefId: string, text: string): Promise<void> {
+export async function handleIncoming(
+  chiefId: string,
+  text: string,
+  replyToMessageId?: number,
+): Promise<void> {
   const channel = await db.channel.findUnique({ where: { agentId: chiefId } });
+
+  // Waar gaat dit antwoord over? Eerst kijken of hij rechtstreeks op een vraag
+  // heeft geantwoord; anders de oudste openstaande vraag, want die staat het
+  // langst te wachten.
+  const draad = replyToMessageId
+    ? await db.telegramThread.findFirst({
+        where: { telegramMessageId: replyToMessageId, answeredAt: null },
+        include: { task: true, project: true, client: true },
+      })
+    : await db.telegramThread.findFirst({
+        where: { answeredAt: null },
+        orderBy: { askedAt: "asc" },
+        include: { task: true, project: true, client: true },
+      });
 
   if (channel) {
     await db.message.create({
@@ -203,12 +229,37 @@ export async function handleIncoming(chiefId: string, text: string): Promise<voi
     });
   }
 
+  if (draad) {
+    await db.telegramThread.update({
+      where: { id: draad.id },
+      data: { answer: text, answeredAt: new Date() },
+    });
+  }
+
+  // Met context erbij weet hij dat "4.000" een budget is voor een bepaalde
+  // klant, en niet een los getal.
+  const context = draad
+    ? [
+        ``,
+        `Dit is een antwoord op jouw vraag: "${draad.question}"`,
+        draad.client ? `Het gaat over klant ${draad.client.name}.` : "",
+        draad.project ? `Het gaat over project ${draad.project.name} (${draad.projectId}).` : "",
+        draad.task ? `Het gaat over taak "${draad.task.title}" (${draad.taskId}).` : "",
+        ``,
+        `Verwerk zijn antwoord op de juiste plek: werk de taak of het project bij, `,
+        `leg het vast als je het moet onthouden, en zet zo nodig het vervolg uit. `,
+        `Bevestig kort wat je ermee gedaan hebt.`,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "";
+
   const { runAgent } = await import("./ai/run");
   const result = await runAgent({
     agentId: chiefId,
-    input: `Enriqueo stuurt je dit via Telegram:\n\n${text}\n\nAntwoord kort en direct — dit leest hij op zijn telefoon.`,
+    input: `Enriqueo stuurt je dit via Telegram:\n\n${text}${context}\n\nAntwoord kort en direct — dit leest hij op zijn telefoon.`,
     trigger: "message",
-    reason: "bericht via Telegram",
+    reason: draad ? `antwoord op: ${draad.question.slice(0, 80)}` : "bericht via Telegram",
   });
 
   const reply = result.ok
@@ -231,20 +282,24 @@ export async function handleIncoming(chiefId: string, text: string): Promise<voi
 }
 
 /// Stuurt een bericht namens de Head of Operations.
-export async function sendTelegram(text: string): Promise<{ ok: boolean; error?: string }> {
+export async function sendTelegram(
+  text: string,
+): Promise<{ ok: boolean; error?: string; messageId?: number }> {
   const config = await getTelegramConfig();
   if (!config.botToken || !config.chatId) {
     return { ok: false, error: "Telegram is nog niet volledig gekoppeld." };
   }
 
   try {
-    await call(config.botToken, "sendMessage", {
+    // Het bericht-ID onthouden we: antwoordt Enriqueo rechtstreeks op dit
+    // bericht, dan weten we exact bij welke vraag zijn antwoord hoort.
+    const verstuurd = await call<{ message_id?: number }>(config.botToken, "sendMessage", {
       chat_id: config.chatId,
       text,
       parse_mode: "Markdown",
       link_preview_options: { is_disabled: true },
     });
-    return { ok: true };
+    return { ok: true, messageId: verstuurd?.message_id };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Versturen mislukt." };
   }

@@ -76,6 +76,24 @@ async function situationalContext(agentId: string): Promise<string> {
     }
   }
 
+  // Vragen die nog bij Enriqueo liggen. Zonder dit stelt hij dezelfde vraag
+  // morgen opnieuw, en dat is precies waar iemand moe van wordt.
+  const openstaand = await db.telegramThread.findMany({
+    where: { agentId, answeredAt: null },
+    orderBy: { askedAt: "asc" },
+    select: { question: true, askedAt: true, level: true },
+  });
+
+  if (openstaand.length) {
+    lines.push(``, `## Vragen die nog bij Enriqueo liggen`);
+    for (const vraag of openstaand) {
+      lines.push(
+        `- [${vraag.level}] sinds ${vraag.askedAt.toISOString().slice(0, 16).replace("T", " ")}: ${vraag.question}`,
+      );
+    }
+    lines.push(`Stel deze niet opnieuw. Loopt er een te lang, herinner hem er dan één keer aan.`);
+  }
+
   void agent;
   return lines.join("\n");
 }

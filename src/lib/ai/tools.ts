@@ -157,6 +157,31 @@ export const AGENT_TOOLS: ToolDefinition[] = [
 /// opdrachten geven.
 export const CHIEF_TOOLS: ToolDefinition[] = [
   {
+    name: "bericht_enriqueo",
+    description:
+      "Stuur Enriqueo nú een bericht via Telegram. Gebruik dit alleen wanneer je hem écht nodig hebt: essentiële informatie ontbreekt, een deadline of project loopt risico, een agent zit vast, of je hebt iets klaar dat zijn akkoord nodig heeft. Kun je het zelf oplossen, doe dat dan — hij wil rust en overzicht, geen meldingen over dingen die jij kunt afhandelen. Kan het wachten tot morgenochtend, gebruik dan het ochtendrapport.",
+    parameters: {
+      type: "object",
+      properties: {
+        urgentie: {
+          type: "string",
+          enum: ["info", "vraag", "akkoord", "waarschuwing"],
+          description:
+            "info = hij moet dit weten, geen actie. vraag = je hebt informatie van hem nodig. akkoord = je hebt iets klaar dat hij moet goedkeuren. waarschuwing = risico, deadline of probleem dat nu aandacht vraagt.",
+        },
+        bericht: {
+          type: "string",
+          description:
+            "Kort en concreet, zoals je het op zijn telefoon zou lezen. Bij een vraag: zeg wat je nodig hebt en waarom. Bij een waarschuwing: wat er speelt, wat de impact is, en wat jij zou doen.",
+        },
+        over_taak: { type: "string", description: "Taak-ID waar dit over gaat, als die er is" },
+        over_project: { type: "string", description: "Project-ID waar dit over gaat, als die er is" },
+        over_klant: { type: "string", description: "Naam van de klant waar dit over gaat, als die er is" },
+      },
+      required: ["urgentie", "bericht"],
+    },
+  },
+  {
     name: "vraag_agent",
     description:
       "Stel een vraag aan een van je agents of geef hem een opdracht. Hij denkt na en antwoordt je meteen.",
@@ -267,6 +292,8 @@ export async function runTool(
         return await recordResearch(args, context);
       case "lees_facturen":
         return await readInvoices(args);
+      case "bericht_enriqueo":
+        return await messageFounder(args, context);
       default:
         return { ok: false, message: `Onbekend gereedschap: ${name}` };
     }
@@ -623,5 +650,84 @@ async function recordResearch(args: Record<string, unknown>, context: ToolContex
       bronnen.length === 0
         ? `Vastgelegd in het archief (${entry.id}). Let op: je hebt geen bronnen meegegeven — vermeld dan in je antwoord dat deze bevindingen niet herleidbaar zijn.`
         : `Vastgelegd in het archief (${entry.id}) met ${bronnen.length} bron${bronnen.length === 1 ? "" : "nen"}.`,
+  };
+}
+
+/// Daan bereikt Enriqueo overdag.
+///
+/// Met een rem erop: vier berichten per uur is ruim voor een drukke dag en
+/// weinig genoeg om te merken dat er iets misgaat. Zonder die grens wordt een
+/// rechterhand een meldingenmachine, en dan zet je hem uit.
+async function messageFounder(
+  args: Record<string, unknown>,
+  context: ToolContext,
+): Promise<ToolResult> {
+  const bericht = text(args.bericht);
+  if (!bericht) return { ok: false, message: "bericht is verplicht" };
+
+  const urgentie = text(args.urgentie) || "info";
+  const geldig = ["info", "vraag", "akkoord", "waarschuwing"];
+  if (!geldig.includes(urgentie)) return { ok: false, message: `urgentie moet een van ${geldig.join(", ")} zijn` };
+
+  const eenUurGeleden = new Date(Date.now() - 60 * 60_000);
+  const recent = await db.telegramThread.count({
+    where: { agentId: context.agentId, askedAt: { gte: eenUurGeleden } },
+  });
+  if (recent >= 4 && urgentie !== "waarschuwing") {
+    return {
+      ok: false,
+      message:
+        "Je hebt hem dit uur al vier keer benaderd. Bewaar dit voor het ochtendrapport, of los het zelf op. " +
+        "Alleen een echte waarschuwing mag hier doorheen.",
+    };
+  }
+
+  // Context opzoeken. Een klantnaam is makkelijker voor een agent dan een ID.
+  const taskId = text(args.over_taak) || null;
+  const projectId = text(args.over_project) || null;
+  const klantnaam = text(args.over_klant);
+  const klant = klantnaam
+    ? await db.client.findFirst({ where: { name: { contains: klantnaam, mode: "insensitive" } } })
+    : null;
+
+  const icoon = { info: "🟢", vraag: "🟡", akkoord: "🔴", waarschuwing: "🚨" }[urgentie] ?? "🟢";
+  const kop = { info: "Ter info", vraag: "Ik heb iets van je nodig", akkoord: "Jouw akkoord nodig", waarschuwing: "Let op" }[urgentie];
+
+  const { sendTelegram } = await import("@/lib/telegram");
+  const verstuurd = await sendTelegram(`${icoon} *${kop}*\n${bericht}`);
+
+  if (!verstuurd.ok) {
+    return { ok: false, message: `Kon Enriqueo niet bereiken: ${verstuurd.error}` };
+  }
+
+  // Alleen vastleggen als er een antwoord op hoort te komen; anders vervuil je
+  // de lijst met openstaande vragen met dingen die geen vraag zijn.
+  if (urgentie !== "info") {
+    await db.telegramThread.create({
+      data: {
+        agentId: context.agentId,
+        level: urgentie,
+        question: bericht.slice(0, 500),
+        taskId,
+        projectId,
+        clientId: klant?.id ?? null,
+        telegramMessageId: verstuurd.messageId ?? null,
+      },
+    });
+  }
+
+  await logActivity({
+    agentId: context.agentId,
+    kind: "telegram",
+    level: urgentie === "waarschuwing" ? "warn" : "info",
+    message: `Naar Enriqueo (${urgentie}): ${bericht.slice(0, 160)}`,
+  });
+
+  return {
+    ok: true,
+    message:
+      urgentie === "info"
+        ? "Verstuurd."
+        : "Verstuurd. Zijn antwoord komt bij deze vraag terecht, dus je weet straks waar het over gaat.",
   };
 }

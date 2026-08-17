@@ -183,6 +183,7 @@ model Agent {
   tools          AgentTool[]
   memories       AgentMemory[]
   research       ResearchEntry[]
+  threads        TelegramThread[]
 
   @@index([category])
   @@index([status])
@@ -302,6 +303,8 @@ model Task {
   /// Bij welk project deze taak hoort, als hij ergens uit voortkomt.
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  threads TelegramThread[]
 
   createdByUserId  String?
   createdByUser    User?   @relation("TaskCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
@@ -1230,6 +1233,7 @@ model Client {
   invoices Invoice[]
   requests PortalRequest[]
   projects Project[]
+  threads  TelegramThread[]
 
   @@index([name])
 }
@@ -1330,7 +1334,44 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tasks Task[]
+  tasks   Task[]
+  threads TelegramThread[]
 
   @@index([status, createdAt(sort: Desc)])
+}
+
+/// Een openstaande vraag van een agent aan Enriqueo via Telegram.
+///
+/// Zonder dit is een antwoord losse tekst. "€4.000" betekent niets als je niet
+/// weet bij welke vraag het hoort — en dan moet Enriqueo elke keer de context
+/// er zelf bij typen. Met dit weet Daan waar het antwoord over gaat en kan hij
+/// het meteen op de juiste plek verwerken.
+model TelegramThread {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  /// info | akkoord | waarschuwing — bepaalt hoe dringend het bericht oogt.
+  level String @default("info")
+
+  question String
+
+  /// Waar de vraag over gaat. Alle drie optioneel: soms is het een taak, soms
+  /// een heel project, soms alleen een klant.
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  /// Het bericht-ID van Telegram. Antwoordt Enriqueo rechtstreeks op dat
+  /// bericht, dan weten we exact bij welke vraag het hoort.
+  telegramMessageId Int?
+
+  answer     String?
+  askedAt    DateTime  @default(now())
+  answeredAt DateTime?
+
+  @@index([answeredAt, askedAt(sort: Desc)])
 }
