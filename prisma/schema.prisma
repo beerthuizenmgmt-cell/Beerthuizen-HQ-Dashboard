@@ -1271,6 +1271,11 @@ model PortalRequest {
   /// Naam waaronder je hem aanmaakte, als de klant nog niet bestaat.
   label String?
 
+  /// Vult deze aanvraag een bestaand project aan? Dan komt er geen nieuw
+  /// project bij, maar worden de antwoorden samengevoegd met wat er al ligt.
+  /// De klant ziet alleen de vragen die nog openstaan.
+  supplementsId String?
+
   status PortalStatus @default(aangemaakt)
 
   /// Wat de klant heeft ingevuld, precies zoals hij het instuurde. Bewaard

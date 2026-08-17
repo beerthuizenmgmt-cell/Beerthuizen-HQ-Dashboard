@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AgentAvatar } from "@/components/agent-avatar";
+import { AanvulKnop } from "@/components/aanvul-knop";
 import { formatDate, timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
 
 const STATUS_LABELS: Record<string, string> = {
   nieuw: "Nieuw",
+  info_nodig: "Aanvullende informatie nodig",
   in_voorbereiding: "In voorbereiding",
   loopt: "Loopt",
   afgerond: "Afgerond",
@@ -22,6 +24,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_STIJL: Record<string, string> = {
   nieuw: "border-accent/40 text-accent",
+  info_nodig: "border-warn/40 text-warn",
   in_voorbereiding: "border-warn/40 text-warn",
   loopt: "border-success/40 text-success",
   afgerond: "text-text-faint",
@@ -99,6 +102,7 @@ export default async function ProjectenPagina() {
                       <li key={index}>· {punt}</li>
                     ))}
                   </ul>
+                  <AanvulKnop projectId={project.id} />
                 </div>
               )}
 

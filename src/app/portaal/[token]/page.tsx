@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { FORMULIEREN, isBeschikbaar } from "@/lib/portaal";
+import { beoordeelBriefing } from "@/lib/actions/portaal";
 import { PortaalFormulier } from "@/components/portaal-formulier";
 import { Logo } from "@/components/logo";
 
@@ -21,6 +22,36 @@ export default async function PortaalPagina({ params }: PageProps<"/portaal/[tok
   const formulier = FORMULIEREN[aanvraag.type];
   const verlopen = aanvraag.expiresAt < new Date();
   const alGedaan = aanvraag.status === "ingevuld" || aanvraag.status === "verwerkt";
+
+  // Bij een aanvulling tonen we alleen wat nog openstaat. Iemand die al een
+  // uur aan een briefing heeft besteed opnieuw het hele formulier laten
+  // doorlopen is de snelste manier om hem te laten afhaken.
+  let secties = formulier.secties;
+  let aanvullend = false;
+
+  if (aanvraag.supplementsId) {
+    const project = await db.project.findUnique({
+      where: { id: aanvraag.supplementsId },
+      include: { request: { select: { submission: true } } },
+    });
+
+    const bestaand = (project?.request?.submission as Record<string, string> | null) ?? {};
+    const openstaand = new Set(beoordeelBriefing(bestaand).map((gat) => gat.veld));
+
+    if (openstaand.size > 0) {
+      aanvullend = true;
+      secties = formulier.secties
+        .map((sectie) => ({
+          ...sectie,
+          // Verplicht loslaten: de klant vult aan wat hij kan, en wat hij nog
+          // steeds niet weet blijft gewoon als openstaand punt staan.
+          velden: sectie.velden
+            .filter((veld) => openstaand.has(veld.naam))
+            .map((veld) => ({ ...veld, verplicht: false, toonAls: undefined })),
+        }))
+        .filter((sectie) => sectie.velden.length > 0);
+    }
+  }
 
   // Vastleggen dat de klant hem geopend heeft, zodat je in HQ ziet waar hij
   // staat. Alleen de eerste keer, en alleen als er nog iets te doen is.
@@ -57,11 +88,15 @@ export default async function PortaalPagina({ params }: PageProps<"/portaal/[tok
           />
         ) : (
           <>
-            <h1 className="text-3xl">{formulier.titel}</h1>
-            <p className="muted mt-3 max-w-xl text-sm leading-relaxed">{formulier.inleiding}</p>
+            <h1 className="text-3xl">{aanvullend ? "Nog een paar vragen" : formulier.titel}</h1>
+            <p className="muted mt-3 max-w-xl text-sm leading-relaxed">
+              {aanvullend
+                ? "Bedankt voor je briefing. Om een goed voorstel te kunnen maken missen we nog een paar dingen. Wat je eerder invulde hoef je niet opnieuw te doen."
+                : formulier.inleiding}
+            </p>
 
             <div className="mt-8">
-              <PortaalFormulier token={token} secties={formulier.secties} />
+              <PortaalFormulier token={token} secties={secties} />
             </div>
           </>
         )}

@@ -226,7 +226,7 @@ export const FORMULIEREN: Record<PortalFormType, Formulier> = {
           { naam: "periodeTot", label: "Gewenste einddatum", type: "date", verplicht: false },
           {
             naam: "deadline",
-            label: "Wanneer wil je ons voorstel ontvangen?",
+            label: "Wanneer heb je het voorstel uiterlijk nodig?",
             type: "date",
             verplicht: false,
           },
