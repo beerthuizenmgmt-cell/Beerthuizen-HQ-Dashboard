@@ -33,7 +33,7 @@ export type Aanvraag = {
 const TYPES = [
   ["klantgegevens", "Klantgegevens — voor administratie en facturatie"],
   ["campagnebriefing", "Campagnebriefing — voor een nieuwe campagne"],
-  ["contentaanlevering", "Contentaanlevering — nog niet beschikbaar"],
+  ["contentaanlevering", "Contentaanlevering — bestanden en materiaal"],
   ["projectinformatie", "Projectinformatie — nog niet beschikbaar"],
 ];
 
@@ -91,7 +91,7 @@ export function KlantPaneel({
                   <option
                     key={waarde}
                     value={waarde}
-                    disabled={waarde !== "klantgegevens" && waarde !== "campagnebriefing"}
+                    disabled={waarde === "projectinformatie"}
                   >
                     {label}
                   </option>

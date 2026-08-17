@@ -384,10 +384,86 @@ export const FORMULIEREN: Record<PortalFormType, Formulier> = {
   },
   contentaanlevering: {
     type: "contentaanlevering",
-    titel: "Contentaanlevering",
-    inleiding: "Lever hier het materiaal aan dat we voor je gaan gebruiken.",
+    titel: "Materiaal aanleveren",
+    inleiding:
+      "Hier lever je alles aan wat we nodig hebben om voor je aan de slag te gaan. Een link naar je bestanden en een korte toelichting is genoeg — de rest zoeken wij uit.",
     naarAgents: ["creative", "social"],
-    secties: [],
+    secties: [
+      {
+        kop: "Van wie is dit",
+        velden: [
+          { naam: "bedrijfsnaam", label: "Bedrijfsnaam", type: "text", verplicht: true, doel: "name" },
+          { naam: "contactpersoon", label: "Wie levert dit aan?", type: "text", verplicht: true, doel: "contactName" },
+          { naam: "email", label: "E-mailadres", type: "email", verplicht: true, doel: "email" },
+          {
+            naam: "waarvoor",
+            label: "Waar hoort dit bij?",
+            type: "text",
+            verplicht: false,
+            hint: "De campagne of het project, als je dat weet. Anders laten wij het uitzoeken.",
+          },
+        ],
+      },
+      {
+        kop: "Je bestanden",
+        velden: [
+          {
+            naam: "bestanden",
+            label: "Links naar je bestanden",
+            type: "textarea",
+            verplicht: true,
+            hint: "Drive, Dropbox, WeTransfer — één link per regel. Zorg dat de link openbaar of gedeeld is, anders komen we er niet in.",
+          },
+          {
+            naam: "watZitErin",
+            label: "Wat zit erin?",
+            type: "multi",
+            verplicht: false,
+            opties: [
+              "Logo's",
+              "Brandbook of huisstijl",
+              "Foto's",
+              "Video",
+              "Productbeelden",
+              "Teksten",
+              "Bestaande content",
+              "Iets anders",
+            ],
+          },
+          {
+            naam: "toelichting",
+            label: "Korte toelichting",
+            type: "textarea",
+            verplicht: false,
+            hint: "Waar moeten we op letten? Wat mag wel en niet gebruikt worden?",
+          },
+        ],
+      },
+      {
+        kop: "Rechten",
+        velden: [
+          {
+            naam: "rechten",
+            label: "Mogen wij dit materiaal gebruiken?",
+            type: "select",
+            verplicht: true,
+            opties: [
+              "Ja, vrij te gebruiken voor deze samenwerking",
+              "Ja, maar met beperkingen",
+              "Weet ik niet zeker",
+            ],
+          },
+          {
+            naam: "beperkingen",
+            label: "Welke beperkingen?",
+            type: "textarea",
+            verplicht: true,
+            toonAls: { veld: "rechten", waarden: ["Ja, maar met beperkingen"] },
+            hint: "Bijvoorbeeld: alleen online, niet voor advertenties, of tot een bepaalde datum.",
+          },
+        ],
+      },
+    ],
   },
   projectinformatie: {
     type: "projectinformatie",
