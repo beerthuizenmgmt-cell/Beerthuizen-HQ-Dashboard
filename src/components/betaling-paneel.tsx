@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState } from "react";
+import { useActie } from "./use-actie";
+import { ActieFout } from "./actie-fout";
 import {
   bevestigKoppeling,
   negeerBetaling,
@@ -33,13 +35,14 @@ export function BetalingPaneel({
   betalingen: OpenBetaling[];
   facturen: { id: string; label: string }[];
 }) {
-  const [bezig, start] = useTransition();
+  const { bezig, fout, doe } = useActie();
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState<FactuurState, FormData>(registreerBetaling, {});
   const [keuze, setKeuze] = useState<Record<string, string>>({});
 
   return (
     <section className="card p-5">
+      <ActieFout fout={fout} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold">
@@ -122,11 +125,8 @@ export function BetalingPaneel({
                   className="btn btn-primary text-xs"
                   disabled={bezig || !(keuze[betaling.id] ?? betaling.vermoeden?.id)}
                   onClick={() =>
-                    start(() =>
-                      void bevestigKoppeling(
-                        betaling.id,
-                        keuze[betaling.id] ?? betaling.vermoeden!.id,
-                      ),
+                    doe(() =>
+                      bevestigKoppeling(betaling.id, keuze[betaling.id] ?? betaling.vermoeden!.id),
                     )
                   }
                 >
@@ -137,7 +137,7 @@ export function BetalingPaneel({
                   type="button"
                   className="text-xs text-text-faint underline hover:text-text"
                   disabled={bezig}
-                  onClick={() => start(() => void negeerBetaling(betaling.id))}
+                  onClick={() => doe(() => negeerBetaling(betaling.id))}
                 >
                   hoort nergens bij
                 </button>

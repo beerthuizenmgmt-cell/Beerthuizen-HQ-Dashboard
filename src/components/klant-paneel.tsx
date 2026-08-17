@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useActie } from "./use-actie";
+import { ActieFout } from "./actie-fout";
 import {
   maakKlantlink,
   markeerVerstuurd,
@@ -58,6 +59,7 @@ export function KlantPaneel({
 
   return (
     <div className="space-y-4">
+      <ActieFout fout={fout} />
       <div className="card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

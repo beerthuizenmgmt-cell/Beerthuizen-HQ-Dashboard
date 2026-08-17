@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState } from "react";
+import { useActie } from "./use-actie";
+import { ActieFout } from "./actie-fout";
 import {
   bewaarFactuur,
   markeerBetaald,
@@ -56,13 +58,14 @@ const STATUSSEN = [
 export function FactuurTabel({ facturen }: { facturen: FactuurRij[] }) {
   const [bewerken, setBewerken] = useState<FactuurRij | null>(null);
   const [nieuw, setNieuw] = useState(false);
-  const [bezig, start] = useTransition();
+  const { bezig, fout, doe } = useActie();
   const [state, formAction, opslaan] = useActionState<FactuurState, FormData>(bewaarFactuur, {});
 
   const open = bewerken ?? (nieuw ? null : undefined);
 
   return (
     <div className="space-y-4">
+      <ActieFout fout={fout} />
       <div className="flex items-center justify-between">
         <h2 className="eyebrow">De administratie</h2>
         <button
@@ -228,7 +231,7 @@ export function FactuurTabel({ facturen }: { facturen: FactuurRij[] }) {
                           type="button"
                           className="underline hover:text-text"
                           disabled={bezig}
-                          onClick={() => start(() => void markeerVerstuurd(factuur.id, "factuur"))}
+                          onClick={() => doe(() => markeerVerstuurd(factuur.id, "factuur"))}
                         >
                           verstuurd
                         </button>
@@ -238,7 +241,7 @@ export function FactuurTabel({ facturen }: { facturen: FactuurRij[] }) {
                           type="button"
                           className="underline hover:text-success"
                           disabled={bezig}
-                          onClick={() => start(() => void markeerBetaald(factuur.id))}
+                          onClick={() => doe(() => markeerBetaald(factuur.id))}
                         >
                           betaald
                         </button>
@@ -247,7 +250,7 @@ export function FactuurTabel({ facturen }: { facturen: FactuurRij[] }) {
                         type="button"
                         className="underline hover:text-danger"
                         disabled={bezig}
-                        onClick={() => start(() => void verwijderFactuur(factuur.id))}
+                        onClick={() => doe(() => verwijderFactuur(factuur.id))}
                       >
                         wissen
                       </button>

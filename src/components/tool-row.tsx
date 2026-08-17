@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState } from "react";
+import { useActie } from "./use-actie";
+import { ActieFout } from "./actie-fout";
 import {
   koppelTool,
   setToolPermission,
@@ -66,7 +68,7 @@ export function ToolRow({
   permissieLabels: Record<string, { label: string; uitleg: string }>;
 }) {
   const [open, setOpen] = useState(false);
-  const [bezig, start] = useTransition();
+  const { bezig, fout, doe } = useActie();
   const [kostenState, kostenAction, kostenBezig] = useActionState<IntegratieState, FormData>(
     setToolKosten.bind(null, tool.toolKey),
     {},
@@ -78,6 +80,7 @@ export function ToolRow({
 
   return (
     <div className="p-4">
+      <ActieFout fout={fout} />
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -145,7 +148,7 @@ export function ToolRow({
                         defaultValue={agent.permission}
                         disabled={bezig}
                         onChange={(event) =>
-                          start(() =>
+                          doe(() =>
                             setToolPermission(agent.agentId, tool.toolKey, event.target.value),
                           )
                         }
@@ -167,7 +170,7 @@ export function ToolRow({
                         type="button"
                         className="text-xs text-text-faint underline hover:text-danger"
                         disabled={bezig}
-                        onClick={() => start(() => void koppelTool(agent.agentId, tool.toolKey, false))}
+                        onClick={() => doe(() => koppelTool(agent.agentId, tool.toolKey, false))}
                       >
                         losmaken
                       </button>
@@ -189,7 +192,7 @@ export function ToolRow({
                     type="button"
                     className="chip text-xs hover:border-accent hover:text-accent"
                     disabled={bezig}
-                    onClick={() => start(() => void koppelTool(agent.id, tool.toolKey, true))}
+                    onClick={() => doe(() => koppelTool(agent.id, tool.toolKey, true))}
                   >
                     + {agent.naam}
                   </button>
@@ -262,7 +265,7 @@ export function ToolRow({
               type="button"
               className="underline hover:text-text"
               disabled={bezig}
-              onClick={() => start(() => void zetToolActief(tool.toolKey, !tool.actief))}
+              onClick={() => doe(() => zetToolActief(tool.toolKey, !tool.actief))}
             >
               {tool.actief ? "bedrijfsbreed uitzetten" : "weer aanzetten"}
             </button>
