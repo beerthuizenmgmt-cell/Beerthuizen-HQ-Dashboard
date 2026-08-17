@@ -1,156 +1,226 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
-import { AgentCard } from "@/components/agent-card";
-import { ActivityList } from "@/components/activity-list";
+import { db } from "@/lib/db";
+import { bouwCockpit, type Niveau } from "@/lib/cockpit";
 import { AgentAvatar } from "@/components/agent-avatar";
-import { formatDayLong, hourInTimezone } from "@/lib/format";
+import { ActivityList } from "@/components/activity-list";
+import { formatDayLong, hourInTimezone, timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-function greeting(): string {
-  const hour = hourInTimezone();
-  if (hour < 6) return "Goedenacht";
-  if (hour < 12) return "Goedemorgen";
-  if (hour < 18) return "Goedemiddag";
+// HQ — de cockpit.
+//
+// Openen, binnen tien seconden weten hoe Beerthuizen ervoor staat, binnen
+// dertig seconden weten wat je moet doen, en vanaf daar met één klik de details
+// in. Alles wat dat niet dient staat op een ander scherm.
+//
+// Dus: geen negen grote agentkaarten meer, geen lijst met alles wat er ooit
+// gebeurd is. Wel bovenaan wat vandaag jouw beslissing nodig heeft, want dat is
+// het enige werk dat niemand anders kan doen.
+
+function groet(): string {
+  const uur = hourInTimezone();
+  if (uur < 6) return "Goedenacht";
+  if (uur < 12) return "Goedemorgen";
+  if (uur < 18) return "Goedemiddag";
   return "Goedenavond";
 }
+
+const STIP: Record<Niveau, string> = {
+  rood: "bg-danger",
+  oranje: "bg-warn",
+  groen: "bg-success",
+};
+
+const RAND: Record<Niveau, string> = {
+  rood: "border-danger/40 bg-danger/5",
+  oranje: "border-warn/40 bg-warn/5",
+  groen: "border-border",
+};
+
+const CIJFER: Record<Niveau, string> = {
+  rood: "text-danger",
+  oranje: "text-warn",
+  groen: "text-text",
+};
 
 export default async function HQPage() {
   const user = await requireUser();
 
-  const [agents, activity, unread, instances, openTasks, recentTasks] = await Promise.all([
-    db.agent.findMany({ orderBy: [{ isChief: "desc" }, { sortOrder: "asc" }] }),
+  const [cockpit, activiteit] = await Promise.all([
+    bouwCockpit(),
     db.activityEvent.findMany({
       orderBy: { occurredAt: "desc" },
-      take: 12,
+      take: 6,
       include: { agent: { select: { name: true, emoji: true, color: true, avatarUrl: true } } },
-    }),
-    db.notification.count({ where: { readAt: null } }),
-    db.instance.count({ where: { active: true } }),
-    db.task.count({ where: { status: { notIn: ["done", "cancelled"] } } }),
-    db.task.findMany({
-      where: { status: { notIn: ["done", "cancelled"] } },
-      orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
-      take: 5,
-      include: { agent: { select: { name: true, emoji: true, avatarUrl: true } } },
     }),
   ]);
 
-  // Een reader-koppeling is geen collega. Hij levert data uit de OpenClaw-
-  // omgeving aan en hoort daarom bij de techniek, niet bij het team — anders
-  // klopt de telling van je medewerkers niet.
-  const medewerkers = agents.filter((a) => a.adapterType !== "reader_ingest");
-  const koppelingen = agents.filter((a) => a.adapterType === "reader_ingest");
-
-  const connected = medewerkers.filter((a) => a.adapterType !== "manual").length;
-  const problems = medewerkers.filter((a) => a.status === "error" || (a.lastError && !a.paused)).length;
-
-  const stats = [
-    { label: "AI-medewerkers", value: medewerkers.length },
-    { label: "Gekoppeld", value: `${connected}/${medewerkers.length}` },
-    { label: "Open taken", value: openTasks },
-    { label: "Aandacht nodig", value: problems, alert: problems > 0 },
-  ];
+  const { vandaag, blokken, prioriteiten, team, briefing } = cockpit;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl">
-            {greeting()}, <span className="accent-serif">{user.name}</span>
-          </h1>
-          <p className="mt-1 text-sm text-text-muted">
-            {formatDayLong(new Date())}
-            {unread > 0 && ` · ${unread} nieuwe melding${unread === 1 ? "" : "en"}`}
-          </p>
-        </div>
-        <Link href="/agents/nieuw" className="btn btn-primary">
-          Agent toevoegen
-        </Link>
+    <div className="mx-auto max-w-5xl space-y-8">
+      {/* ── Wie je bent en welke dag het is ───────────────────────────── */}
+      <header>
+        <h1 className="text-3xl">
+          {groet()}, <span className="accent-serif">{user.name}</span>
+        </h1>
+        <p className="mt-1 text-sm text-text-muted">{formatDayLong(new Date())}</p>
       </header>
 
+      {/* ── Vandaag ────────────────────────────────────────────────────── */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="card p-4">
-            <p className={`text-2xl font-semibold ${stat.alert ? "text-danger" : ""}`}>{stat.value}</p>
-            <p className="mt-0.5 text-xs text-text-muted">{stat.label}</p>
-          </div>
+        {[
+          {
+            label: vandaag.aandacht === 1 ? "vraagt jouw aandacht" : "vragen jouw aandacht",
+            waarde: vandaag.aandacht,
+            toon: vandaag.aandacht > 0 ? "rood" : "groen",
+            link: "#prioriteiten",
+          },
+          {
+            label: vandaag.deadlinesDezeWeek === 1 ? "deadline deze week" : "deadlines deze week",
+            waarde: vandaag.deadlinesDezeWeek,
+            toon: vandaag.deadlinesDezeWeek > 0 ? "oranje" : "groen",
+            link: "/agenda",
+          },
+          {
+            label: vandaag.lopendeTaken === 1 ? "taak loopt" : "taken lopen",
+            waarde: vandaag.lopendeTaken,
+            toon: "groen",
+            link: "/taken",
+          },
+          {
+            label: vandaag.vragen === 1 ? "vraag van een agent" : "vragen van agents",
+            waarde: vandaag.vragen,
+            toon: vandaag.vragen > 0 ? "oranje" : "groen",
+            link: "/overleg",
+          },
+        ].map((tegel) => (
+          <Link key={tegel.label} href={tegel.link} className="card p-4 transition hover:border-accent/40">
+            <p className={`text-3xl font-semibold ${CIJFER[tegel.toon as Niveau]}`}>{tegel.waarde}</p>
+            <p className="mt-0.5 text-xs text-text-muted">{tegel.label}</p>
+          </Link>
         ))}
       </section>
 
-      {connected === 0 && (
-        <div className="card-cream p-6">
-          <p className="eyebrow-rule start">Aan de slag</p>
-          <h2 className="mt-2 text-2xl">Je team staat klaar, maar praat nog nergens mee</h2>
-          <p className="muted mt-2 max-w-xl text-sm">
-            De agents staan in het overzicht, maar zijn nog niet gekoppeld. Open een agent en kies een
-            koppeling — ingebouwd werkt meteen, Telegram als je ze op je telefoon wilt.
-          </p>
-          <Link href={`/agents/${agents[0]?.id ?? ""}`} className="btn btn-primary mt-5">
-            Eerste agent koppelen
+      {/* ── Wat Daan ervan vindt ───────────────────────────────────────── */}
+      {briefing && (
+        <section className="card-cream p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="eyebrow-rule start">Daan, vanochtend</p>
+            <span className="text-xs text-text-faint">{timeAgo(briefing.wanneer)}</span>
+          </div>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{briefing.tekst}</p>
+          <Link href={briefing.link} className="mt-4 inline-block text-xs underline hover:text-text">
+            Het hele overleg →
           </Link>
-        </div>
+        </section>
       )}
 
+      {/* ── Prioriteiten ───────────────────────────────────────────────── */}
+      <section id="prioriteiten">
+        <h2 className="eyebrow-rule start mb-3">Dit heeft jou nodig</h2>
+
+        {prioriteiten.length === 0 ? (
+          <div className="card p-6 text-center">
+            <p className="text-sm text-text-muted">
+              Niets wacht op jou. Geen openstaande goedkeuringen, geen vragen, geen deadline in gevaar.
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {prioriteiten.map((punt, index) => (
+              <li key={index} className={`card border p-4 ${RAND[punt.niveau]}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${STIP[punt.niveau]}`} />
+                      <p className="font-medium">{punt.titel}</p>
+                    </div>
+                    <p className="mt-1 pl-4 text-sm text-text-muted">{punt.uitleg}</p>
+                  </div>
+                  <Link href={punt.link} className="btn btn-ghost shrink-0 text-xs">
+                    {punt.linkLabel}
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* ── Bedrijf in één oogopslag ───────────────────────────────────── */}
       <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="eyebrow-rule start">Het team</h2>
-          <Link href="/agents" className="text-xs text-text-muted hover:text-text">
-            Alles beheren →
-          </Link>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {medewerkers.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} />
+        <h2 className="eyebrow-rule start mb-3">Bedrijf in één oogopslag</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {blokken.map((blok) => (
+            <div key={blok.titel} className="card p-4">
+              <div className="flex items-baseline justify-between">
+                <p className="eyebrow">{blok.titel}</p>
+                <Link href={blok.link} className="text-xs text-text-faint hover:text-text">
+                  →
+                </Link>
+              </div>
+
+              {blok.cijfers.length > 0 ? (
+                <dl className="mt-3 space-y-1.5">
+                  {blok.cijfers.map((cijfer) => (
+                    <div key={cijfer.label} className="flex items-baseline justify-between gap-3">
+                      <dt className="text-xs text-text-muted">{cijfer.label}</dt>
+                      <dd className={`text-sm font-medium ${CIJFER[cijfer.toon ?? "groen"]}`}>
+                        {cijfer.waarde}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                // Bewust geen nullen: een meter die niets meet hoort te zeggen
+                // dat hij niets meet, en waar je hem aansluit.
+                blok.ontbreekt && (
+                  <div className="mt-3">
+                    <p className="text-sm text-text-muted">{blok.ontbreekt.wat}</p>
+                    <Link
+                      href={blok.ontbreekt.link}
+                      className="mt-1 inline-block text-xs text-accent underline"
+                    >
+                      {blok.ontbreekt.actie} →
+                    </Link>
+                  </div>
+                )
+              )}
+            </div>
           ))}
         </div>
       </section>
 
-      {koppelingen.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="eyebrow-rule start">Technische koppelingen</h2>
-            <span className="text-xs text-text-faint">geen medewerkers</span>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {koppelingen.map((agent) => (
-              <AgentCard key={agent.id} agent={agent} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {recentTasks.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="eyebrow-rule start">Loopt nu</h2>
-            <Link href="/taken" className="text-xs text-text-muted hover:text-text">
-              Takenbord →
+      {/* ── Het team ───────────────────────────────────────────────────── */}
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="eyebrow-rule start">Je digitale medewerkers</h2>
+          <Link href="/agents" className="text-xs text-text-muted hover:text-text">
+            Alles beheren →
+          </Link>
+        </div>
+        <div className="card divide-y divide-border">
+          {team.map((lid) => (
+            <Link
+              key={lid.id}
+              href={`/agents/${lid.id}`}
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-surface-hover"
+            >
+              <span className={`h-2 w-2 shrink-0 rounded-full ${STIP[lid.niveau]}`} />
+              <AgentAvatar
+                agent={{ name: lid.naam, emoji: lid.emoji, color: lid.color, avatarUrl: lid.avatarUrl }}
+                size="xs"
+              />
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">{lid.naam}</span>
+              <span className="shrink-0 text-xs text-text-faint">{lid.stand}</span>
             </Link>
-          </div>
-          <div className="card divide-y divide-border">
-            {recentTasks.map((task) => (
-              <Link
-                key={task.id}
-                href={`/taken/${task.id}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover"
-              >
-                <span className="min-w-0 flex-1 truncate text-sm">{task.title}</span>
-                {task.agent ? (
-                  <span className="flex shrink-0 items-center gap-1.5 text-xs text-text-faint">
-                    <AgentAvatar agent={task.agent} size="xs" />
-                    {task.agent.name}
-                  </span>
-                ) : (
-                  <span className="shrink-0 text-xs text-text-faint">niemand</span>
-                )}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
+          ))}
+        </div>
+      </section>
 
+      {/* ── Laatste activiteit ─────────────────────────────────────────── */}
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="eyebrow-rule start">Laatste activiteit</h2>
@@ -159,14 +229,7 @@ export default async function HQPage() {
           </Link>
         </div>
         <div className="card divide-y divide-border">
-          <ActivityList
-            events={activity}
-            emptyMessage={
-              instances === 0
-                ? "Nog geen activiteit. Koppel een reader bij Instellingen om de verrichtingen van je agents binnen te halen."
-                : "Nog geen activiteit binnengekomen."
-            }
-          />
+          <ActivityList events={activiteit} emptyMessage="Nog niets gebeurd vandaag." />
         </div>
       </section>
     </div>
