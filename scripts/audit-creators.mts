@@ -250,7 +250,7 @@ async function main() {
   for (const gat of gaten.slice(0, 5)) console.log(`       · ${gat.creatorNaam}: ${gat.wat}`);
 
   // ── Opruimen ─────────────────────────────────────────────────────────────
-  await db.notification.deleteMany({ where: { title: { contains: MERK } } });
+  await db.notification.deleteMany({ where: { OR: [{ title: { contains: MERK } }, { body: { contains: MERK } }] } });
   await db.activityEvent.deleteMany({ where: { message: { contains: MERK } } });
   await db.creatorUpload.deleteMany({ where: { creatorCampagne: { creator: { name: { startsWith: MERK } } } } });
   await db.creatorCampagne.deleteMany({ where: { creator: { name: { startsWith: MERK } } } });
