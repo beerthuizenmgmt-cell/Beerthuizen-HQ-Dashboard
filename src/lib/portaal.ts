@@ -100,9 +100,15 @@ export const FORMULIEREN: Record<PortalFormType, Formulier> = {
     ],
   },
 
-  // De volgende drie staan klaar maar zijn nog niet in gebruik. Ze delen de
-  // hele keten — link, status, routering, beveiliging — dus aanzetten is straks
-  // een kwestie van de velden invullen.
+  // ────────────────────────────────────────────────────────────────────────
+  // BEVROREN op 17 augustus 2026, na een volledige test met een complete en
+  // een onvolledige aanvraag. Dit is een werkend onderdeel van het bedrijf,
+  // geen ontwerp meer: klanten gebruiken hem, en Fleur en Daan rekenen op wat
+  // eruit komt.
+  //
+  // Niet wijzigen zonder opdracht van Enriqueo. Verbeteringen komen voort uit
+  // echte aanvragen, niet uit nog een ronde nadenken.
+  // ────────────────────────────────────────────────────────────────────────
   campagnebriefing: {
     type: "campagnebriefing",
     titel: "Campagnebriefing",

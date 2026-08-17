@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { verwerkFormulier, type PortaalState } from "@/lib/actions/portaal";
 import type { Veld } from "@/lib/portaal";
 
@@ -33,6 +33,30 @@ export function PortaalFormulier({
   const zichtbaar = (veld: Veld) =>
     !veld.toonAls || veld.toonAls.waarden.includes(antwoorden[veld.toonAls.veld] ?? "");
 
+  // Bij acht blokken weet je zonder dit niet of je op een derde of op
+  // driekwart zit. Puur visueel: het verandert niets aan wat er gevraagd wordt.
+  const [blok, setBlok] = useState(1);
+  const blokken = useRef<(HTMLFieldSetElement | null)[]>([]);
+
+  useEffect(() => {
+    const kijker = new IntersectionObserver(
+      (waarnemingen) => {
+        const bovenste = waarnemingen
+          .filter((w) => w.isIntersecting)
+          .map((w) => blokken.current.indexOf(w.target as HTMLFieldSetElement))
+          .filter((index) => index >= 0)
+          .sort((a, b) => a - b)[0];
+        if (bovenste !== undefined) setBlok(bovenste + 1);
+      },
+      // Alleen wat echt in beeld is telt; de bovenrand van het scherm bepaalt
+      // waar je bent.
+      { rootMargin: "-20% 0px -60% 0px" },
+    );
+
+    for (const element of blokken.current) if (element) kijker.observe(element);
+    return () => kijker.disconnect();
+  }, [secties.length]);
+
   if (state.ok) {
     return (
       <div className="card p-8 text-center">
@@ -47,8 +71,31 @@ export function PortaalFormulier({
 
   return (
     <form action={formAction} className="space-y-8">
-      {secties.map((sectie) => (
-        <fieldset key={sectie.kop} className="card p-6">
+      {secties.length > 1 && (
+        <div className="sticky top-0 z-10 -mx-1 bg-bg/90 px-1 py-3 backdrop-blur">
+          <div className="flex items-baseline justify-between text-xs text-text-muted">
+            <span>
+              Blok {blok} van {secties.length}
+            </span>
+            <span>{secties[blok - 1]?.kop}</span>
+          </div>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-border">
+            <div
+              className="h-full rounded-full bg-accent transition-[width] duration-300"
+              style={{ width: `${(blok / secties.length) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {secties.map((sectie, index) => (
+        <fieldset
+          key={sectie.kop}
+          ref={(element) => {
+            blokken.current[index] = element;
+          }}
+          className="card p-6"
+        >
           <legend className="eyebrow px-2">{sectie.kop}</legend>
 
           <div className="mt-4 space-y-4">
