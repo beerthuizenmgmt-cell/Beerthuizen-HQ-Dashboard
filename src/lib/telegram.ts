@@ -285,7 +285,22 @@ export async function handleIncoming(
 export async function sendTelegram(
   text: string,
 ): Promise<{ ok: boolean; error?: string; messageId?: number }> {
-  const config = await getTelegramConfig();
+  // Ook het uitlezen zelf kan mislukken: staat de bot-sleutel versleuteld
+  // opgeslagen met een APP_SECRET dat er niet meer is, dan gooit het ontsleutelen.
+  // Zonder deze vangnetregel sloeg zo'n fout door naar wat het bericht
+  // veroorzaakte — een goedkeuringsverzoek werd wél vastgelegd, maar de agent
+  // kreeg een fout en probeerde het opnieuw. Versturen mislukt hier altijd
+  // nétjes, met een reden.
+  let config;
+  try {
+    config = await getTelegramConfig();
+  } catch (error) {
+    return {
+      ok: false,
+      error: `De Telegram-sleutel is niet te lezen: ${error instanceof Error ? error.message : "onbekende fout"}`,
+    };
+  }
+
   if (!config.botToken || !config.chatId) {
     return { ok: false, error: "Telegram is nog niet volledig gekoppeld." };
   }
