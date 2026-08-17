@@ -290,10 +290,16 @@ export async function verwerkFormulier(
   // Pas daarna beoordelen wat verplicht was. Een vervolgvraag die de klant
   // nooit te zien kreeg mag hij ook niet missen — anders blokkeert het
   // formulier op een veld dat er voor hem niet eens stond.
-  for (const veld of velden) {
-    if (!veld.verplicht) continue;
-    if (veld.toonAls && !veld.toonAls.waarden.includes(ingevuld[veld.toonAls.veld] ?? "")) continue;
-    if (!ingevuld[veld.naam]) ontbreekt.push(veld.label);
+  //
+  // Bij een aanvulling geldt hetzelfde nog sterker: de klant kreeg alleen de
+  // openstaande vragen te zien, en die zijn allemaal optioneel. Wat hij nog
+  // steeds niet weet blijft gewoon als openstaand punt staan.
+  if (!aanvraag.supplementsId) {
+    for (const veld of velden) {
+      if (!veld.verplicht) continue;
+      if (veld.toonAls && !veld.toonAls.waarden.includes(ingevuld[veld.toonAls.veld] ?? "")) continue;
+      if (!ingevuld[veld.naam]) ontbreekt.push(veld.label);
+    }
   }
 
   if (ontbreekt.length > 0) {
@@ -322,7 +328,9 @@ export async function verwerkFormulier(
   }
 
   // Ook een briefing levert klantgegevens op — die willen we niet kwijtraken.
-  if (aanvraag.type === "klantgegevens" || aanvraag.type === "campagnebriefing") {
+  // Bij een aanvulling niet: daar zitten geen contactvelden in, en dan zou een
+  // leeg formulier de klantnaam wissen.
+  if (!aanvraag.supplementsId && (aanvraag.type === "klantgegevens" || aanvraag.type === "campagnebriefing")) {
     if (clientId) {
       await db.client.update({
         where: { id: clientId },
