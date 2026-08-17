@@ -174,10 +174,6 @@ export async function runStandup(): Promise<{
   const agents = all.filter((agent) => getAdapter(agent.adapterType).capabilities.send);
   const skipped = all.length - agents.length;
 
-  // Eerst je openstaande antwoorden nasturen, dan pas de uitvraag. Zo weet een
-  // agent wat je gisteren besloot vóórdat hij vertelt wat hij vandaag gaat doen.
-  const nagestuurd = await bezorgOpenAntwoorden();
-
   const meeting = await db.meeting.upsert({
     where: { date },
     update: { status: "collecting" },
@@ -254,6 +250,11 @@ export async function runStandup(): Promise<{
     const samenvatting = await summariseMeeting(meeting.id);
     await db.meeting.update({ where: { id: meeting.id }, data: { summaryMd: samenvatting } });
   }
+
+  // Pas hierna je openstaande antwoorden nasturen. Ze horen bij het overleg,
+  // maar de briefing gaat voor: wordt het verzoek na dit punt afgekapt, dan
+  // staat het belangrijkste er al en probeert de volgende ronde het opnieuw.
+  const nagestuurd = await bezorgOpenAntwoorden();
 
   await logActivity({
     kind: "overleg_gestart",
