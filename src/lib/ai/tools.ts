@@ -683,12 +683,25 @@ async function messageFounder(
   }
 
   // Context opzoeken. Een klantnaam is makkelijker voor een agent dan een ID.
-  const taskId = text(args.over_taak) || null;
-  const projectId = text(args.over_project) || null;
+  //
+  // Alles wordt eerst gecontroleerd: verwijst hij naar een project dat niet
+  // bestaat, dan laten we die koppeling vallen in plaats van het hele bericht
+  // te laten mislukken. Een waarschuwing die niet aankomt omdat er een ID naast
+  // zat is erger dan een waarschuwing zonder projectkoppeling.
+  const ruweTaak = text(args.over_taak);
+  const ruwProject = text(args.over_project);
   const klantnaam = text(args.over_klant);
-  const klant = klantnaam
-    ? await db.client.findFirst({ where: { name: { contains: klantnaam, mode: "insensitive" } } })
-    : null;
+
+  const [taak, project, klant] = await Promise.all([
+    ruweTaak ? db.task.findUnique({ where: { id: ruweTaak }, select: { id: true } }) : null,
+    ruwProject ? db.project.findUnique({ where: { id: ruwProject }, select: { id: true } }) : null,
+    klantnaam
+      ? db.client.findFirst({ where: { name: { contains: klantnaam, mode: "insensitive" } } })
+      : null,
+  ]);
+
+  const taskId = taak?.id ?? null;
+  const projectId = project?.id ?? null;
 
   const icoon = { info: "🟢", vraag: "🟡", akkoord: "🔴", waarschuwing: "🚨" }[urgentie] ?? "🟢";
   const kop = { info: "Ter info", vraag: "Ik heb iets van je nodig", akkoord: "Jouw akkoord nodig", waarschuwing: "Let op" }[urgentie];
