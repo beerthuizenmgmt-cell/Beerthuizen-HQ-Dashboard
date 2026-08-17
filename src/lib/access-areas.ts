@@ -35,6 +35,7 @@ export const AREAS: Area[] = [
   { path: "/rapportages", label: "Rapportages", icon: "▤" },
   { path: "/team", label: "Team", icon: "💬" },
   { path: "/agents", label: "Agents", icon: "◉" },
+  { path: "/creators", label: "Creators", icon: "◐" },
   { path: "/werkwijze", label: "Werkwijze", icon: "⇄" },
 
   // Het team bekijken mag iedereen. Bepalen wie er in het team zit en waar een
