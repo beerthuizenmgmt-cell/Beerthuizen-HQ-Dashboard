@@ -83,7 +83,12 @@ export default async function CampagnePagina({ params }: PageProps<"/projecten/[
               {project.deadline && ` · deadline ${formatDate(project.deadline)}`}
             </p>
           </div>
-          <span className="chip text-xs">{STATUS_LABELS[project.status] ?? project.status}</span>
+          <div className="flex items-center gap-2">
+            <span className="chip text-xs">{STATUS_LABELS[project.status] ?? project.status}</span>
+            <Link href={`/projecten/${project.id}/rapport`} className="btn btn-ghost text-xs">
+              Rapport
+            </Link>
+          </div>
         </div>
       </header>
 
