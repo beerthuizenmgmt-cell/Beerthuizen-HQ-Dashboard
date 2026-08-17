@@ -538,9 +538,15 @@ async function readInvoices(args: Record<string, unknown>): Promise<ToolResult> 
     .slice(0, 50)
     .map(
       (f) =>
-        `${f.nummer} | ${f.klant} | €${f.bedragEur.toFixed(2)} | open €${f.openstaandEur.toFixed(2)} | ` +
+        // De richting hoort er expliciet bij: een inkomende factuur is geld dat
+        // wéggaat en hoort niet in een debiteurenoverzicht. Zonder dit veld moet
+        // de agent het uit de klantnaam raden.
+        `${f.richting.toUpperCase()} | ${f.nummer} | ${f.klant} | €${f.bedragEur.toFixed(2)} | open €${f.openstaandEur.toFixed(2)} | ` +
         `vervalt ${f.vervaldatum.toISOString().slice(0, 10)} | ${f.teLaat ? `${f.dagenOpenstaand} dagen te laat` : "op tijd"} | ` +
-        `${f.statusLabel} | ${f.opvolgingLabel} | volgende stap: ${f.volgendeStap}`,
+        `${f.statusLabel} | ${f.opvolgingLabel} | volgende stap: ${f.volgendeStap}` +
+        // Testdata moet als testdata herkenbaar zijn, ook als de opdracht dat
+        // niet zegt. Anders rapporteert ze verzonnen bedragen als werkelijkheid.
+        (f.bron === "testdata" ? ` | TESTDATA` : ""),
     );
 
   return {
