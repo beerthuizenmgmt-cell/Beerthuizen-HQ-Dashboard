@@ -5,6 +5,7 @@ import { sendToAgent, logActivity } from "./agents";
 import { notify } from "./notifications";
 import { randomToken } from "./crypto";
 import { getAdapter } from "./adapters";
+import { readableError } from "./adapters/types";
 
 /// Kalenderdag in Europe/Amsterdam, vastgelegd op middernacht UTC zodat één dag
 /// altijd één rij is — ook rond zomertijd.
@@ -29,7 +30,18 @@ async function ensureInboundToken(agentId: string, existing: string | null): Pro
   return token;
 }
 
-function standupPrompt(agentName: string, agentId: string, token: string): string {
+/// De uitvraag. Agents die in het dashboard zelf draaien antwoorden gewoon met
+/// tekst in hetzelfde verzoek; die kunnen — en hoeven — geen HTTP-verzoek terug
+/// te sturen. Alleen agents achter een externe koppeling melden zich later terug
+/// via de reply-route, en die krijgen het adres en het token mee.
+function standupPrompt(
+  agentName: string,
+  agentId: string,
+  token: string,
+  terugAntwoordViaHttp: boolean,
+): string {
+  const vorm = `Gisteren: ... | Vandaag: ... | Blokkades: ... | Vragen: ...`;
+
   return [
     `Goedemorgen ${agentName}. Tijd voor de dagelijkse standup van BHMGMT.`,
     ``,
@@ -43,10 +55,21 @@ function standupPrompt(agentName: string, agentId: string, token: string): strin
     `door en spreekt hij zijn antwoord in. Stel dus wat je echt wilt weten —`,
     `keuzes, prioriteiten, akkoord op budget. Geen vragen? Laat punt 4 leeg.`,
     ``,
-    `Antwoord kort en concreet, zo:`,
-    `POST ${appUrl()}/api/agents/${agentId}/reply`,
-    `Authorization: Bearer ${token}`,
-    `{"message": "Gisteren: ... | Vandaag: ... | Blokkades: ... | Vragen: ..."}`,
+    ...(terugAntwoordViaHttp
+      ? [
+          `Antwoord kort en concreet, zo:`,
+          `POST ${appUrl()}/api/agents/${agentId}/reply`,
+          `Authorization: Bearer ${token}`,
+          `{"message": "${vorm}"}`,
+        ]
+      : [
+          `Antwoord kort en concreet, en gebruik exact deze vorm — één regel, met`,
+          `verticale streepjes ertussen en verder geen inleiding of afsluiting:`,
+          ``,
+          vorm,
+          ``,
+          `Heb je geen blokkade of geen vragen, schrijf daar dan "geen".`,
+        ]),
   ].join("\n");
 }
 
@@ -80,28 +103,72 @@ export async function runStandup(): Promise<{
   const failed: { agent: string; error: string }[] = [];
   let asked = 0;
 
-  for (const agent of agents) {
-    // Bestaat er al een antwoord van vandaag, dan laten we dat met rust.
-    const existing = await db.standupEntry.findUnique({
-      where: { meetingId_agentId: { meetingId: meeting.id, agentId: agent.id } },
-    });
-    if (existing?.receivedAt) continue;
+  // Iedereen tegelijk vragen, niet één voor één. Negen agents die elk een minuut
+  // nadenken passen na elkaar in geen enkel webverzoek; naast elkaar duurt het
+  // overleg zo lang als de traagste agent.
+  const uitkomsten = await Promise.all(
+    agents.map(async (agent) => {
+      try {
+        // Bestaat er al een antwoord van vandaag, dan laten we dat met rust.
+        const existing = await db.standupEntry.findUnique({
+          where: { meetingId_agentId: { meetingId: meeting.id, agentId: agent.id } },
+        });
+        if (existing?.receivedAt) return "al_binnen" as const;
 
-    const token = await ensureInboundToken(agent.id, agent.inboundToken);
-    const result = await sendToAgent(agent.id, standupPrompt(agent.name, agent.id, token));
+        // De regel wordt vóór het vragen weggeschreven. Wordt het verzoek daarna
+        // afgekapt, dan zie je in het overleg dat deze agent bevraagd is in plaats
+        // van dat hij spoorloos ontbreekt.
+        await db.standupEntry.upsert({
+          where: { meetingId_agentId: { meetingId: meeting.id, agentId: agent.id } },
+          update: { requestedAt: new Date(), error: null },
+          create: { meetingId: meeting.id, agentId: agent.id },
+        });
 
-    await db.standupEntry.upsert({
-      where: { meetingId_agentId: { meetingId: meeting.id, agentId: agent.id } },
-      update: { requestedAt: new Date(), error: result.ok ? null : result.error },
-      create: {
-        meetingId: meeting.id,
-        agentId: agent.id,
-        error: result.ok ? null : result.error,
-      },
-    });
+        const token = await ensureInboundToken(agent.id, agent.inboundToken);
+        const viaHttp = getAdapter(agent.adapterType).capabilities.receive;
+        const result = await sendToAgent(
+          agent.id,
+          standupPrompt(agent.name, agent.id, token, viaHttp),
+        );
 
-    if (result.ok) asked += 1;
-    else failed.push({ agent: agent.name, error: result.error ?? "onbekende fout" });
+        if (!result.ok) {
+          await db.standupEntry.update({
+            where: { meetingId_agentId: { meetingId: meeting.id, agentId: agent.id } },
+            data: { error: result.error },
+          });
+          return { agent: agent.name, error: result.error ?? "onbekende fout" };
+        }
+
+        // Ingebouwde agents antwoorden meteen, in hetzelfde verzoek. Alleen agents
+        // die via een externe koppeling draaien melden zich later terug via de
+        // reply-route. Zonder deze regel bleef zo'n direct antwoord liggen en werd
+        // het overleg nooit compleet.
+        if (result.reply?.trim()) {
+          await recordStandupReply(agent.id, result.reply);
+        }
+
+        return null;
+      } catch (error) {
+        // Eén agent die omvalt mag het hele overleg niet meeslepen.
+        return { agent: agent.name, error: readableError(error) };
+      }
+    }),
+  );
+
+  for (const uitkomst of uitkomsten) {
+    if (uitkomst === "al_binnen") continue;
+    if (uitkomst) failed.push(uitkomst);
+    else asked += 1;
+  }
+
+  // Is iedereen binnen, dan schrijven we de samenvatting meteen. Anders staat de
+  // briefing 's ochtends klaar zonder kop en moet je zelf op een knop drukken.
+  const nogOpen = await db.standupEntry.count({
+    where: { meetingId: meeting.id, receivedAt: null },
+  });
+  if (nogOpen === 0) {
+    const samenvatting = await summariseMeeting(meeting.id);
+    await db.meeting.update({ where: { id: meeting.id }, data: { summaryMd: samenvatting } });
   }
 
   await logActivity({
@@ -148,19 +215,26 @@ export async function recordStandupReply(agentId: string, message: string): Prom
     });
   }
 
-  // Iedereen binnen? Dan is de briefing klaar om te lezen.
+  // Iedereen binnen? Dan is de briefing klaar om te lezen. Agents antwoorden
+  // tegelijk, dus de overgang naar "ready" moet één keer gebeuren en niet één
+  // keer per agent die toevallig als laatste klaar is.
   const open = await db.standupEntry.count({
     where: { meetingId: meeting.id, receivedAt: null },
   });
   if (open === 0) {
-    await db.meeting.update({ where: { id: meeting.id }, data: { status: "ready" } });
-    await notify({
-      level: "success",
-      title: "Het ochtendoverleg ligt klaar",
-      body: "Alle agents hebben gerapporteerd.",
-      link: "/overleg",
-      push: true,
+    const overgang = await db.meeting.updateMany({
+      where: { id: meeting.id, status: { not: "ready" } },
+      data: { status: "ready" },
     });
+    if (overgang.count > 0) {
+      await notify({
+        level: "success",
+        title: "Het ochtendoverleg ligt klaar",
+        body: "Alle agents hebben gerapporteerd.",
+        link: "/overleg",
+        push: true,
+      });
+    }
   }
 
   return true;
@@ -249,8 +323,7 @@ export async function summariseMeeting(meetingId: string): Promise<string> {
       : `Niemand meldt een blokkade.`,
   ].join(" ");
 
-  const key = process.env.OPENROUTER_API_KEY;
-  if (!key || received.length === 0) return factual;
+  if (received.length === 0) return factual;
 
   const transcript = received
     .map((entry) =>
@@ -263,28 +336,26 @@ export async function summariseMeeting(meetingId: string): Promise<string> {
     )
     .join("\n\n");
 
+  // Via dezelfde AI-laag als de agents zelf. Eerder stond hier een losse
+  // fetch met process.env.OPENROUTER_API_KEY — die staat op Vercel niet
+  // ingevuld, want de sleutel hoort bij Instellingen → Taalmodel. Daardoor
+  // viel de briefing altijd stil terug op de feitelijke regel hieronder.
   try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model: "openai/gpt-5.5",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Je vat een ochtendoverleg samen voor de eigenaar van een marketing- en mediabureau. Schrijf in het Nederlands, maximaal vier zinnen. Noem wat er vandaag speelt en wat zijn aandacht vraagt. Geen opsomming van iedereen apart, geen inleidende zin.",
-          },
-          { role: "user", content: transcript },
-        ],
-        max_tokens: 300,
-      }),
-      signal: AbortSignal.timeout(25_000),
+    const { chat } = await import("./ai/provider");
+    const result = await chat({
+      messages: [
+        {
+          role: "system",
+          content:
+            "Je vat een ochtendoverleg samen voor de eigenaar van een marketing- en mediabureau. Schrijf in het Nederlands, maximaal vier zinnen. Noem wat er vandaag speelt en wat zijn aandacht vraagt. Geen opsomming van iedereen apart, geen inleidende zin.",
+        },
+        { role: "user", content: transcript },
+      ],
+      maxTokens: 300,
+      timeoutMs: 25_000,
     });
 
-    if (!response.ok) return factual;
-    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
-    const summary = data.choices?.[0]?.message?.content?.trim();
+    const summary = result.text.trim();
     return summary ? `${summary}\n\n${factual}` : factual;
   } catch {
     // Geen samenvatting is vervelend, geen briefing is erger.

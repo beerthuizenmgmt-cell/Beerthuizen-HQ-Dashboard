@@ -16,6 +16,13 @@ import { TIMEZONE } from "@/lib/format";
 
 const WINDOW_MINUTES = 15;
 
+// Negen agents die tegelijk nadenken duren zo lang als de traagste. Zonder deze
+// regel kapt Vercel het verzoek veel eerder af en blijft het overleg halverwege
+// steken. Zestig seconden is het maximum op het Hobby-plan; op Pro mag hier 300
+// staan. Haalt een trage agent het niet, dan blijft zijn regel openstaan en
+// vult "Nu starten" op /overleg alleen die aan — al het andere blijft staan.
+export const maxDuration = 60;
+
 function minutesNow(): number {
   const [hours, minutes] = new Intl.DateTimeFormat("en-GB", {
     timeZone: TIMEZONE,
@@ -66,8 +73,12 @@ async function handle(request: Request) {
   // al begonnen? Zo niet, dan nu. Met Pro kan het weer op de minuut.
   if (params.get("daily") === "1" && !force) {
     const today = await db.meeting.findUnique({ where: { date: meetingDate() } });
-    if (today && today.status !== "scheduled") {
-      return Response.json({ ok: true, skipped: "overleg van vandaag liep al" });
+    // Alleen een overleg dat écht rond is houdt de cron tegen. Bleef er een
+    // hangen op "collecting" — bijvoorbeeld omdat het verzoek werd afgekapt —
+    // dan moet een volgende poging hem kunnen afmaken in plaats van hem de
+    // hele dag te laten staan.
+    if (today && (today.status === "ready" || today.status === "closed")) {
+      return Response.json({ ok: true, skipped: "overleg van vandaag is al rond" });
     }
     const result = await runStandup();
     return Response.json({ ok: true, mode: "daily", ...result });
