@@ -1095,6 +1095,8 @@ model Invoice {
   @@unique([source, number])
   @@index([status, dueOn])
   @@index([dueOn])
+
+  studioboeking Studioboeking?
 }
 
 // ============================================================
@@ -1242,6 +1244,8 @@ model Client {
   contracten Contract[]
 
   voorstellen Voorstel[]
+
+  studioboekingen Studioboeking[]
 }
 
 /// Welk formulier een klant te zien krijgt. Bepaalt ook naar welke agent de
@@ -1713,4 +1717,68 @@ model VoorstelSectie {
 
   @@unique([voorstelId, sleutel])
   @@index([voorstelId, sortOrder])
+}
+
+/// Een ruimte die geboekt kan worden.
+model Studioruimte {
+  id       String  @id @default(cuid())
+  naam     String  @unique
+  soort    String  @default("fotostudio")
+  /// Dagtarief in euro's. Leeg betekent: nog geen tarief vastgesteld.
+  dagtariefEur Float?
+  actief   Boolean @default(true)
+  notities String?
+
+  createdAt DateTime @default(now())
+  boekingen Studioboeking[]
+}
+
+enum BoekingStatus {
+  /// Aanvraag binnen, nog niets vastgelegd.
+  aangevraagd
+  /// Voorstel of tarief ligt bij de klant.
+  voorgesteld
+  /// Vastgelegd. Vanaf hier blokkeert hij de agenda.
+  bevestigd
+  geannuleerd
+  afgerond
+}
+
+/// Een boeking van een studioruimte.
+///
+/// De dubbele-boekingcontrole zit bewust niet alleen in de code maar ook in de
+/// database: twee bevestigde boekingen op dezelfde ruimte en dezelfde dag mogen
+/// niet kunnen bestaan, ook niet als twee mensen tegelijk op bevestigen drukken.
+model Studioboeking {
+  id       String       @id @default(cuid())
+  ruimteId String
+  ruimte   Studioruimte @relation(fields: [ruimteId], references: [id], onDelete: Cascade)
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  /// Voor wie het is, als het geen bestaande klant is.
+  contact  String?
+
+  /// De dag waarop geboekt is, op middernacht. Een halve dag boeken kan nog
+  /// niet; dat is bewust, want dan moet je ook met overlappende tijden rekenen.
+  dag      DateTime
+  dagdeel  String  @default("hele dag")
+
+  status   BoekingStatus @default(aangevraagd)
+  doel     String?
+  tariefEur Float?
+
+  /// Waarom hij geannuleerd is. Zonder reden weet je later niet of het een
+  /// afzegging was of een verplaatsing.
+  annuleringsreden String?
+  verplaatstVanaf  DateTime?
+
+  invoiceId String?  @unique
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ruimteId, dag])
+  @@index([status, dag])
 }
