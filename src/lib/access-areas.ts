@@ -23,20 +23,33 @@ export type Area = {
   /// Onderdeel van een groter scherm, geen eigen menu-item. Wel nodig in deze
   /// lijst omdat de toegangsregel afwijkt van het scherm waar het onder valt.
   buitenMenu?: boolean;
+  /// Waar dit scherm bij hoort in het menu. Eenentwintig losse items zijn op
+  /// een telefoon onvindbaar; gegroepeerd zijn het er zes.
+  groep?: Groep;
 };
+
+export type Groep = "werk" | "klanten" | "geld" | "team" | "systeem";
+
+export const GROEPEN: { key: Groep; label: string; icon: string }[] = [
+  { key: "werk", label: "Werk", icon: "☑" },
+  { key: "klanten", label: "Klanten", icon: "◈" },
+  { key: "geld", label: "Geld", icon: "€" },
+  { key: "team", label: "Team", icon: "💬" },
+  { key: "systeem", label: "Systeem", icon: "⚙" },
+];
 
 export const AREAS: Area[] = [
   { path: "/hq", label: "HQ", icon: "◆" },
-  { path: "/overleg", label: "Overleg", icon: "☀" },
-  { path: "/agenda", label: "Agenda", icon: "▦" },
-  { path: "/taken", label: "Taken", icon: "☑" },
-  { path: "/projecten", label: "Projecten", icon: "▣" },
-  { path: "/campagnes", label: "Campagnes", icon: "◈" },
-  { path: "/rapportages", label: "Rapportages", icon: "▤" },
-  { path: "/team", label: "Team", icon: "💬" },
-  { path: "/agents", label: "Agents", icon: "◉" },
-  { path: "/creators", label: "Creators", icon: "◐" },
-  { path: "/werkwijze", label: "Werkwijze", icon: "⇄" },
+  { path: "/overleg", label: "Overleg", icon: "☀", groep: "werk" },
+  { path: "/agenda", label: "Agenda", icon: "▦", groep: "werk" },
+  { path: "/taken", label: "Taken", icon: "☑", groep: "werk" },
+  { path: "/projecten", label: "Projecten", icon: "▣", groep: "werk" },
+  { path: "/campagnes", label: "Campagnes", icon: "◈", groep: "klanten" },
+  { path: "/rapportages", label: "Rapportages", icon: "▤", groep: "klanten" },
+  { path: "/team", label: "Team", icon: "💬", groep: "team" },
+  { path: "/agents", label: "Agents", icon: "◉", groep: "team" },
+  { path: "/creators", label: "Creators", icon: "◐", groep: "klanten" },
+  { path: "/werkwijze", label: "Werkwijze", icon: "⇄", groep: "team" },
 
   // Het team bekijken mag iedereen. Bepalen wie er in het team zit en waar een
   // agent bij mag, is iets anders: daar zitten koppelingen en tokens achter.
@@ -49,14 +62,14 @@ export const AREAS: Area[] = [
     buitenMenu: true,
     reason: "Wie er in het team zit, bepaalt de eigenaar.",
   },
-  { path: "/kennis", label: "Kennis", icon: "◇" },
-  { path: "/activiteit", label: "Activiteit", icon: "≡" },
-  { path: "/meldingen", label: "Meldingen", icon: "!" },
+  { path: "/kennis", label: "Kennis", icon: "◇", groep: "team" },
+  { path: "/activiteit", label: "Activiteit", icon: "≡", groep: "team" },
+  { path: "/meldingen", label: "Meldingen", icon: "!", groep: "team" },
 
   // Klanten staat bewust open voor het team: wie klantcommunicatie doet, moet
   // bij de klantgegevens kunnen. Wat er niet in zit is geld — facturen en
   // financiën blijven hieronder bij de eigenaar. Een link intrekken ook.
-  { path: "/klanten", label: "Klanten", icon: "◈" },
+  { path: "/klanten", label: "Klanten", icon: "◈", groep: "klanten" },
 
   {
     path: "/goedkeuringen",
@@ -64,6 +77,7 @@ export const AREAS: Area[] = [
     icon: "✓",
     roles: ["owner"],
     reason: "Alleen de eigenaar beslist over externe acties en uitgaven.",
+    groep: "werk",
   },
   {
     path: "/opbouw",
@@ -71,6 +85,7 @@ export const AREAS: Area[] = [
     icon: "◱",
     roles: ["owner"],
     reason: "Hier wordt bepaald wat een agent mag; dat is aan de eigenaar.",
+    groep: "systeem",
   },
   {
     path: "/facturen",
@@ -78,6 +93,7 @@ export const AREAS: Area[] = [
     icon: "€",
     roles: ["owner"],
     reason: "Financiele administratie is alleen voor de eigenaar.",
+    groep: "geld",
   },
   {
     path: "/tools",
@@ -85,6 +101,7 @@ export const AREAS: Area[] = [
     icon: "⚒",
     roles: ["owner"],
     reason: "Koppelingen en rechten bepalen waar agents bij kunnen.",
+    groep: "systeem",
   },
   {
     path: "/monitoring",
@@ -92,6 +109,7 @@ export const AREAS: Area[] = [
     icon: "◎",
     roles: ["owner"],
     reason: "Hier worden agents geactiveerd en dat kost geld.",
+    groep: "systeem",
   },
   {
     path: "/financien",
@@ -99,6 +117,7 @@ export const AREAS: Area[] = [
     icon: "€",
     roles: ["owner"],
     reason: "Kosten en budget zijn voor de eigenaar.",
+    groep: "geld",
   },
   {
     path: "/proefdraaien",
@@ -106,6 +125,7 @@ export const AREAS: Area[] = [
     icon: "▷",
     roles: ["owner"],
     reason: "Proefopdrachten kosten geld.",
+    groep: "systeem",
   },
   {
     path: "/instellingen",
@@ -113,6 +133,7 @@ export const AREAS: Area[] = [
     icon: "⚙",
     roles: ["owner"],
     reason: "Hier staan de sleutels en koppelingen.",
+    groep: "systeem",
   },
 ];
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { logout } from "@/lib/actions/auth";
+import { MobieleNav } from "@/components/mobiele-nav";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { Logo, LogoMark } from "@/components/logo";
 import { areasFor } from "@/lib/access";
@@ -12,11 +13,14 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   // De navigatie komt uit dezelfde lijst als de toegangscontrole, zodat er nooit
   // een link zichtbaar is die vervolgens geweigerd wordt.
-  const links = areasFor(user.role).map((area) => ({
-    path: area.path,
-    label: area.label,
-    icon: area.icon,
-  }));
+  const links = areasFor(user.role)
+    .filter((area) => !area.buitenMenu)
+    .map((area) => ({
+      path: area.path,
+      label: area.label,
+      icon: area.icon,
+      groep: area.groep,
+    }));
 
   return (
     <div className="flex min-h-screen">
@@ -40,15 +44,20 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobiele navigatie */}
+        {/* Op een telefoon alleen het merk bovenaan; navigeren doe je onderaan,
+            waar je duim is. */}
         <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:hidden">
           <Link href="/hq">
             <LogoMark />
           </Link>
-          <SidebarNav links={links} unread={unread} compact />
+          <span className="text-sm font-semibold">Beerthuizen HQ</span>
         </header>
 
-        <main className="flex-1 px-5 py-6 md:px-8 md:py-8">{children}</main>
+        {/* Ruimte onderaan voor de vaste balk, anders valt de laatste regel
+            van elke pagina eronder. */}
+        <main className="flex-1 px-5 py-6 pb-24 md:px-8 md:py-8 md:pb-8">{children}</main>
+
+        <MobieleNav links={links} unread={unread} />
       </div>
     </div>
   );

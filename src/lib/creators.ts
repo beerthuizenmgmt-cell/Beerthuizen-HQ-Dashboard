@@ -14,6 +14,27 @@ import { maakToken, vervaldatum } from "./portaal";
 // regel in `ontbreekt`. Een rapport met een geraden getal is erger dan een
 // rapport met een gat, want een gat kun je zien.
 
+/// Hoe ver een creator is met aanleveren. Drie standen, want twee is te grof:
+/// "heeft iets gestuurd maar de insights ontbreken" is iets anders dan "heeft
+/// niets gestuurd", en vraagt om een ander bericht.
+export type Leverstatus = "compleet" | "gedeeltelijk" | "ontbreekt";
+
+export type CreatorStand = {
+  creatorCampagneId: string;
+  creatorId: string;
+  creatorNaam: string;
+  status: Leverstatus;
+  /// Wat er nog mist, in gewone taal.
+  mist: string[];
+  aantalContentstukken: number;
+  deliverables: number;
+  gevraagdOp: Date | null;
+  ontvangenOp: Date | null;
+};
+
+/// Wat er mis kan zijn met een aanlevering, los van wat er ontbreekt.
+export type Waarschuwing = { soort: string; wat: string };
+
 export type OntbrekendResultaat = {
   creatorCampagneId: string;
   creatorNaam: string;
@@ -141,7 +162,7 @@ export function leesLinks(ruw: string | undefined | null): string[] {
 export async function verwerkCreatorResultaten(
   requestId: string,
   inzending: Record<string, string>,
-): Promise<{ ok: boolean; ontbreekt: string[]; creatorNaam?: string } > {
+): Promise<{ ok: boolean; ontbreekt: string[]; waarschuwingen?: Waarschuwing[]; creatorNaam?: string }> {
   const aanvraag = await db.portalRequest.findUnique({ where: { id: requestId } });
   if (!aanvraag?.label) return { ok: false, ontbreekt: ["De aanvraag is niet te herleiden."] };
 
@@ -214,7 +235,19 @@ export async function verwerkCreatorResultaten(
     data: { resultatenOntvangenOp: new Date(), status: "geleverd" },
   });
 
-  return { ok: true, ontbreekt, creatorNaam: koppeling.creator.name };
+  // Meer dan alleen lege velden: dubbele aanleveringen, onmogelijke cijfers,
+  // bereik dat nergens op slaat. Gemarkeerd, nooit gecorrigeerd.
+  const waarschuwingen = await controleerAanlevering(koppeling.id, {
+    bereik,
+    views,
+    likes: interacties,
+    links,
+  });
+
+  // Daan hoort het meteen, zodat Enriqueo er niet achteraan hoeft.
+  await meldOntbrekendeResultaten(koppeling.id, ontbreekt, waarschuwingen);
+
+  return { ok: true, ontbreekt, waarschuwingen, creatorNaam: koppeling.creator.name };
 }
 
 /// Welke creators hebben nog niet geleverd, en wat ontbreekt er bij wie wél
@@ -258,4 +291,156 @@ export async function ontbrekendeResultaten(projectId?: string): Promise<Ontbrek
   }
 
   return gaten;
+}
+
+/// Controleert een aanlevering op meer dan alleen ontbrekende velden.
+///
+/// Een creator die per ongeluk twee keer instuurt, of die 2 miljoen bereik
+/// opgeeft bij 40.000 volgers, levert data die er compleet uitziet maar nergens
+/// op slaat. Zulke cijfers halen ongemerkt een heel campagnerapport onderuit,
+/// dus ze worden gemarkeerd — niet gecorrigeerd. Corrigeren zou betekenen dat
+/// we zelf een getal verzinnen.
+export async function controleerAanlevering(
+  creatorCampagneId: string,
+  nieuw: { bereik: number | null; views: number | null; likes: number | null; links: string[] },
+): Promise<Waarschuwing[]> {
+  const waarschuwingen: Waarschuwing[] = [];
+
+  const koppeling = await db.creatorCampagne.findUnique({
+    where: { id: creatorCampagneId },
+    include: {
+      creator: { select: { volgersInstagram: true, volgersTiktok: true, volgersYoutube: true } },
+      uploads: { select: { id: true, contentLinks: true, createdAt: true } },
+    },
+  });
+  if (!koppeling) return [{ soort: "koppeling", wat: "De campagnekoppeling is niet gevonden." }];
+
+  // Dubbel ingestuurd: dezelfde link kwam al eerder binnen.
+  const eerdereLinks = new Set(koppeling.uploads.flatMap((u) => u.contentLinks));
+  const dubbel = nieuw.links.filter((link) => eerdereLinks.has(link));
+  if (dubbel.length > 0) {
+    waarschuwingen.push({
+      soort: "dubbel",
+      wat: `${dubbel.length} ${dubbel.length === 1 ? "link was" : "links waren"} al eerder aangeleverd`,
+    });
+  }
+  if (koppeling.uploads.length > 0 && dubbel.length === 0) {
+    waarschuwingen.push({
+      soort: "tweede_aanlevering",
+      wat: `Dit is aanlevering ${koppeling.uploads.length + 1} voor deze campagne`,
+    });
+  }
+
+  // Negatief of nul waar een getal hoort.
+  for (const [naam, waarde] of [
+    ["Bereik", nieuw.bereik],
+    ["Weergaven", nieuw.views],
+    ["Interacties", nieuw.likes],
+  ] as const) {
+    if (waarde !== null && waarde < 0) {
+      waarschuwingen.push({ soort: "ongeldig", wat: `${naam} is negatief (${waarde})` });
+    }
+  }
+
+  // Meer interacties dan bereik kan niet.
+  if (nieuw.likes !== null && nieuw.bereik !== null && nieuw.likes > nieuw.bereik) {
+    waarschuwingen.push({
+      soort: "onlogisch",
+      wat: `Meer interacties (${nieuw.likes}) dan bereik (${nieuw.bereik})`,
+    });
+  }
+
+  // Bereik dat ver boven het volgersaantal ligt kan — een video kan viraal
+  // gaan — maar tien keer je bereik is zeldzaam genoeg om te melden.
+  const volgers = Math.max(
+    koppeling.creator.volgersInstagram ?? 0,
+    koppeling.creator.volgersTiktok ?? 0,
+    koppeling.creator.volgersYoutube ?? 0,
+  );
+  if (volgers > 0 && nieuw.bereik !== null && nieuw.bereik > volgers * 10) {
+    waarschuwingen.push({
+      soort: "opvallend",
+      wat: `Bereik (${nieuw.bereik.toLocaleString("nl-NL")}) is meer dan tien keer het volgersaantal (${volgers.toLocaleString("nl-NL")}). Kan kloppen bij een virale video — even nakijken.`,
+    });
+  }
+
+  return waarschuwingen;
+}
+
+/// De stand per creator binnen een campagne.
+export async function creatorStanden(projectId: string): Promise<CreatorStand[]> {
+  const koppelingen = await db.creatorCampagne.findMany({
+    where: { projectId },
+    include: {
+      creator: { select: { id: true, name: true } },
+      uploads: { select: { ontbreekt: true, contentLinks: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return koppelingen.map((koppeling) => {
+    const mist = [...new Set(koppeling.uploads.flatMap((u) => u.ontbreekt))];
+    const stukken = koppeling.uploads.reduce((n, u) => n + u.contentLinks.length, 0);
+
+    const status: Leverstatus =
+      koppeling.uploads.length === 0 ? "ontbreekt" : mist.length === 0 ? "compleet" : "gedeeltelijk";
+
+    return {
+      creatorCampagneId: koppeling.id,
+      creatorId: koppeling.creator.id,
+      creatorNaam: koppeling.creator.name,
+      status,
+      mist,
+      aantalContentstukken: stukken,
+      deliverables: koppeling.deliverables.length,
+      gevraagdOp: koppeling.resultatenGevraagdOp,
+      ontvangenOp: koppeling.resultatenOntvangenOp,
+    };
+  });
+}
+
+/// Meldt bij Daan wat er aan een aanlevering ontbreekt.
+///
+/// Bewust één bericht per creator en niet één per ontbrekend veld: vier losse
+/// meldingen over dezelfde creator is precies het soort ruis waar een
+/// rechterhand voor uitgezet wordt.
+export async function meldOntbrekendeResultaten(
+  creatorCampagneId: string,
+  ontbreekt: string[],
+  waarschuwingen: Waarschuwing[],
+): Promise<void> {
+  if (ontbreekt.length === 0 && waarschuwingen.length === 0) return;
+
+  const koppeling = await db.creatorCampagne.findUnique({
+    where: { id: creatorCampagneId },
+    include: { creator: { select: { name: true } }, project: { select: { id: true, name: true } } },
+  });
+  if (!koppeling) return;
+
+  const daan = await db.agent.findUnique({ where: { key: "chief" } });
+  const regels = [
+    ...ontbreekt.map((punt) => `ontbreekt: ${punt}`),
+    ...waarschuwingen.map((w) => `let op: ${w.wat}`),
+  ];
+
+  const { notify } = await import("./notifications");
+  await notify({
+    level: ontbreekt.length > 0 ? "warn" : "info",
+    title: `${koppeling.project.name} — ${koppeling.creator.name} heeft aangeleverd`,
+    body: regels.join(" · "),
+    link: `/projecten/${koppeling.project.id}`,
+    agentId: daan?.id ?? null,
+    // Niet naar je telefoon: dit is werk voor Fleur, geen beslissing voor jou.
+    push: false,
+  });
+
+  const { logActivity } = await import("./agents");
+  await logActivity({
+    agentId: daan?.id ?? null,
+    kind: "creatorresultaat",
+    level: ontbreekt.length > 0 ? "warn" : "success",
+    message: `${koppeling.creator.name} leverde aan voor ${koppeling.project.name}. ${
+      ontbreekt.length > 0 ? `Nog ontbrekend: ${ontbreekt.join(", ")}.` : "Compleet."
+    }`,
+  });
 }

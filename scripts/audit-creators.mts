@@ -196,6 +196,52 @@ async function main() {
   toets("engagement niet berekend zonder cijfers", halfUpload?.engagementRate === null);
   toets("onbruikbare link niet opgeslagen", halfUpload?.contentLinks.length === 0);
 
+  // ── Controle op wat er binnenkomt ────────────────────────────────────────
+  console.log("\nControle op de aanlevering zelf");
+  const { controleerAanlevering, creatorStanden } = await import("../src/lib/creators");
+
+  const dubbel = await controleerAanlevering(koppeling.id, {
+    bereik: 84200, views: 121000, likes: 4850,
+    links: ["https://instagram.com/p/abc123"],
+  });
+  toets("dubbele link herkend", dubbel.some((w) => w.soort === "dubbel"), dubbel.map((w) => w.wat).join(" · "));
+
+  const onlogisch = await controleerAanlevering(koppeling.id, {
+    bereik: 1000, views: 900, likes: 5000, links: [],
+  });
+  toets("meer interacties dan bereik wordt gemeld", onlogisch.some((w) => w.soort === "onlogisch"));
+
+  const negatief = await controleerAanlevering(koppeling.id, {
+    bereik: -50, views: null, likes: null, links: [],
+  });
+  toets("negatief bereik wordt gemeld", negatief.some((w) => w.soort === "ongeldig"));
+
+  const viraal = await controleerAanlevering(koppeling.id, {
+    bereik: 2_000_000, views: null, likes: null, links: [],
+  });
+  toets("bereik ver boven volgersaantal wordt gemeld", viraal.some((w) => w.soort === "opvallend"), viraal.find((w) => w.soort === "opvallend")?.wat.slice(0, 60) ?? "");
+
+  const normaal = await controleerAanlevering(tweedeKoppeling.id, {
+    bereik: 12000, views: 15000, likes: 400, links: ["https://tiktok.com/@x/video/9"],
+  });
+  toets("geen valse alarmen bij normale cijfers", !normaal.some((w) => ["ongeldig", "onlogisch", "opvallend"].includes(w.soort)), normaal.map((w) => w.soort).join(" · "));
+
+  // ── Stand per creator ────────────────────────────────────────────────────
+  console.log("\nStand per creator");
+  const standen = await creatorStanden(project.id);
+  toets("twee creators in beeld", standen.length === 2);
+  const lieke = standen.find((s) => s.creatorNaam.includes("Lieke"));
+  const sam = standen.find((s) => s.creatorNaam.includes("Sam"));
+  toets("volledige aanlevering is compleet", lieke?.status === "compleet", String(lieke?.status));
+  toets("halve aanlevering is gedeeltelijk", sam?.status === "gedeeltelijk", String(sam?.status));
+  toets("aantal contentstukken geteld", lieke?.aantalContentstukken === 2, String(lieke?.aantalContentstukken));
+  toets("wat er mist staat erbij", (sam?.mist.length ?? 0) >= 4, `${sam?.mist.length}`);
+
+  const derde = await db.creator.create({ data: { name: `${MERK}Nog Niet Gevraagd` } });
+  await db.creatorCampagne.create({ data: { creatorId: derde.id, projectId: project.id, status: "bevestigd" } });
+  const standen2 = await creatorStanden(project.id);
+  toets("wie niets stuurde staat op ontbreekt", standen2.find((s) => s.creatorNaam.includes("Nog Niet"))?.status === "ontbreekt");
+
   // ── Wat Fleur en Daan te zien krijgen ────────────────────────────────────
   console.log("\nWat er ontbreekt, in beeld");
   const gaten = await ontbrekendeResultaten(project.id);
@@ -204,6 +250,8 @@ async function main() {
   for (const gat of gaten.slice(0, 5)) console.log(`       · ${gat.creatorNaam}: ${gat.wat}`);
 
   // ── Opruimen ─────────────────────────────────────────────────────────────
+  await db.notification.deleteMany({ where: { title: { contains: MERK } } });
+  await db.activityEvent.deleteMany({ where: { message: { contains: MERK } } });
   await db.creatorUpload.deleteMany({ where: { creatorCampagne: { creator: { name: { startsWith: MERK } } } } });
   await db.creatorCampagne.deleteMany({ where: { creator: { name: { startsWith: MERK } } } });
   await db.creator.deleteMany({ where: { name: { startsWith: MERK } } });
