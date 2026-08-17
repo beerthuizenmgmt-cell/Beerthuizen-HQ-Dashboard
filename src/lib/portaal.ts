@@ -471,3 +471,67 @@ export async function zoekBestaandeKlant(gegevens: {
 
   return { zekerheid: "geen", clientId: null, reden: "geen bestaande klant gevonden" };
 }
+
+/// Wat er ontbreekt om echt te kunnen beginnen, en bij wie het opgehaald moet
+/// worden.
+///
+/// Een briefing kan compleet zijn volgens het formulier en toch te dun om mee
+/// te werken. Dit is het verschil tussen "verzonden" en "bruikbaar" — en juist
+/// dat verschil hoort iemand te zien vóórdat er werk in gaat zitten.
+export function beoordeelBriefing(
+  ingevuld: Record<string, string>,
+): { veld: string; wat: string; vanWie: string }[] {
+  const gaten: { veld: string; wat: string; vanWie: string }[] = [];
+  const heeft = (naam: string) => (ingevuld[naam] ?? "").trim().length > 0;
+
+  if (!heeft("budget") && ingevuld.budgetStatus?.startsWith("Nee")) {
+    gaten.push({
+      veld: "budget",
+      wat: "Budgetindicatie — zonder richtbedrag is elk voorstel een gok",
+      vanWie: "klant, via Enriqueo",
+    });
+  }
+
+  if (!heeft("periodeTot")) {
+    gaten.push({ veld: "periodeTot", wat: "Einddatum van de campagne", vanWie: "klant" });
+  }
+
+  if (!heeft("deadline")) {
+    gaten.push({ veld: "deadline", wat: "Wanneer het voorstel uiterlijk nodig is", vanWie: "klant" });
+  }
+
+  // Een doelgroep van drie woorden is geen doelgroep.
+  if ((ingevuld.doelgroep ?? "").trim().length < 40) {
+    gaten.push({
+      veld: "doelgroep",
+      wat: "Scherpere doelgroepomschrijving — nu te algemeen voor creatorselectie",
+      vanWie: "klant",
+    });
+  }
+
+  if (!heeft("deliverables") || ingevuld.deliverables?.includes("Weet ik nog niet")) {
+    gaten.push({ veld: "deliverables", wat: "Welke content er gemaakt moet worden", vanWie: "Fleur, in het voorstel" });
+  }
+
+  if (ingevuld.creatorsInGedachten?.startsWith("Nee, we horen") && !heeft("niche")) {
+    gaten.push({
+      veld: "niche",
+      wat: "Richting voor creatorselectie — niche, type of voorbeelden",
+      vanWie: "Fleur, samen met de klant",
+    });
+  }
+
+  if (!heeft("hergebruik") || ingevuld.hergebruik?.startsWith("Weet ik nog niet")) {
+    gaten.push({
+      veld: "hergebruik",
+      wat: "Of de content ook voor eigen kanalen of advertenties gebruikt wordt",
+      vanWie: "klant — dit bepaalt de afspraken met creators",
+    });
+  }
+
+  if (!heeft("bestanden")) {
+    gaten.push({ veld: "bestanden", wat: "Brandbook, logo's en beeldmateriaal", vanWie: "klant" });
+  }
+
+  return gaten;
+}

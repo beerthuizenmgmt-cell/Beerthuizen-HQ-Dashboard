@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { FORMULIEREN, isBeschikbaar } from "@/lib/portaal";
-import { beoordeelBriefing } from "@/lib/actions/portaal";
+import { FORMULIEREN, isBeschikbaar, beoordeelBriefing } from "@/lib/portaal";
 import { PortaalFormulier } from "@/components/portaal-formulier";
 import { Logo } from "@/components/logo";
 
