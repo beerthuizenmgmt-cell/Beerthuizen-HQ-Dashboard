@@ -187,6 +187,8 @@ model Agent {
 
   @@index([category])
   @@index([status])
+
+  voorstelSecties VoorstelSectie[]
 }
 
 /// Een OpenClaw-installatie die via de reader outbound naar dit dashboard
@@ -1238,6 +1240,8 @@ model Client {
   @@index([name])
 
   contracten Contract[]
+
+  voorstellen Voorstel[]
 }
 
 /// Welk formulier een klant te zien krijgt. Bepaalt ook naar welke agent de
@@ -1347,6 +1351,8 @@ model Project {
   @@index([status, createdAt(sort: Desc)])
 
   contracten Contract[]
+
+  voorstellen Voorstel[]
 }
 
 /// Een openstaande vraag van een agent aan Enriqueo via Telegram.
@@ -1608,4 +1614,103 @@ model Contract {
   updatedAt      DateTime  @updatedAt
 
   @@index([status, createdAt(sort: Desc)])
+}
+
+/// Wat voor voorstel het is. Bepaalt welke specialisten eraan werken.
+enum VoorstelSoort {
+  influencer
+  event
+  advertising
+  studio
+  overig
+}
+
+enum VoorstelStatus {
+  /// Agents zijn hun onderdelen aan het invullen.
+  opbouw
+  /// Compleet; Daan kijkt het na.
+  in_controle
+  /// Daan is akkoord, ligt bij Enriqueo.
+  klaar_voor_akkoord
+  goedgekeurd
+  afgewezen
+  verzonden
+}
+
+/// Een voorstel aan een klant.
+///
+/// Bewust opgebouwd uit losse secties met elk een eigenaar, in plaats van één
+/// lap tekst. Zo weet je wie wat schreef, kan Daan één onderdeel terugsturen
+/// zonder het geheel weg te gooien, en kan het systeem zien wat er nog
+/// ontbreekt in plaats van dat iemand dat moet nalopen.
+model Voorstel {
+  id     String         @id @default(cuid())
+  naam   String
+  soort  VoorstelSoort  @default(influencer)
+  status VoorstelStatus @default(opbouw)
+
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  /// Wat er nog ontbreekt voordat dit naar Enriqueo kan. Gevuld door de agents
+  /// zelf: liever een gat benoemen dan het invullen.
+  ontbreekt String[] @default([])
+
+  /// Wat Daan bij zijn controle vond. Leeg betekent niet "goed" maar
+  /// "nog niet gecontroleerd" — daarom staat het naast gecontroleerdOp.
+  controlepunten String[] @default([])
+  gecontroleerdOp DateTime?
+
+  // ── De samenvatting die Enriqueo krijgt ────────────────────────────────
+  samenvattingWat        String?
+  samenvattingInvestering String?
+  samenvattingImpact     String?
+  samenvattingAandacht   String?
+  samenvattingBeslissing String?
+
+  besluitOp     DateTime?
+  besluitDoor   String?
+  besluitReden  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  secties VoorstelSectie[]
+
+  @@index([status, createdAt(sort: Desc)])
+}
+
+/// Eén onderdeel van een voorstel, met de agent die ervoor tekent.
+model VoorstelSectie {
+  id         String   @id @default(cuid())
+  voorstelId String
+  voorstel   Voorstel @relation(fields: [voorstelId], references: [id], onDelete: Cascade)
+
+  /// aanleiding | doelstelling | doelgroep | strategie | concept | creators |
+  /// deliverables | planning | investering | advertentiebudget | voorwaarden |
+  /// vervolgstappen
+  sleutel String
+
+  /// Wie dit onderdeel invult. Null betekent: nog niet toegewezen.
+  agentId String?
+  agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  inhoud String?
+  /// Waar deze inhoud vandaan komt: uit het dossier, of geschreven door een
+  /// agent. Zonder dat weet je later niet of een bedrag een afspraak is of
+  /// een voorstel.
+  bron String?
+
+  /// open | ingevuld | teruggestuurd
+  status String @default("open")
+  /// Waarom Daan het terugstuurde.
+  opmerking String?
+
+  sortOrder Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([voorstelId, sleutel])
+  @@index([voorstelId, sortOrder])
 }

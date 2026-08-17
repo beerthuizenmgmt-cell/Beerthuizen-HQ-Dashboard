@@ -218,6 +218,96 @@ export const FINANCE_TOOLS: ToolDefinition[] = [
   }
 ];
 
+
+/// Werken aan een voorstel. Iedere agent vult zijn eigen onderdeel; alleen de
+/// coördinator maakt er één geheel van en zet het klaar voor Enriqueo.
+export const VOORSTEL_TOOLS: ToolDefinition[] = [
+  {
+    name: "vul_voorstel_sectie",
+    description:
+      "Vul jouw onderdeel van een voorstel in. Schrijf alleen wat je weet of kunt onderbouwen. " +
+      "Ontbreekt informatie die je nodig hebt, vul die dan niet zelf in maar meld het met " +
+      "meld_ontbrekend_in_voorstel — een voorstel met een verzonnen bedrag is erger dan een voorstel " +
+      "met een lege regel, want de lege regel zie je.",
+    parameters: {
+      type: "object",
+      properties: {
+        voorstel_id: { type: "string" },
+        sectie: {
+          type: "string",
+          enum: [
+            "aanleiding", "doelstelling", "doelgroep", "strategie", "concept", "creators",
+            "deliverables", "planning", "investering", "advertentiebudget", "voorwaarden",
+            "vervolgstappen",
+          ],
+        },
+        inhoud: { type: "string", description: "De tekst zoals hij in het voorstel komt te staan" },
+        bron: {
+          type: "string",
+          description:
+            "Waar dit op gebaseerd is: de briefing, een onderzoek, een tarief uit het dossier, of je eigen inschatting",
+        },
+      },
+      required: ["voorstel_id", "sectie", "inhoud"],
+    },
+  },
+  {
+    name: "meld_ontbrekend_in_voorstel",
+    description:
+      "Meld dat je iets nodig hebt dat er niet is. Gebruik dit in plaats van iets aannemen. " +
+      "Het komt op de gatenlijst van het voorstel en Enriqueo ziet het voordat hij tekent.",
+    parameters: {
+      type: "object",
+      properties: {
+        voorstel_id: { type: "string" },
+        wat: { type: "string", description: "Wat je mist en waarvoor je het nodig hebt" },
+        vanWie: { type: "string", description: "Bij wie het vandaan moet komen: de klant, Enriqueo, of een collega" },
+      },
+      required: ["voorstel_id", "wat"],
+    },
+  },
+];
+
+/// Alleen voor de coördinator: een voorstel starten en het afronden.
+export const VOORSTEL_CHIEF_TOOLS: ToolDefinition[] = [
+  {
+    name: "start_voorstel",
+    description:
+      "Start een voorstel. Kies het soort; daaruit volgt welke onderdelen erin horen en welke collega's " +
+      "eraan werken. Wat al in de briefing van de klant staat wordt automatisch overgenomen — laat dat " +
+      "niet opnieuw invullen.",
+    parameters: {
+      type: "object",
+      properties: {
+        naam: { type: "string", description: "Bijvoorbeeld: Nike — najaarscampagne" },
+        soort: { type: "string", enum: ["influencer", "event", "advertising", "studio", "overig"] },
+        project_id: { type: "string", description: "Het project waar dit uit voortkomt, als dat er is" },
+      },
+      required: ["naam", "soort"],
+    },
+  },
+  {
+    name: "controleer_voorstel",
+    description:
+      "Loop het voorstel na voordat het naar Enriqueo gaat. Dit controleert wat een machine kan zien: " +
+      "lege onderdelen, open plekken, ontbrekende bedragen, een planning die over de deadline loopt, " +
+      "een klantnaam die nergens voorkomt. Spelling, toon en commerciële logica beoordeel je zelf. " +
+      "Is alles in orde, dan komt het voorstel bij Enriqueo te liggen met jouw samenvatting.",
+    parameters: {
+      type: "object",
+      properties: {
+        voorstel_id: { type: "string" },
+        wat: { type: "string", description: "Wat we voorstellen, in één regel" },
+        investering: { type: "string", description: "Wat het de klant kost" },
+        impact: { type: "string", description: "Wat het oplevert, en wat het ons oplevert" },
+        aandachtspunt: { type: "string", description: "Het belangrijkste waar hij op moet letten" },
+        beslissing: { type: "string", description: "Wat Enriqueo precies moet beslissen" },
+      },
+      required: ["voorstel_id", "wat", "investering", "beslissing"],
+    },
+  },
+];
+
 /// Alleen voor de Research Manager. Vastleggen is zijn vak; de rest leest mee.
 /// Contractanalyse. Bij de Research Manager omdat het uitpluizen van een tekst
 /// zijn vak is — en omdat het uitdrukkelijk geen juridisch advies is.
@@ -340,6 +430,14 @@ export async function runTool(
         return await rememberThis(args, context);
       case "zoek_onderzoek":
         return await searchResearch(args);
+      case "vul_voorstel_sectie":
+        return await fillProposalSection(args, context);
+      case "meld_ontbrekend_in_voorstel":
+        return await reportProposalGap(args);
+      case "start_voorstel":
+        return await startProposal(args, context);
+      case "controleer_voorstel":
+        return await checkProposal(args, context);
       case "leg_contractanalyse_vast":
         return await recordContractAnalysis(args);
       case "leg_onderzoek_vast":
@@ -874,5 +972,192 @@ async function recordContractAnalysis(args: Record<string, unknown>): Promise<To
       `Analyse vastgelegd bij ${contract.naam}. ${onduidelijk.length} punt(en) staan als onduidelijk ` +
       `genoteerd. Zeg in je antwoord expliciet wat er níét uit het contract blijkt — Enriqueo moet weten ` +
       `waar hij zelf naar moet kijken.`,
+  };
+}
+
+// ============================================================
+// Voorstellen
+// ============================================================
+
+async function startProposal(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
+  const naam = text(args.naam);
+  const soort = text(args.soort);
+  if (!naam) return { ok: false, message: "naam is verplicht" };
+
+  const soorten = ["influencer", "event", "advertising", "studio", "overig"];
+  if (!soorten.includes(soort)) {
+    return { ok: false, message: `soort moet een van ${soorten.join(", ")} zijn` };
+  }
+
+  const projectId = text(args.project_id) || null;
+  if (projectId) {
+    const bestaat = await db.project.findUnique({ where: { id: projectId }, select: { id: true } });
+    if (!bestaat) return { ok: false, message: "Dat project bestaat niet." };
+  }
+
+  const { maakVoorstel, agentsVoor } = await import("./../voorstellen");
+  const uitkomst = await maakVoorstel({
+    naam,
+    soort: soort as "influencer" | "event" | "advertising" | "studio" | "overig",
+    projectId,
+  });
+
+  const collegas = agentsVoor(soort as "influencer" | "event" | "advertising" | "studio" | "overig");
+
+  await logActivity({
+    agentId: context.agentId,
+    kind: "voorstel_gestart",
+    level: "info",
+    message: `${context.agentName} startte het voorstel "${naam}" (${soort}).`,
+  });
+
+  return {
+    ok: true,
+    message: [
+      `Voorstel aangemaakt (id ${uitkomst.voorstelId}).`,
+      uitkomst.overgenomen.length
+        ? `Overgenomen uit de briefing, niet opnieuw invullen: ${uitkomst.overgenomen.join(", ")}.`
+        : `Er was geen briefing om uit te putten.`,
+      uitkomst.ontbreekt.length ? `Ontbreekt nog: ${uitkomst.ontbreekt.join(" · ")}.` : ``,
+      `Zet nu deze collega's aan het werk: ${collegas.join(", ")}. Geef ze het voorstel-ID mee.`,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  };
+}
+
+async function fillProposalSection(
+  args: Record<string, unknown>,
+  context: ToolContext,
+): Promise<ToolResult> {
+  const voorstelId = text(args.voorstel_id);
+  const sectie = text(args.sectie);
+  const inhoud = text(args.inhoud);
+  if (!voorstelId || !sectie || !inhoud) {
+    return { ok: false, message: "voorstel_id, sectie en inhoud zijn verplicht" };
+  }
+
+  const bestaand = await db.voorstelSectie.findUnique({
+    where: { voorstelId_sleutel: { voorstelId, sleutel: sectie } },
+  });
+  if (!bestaand) {
+    const alle = await db.voorstelSectie.findMany({
+      where: { voorstelId },
+      select: { sleutel: true },
+      orderBy: { sortOrder: "asc" },
+    });
+    if (alle.length === 0) return { ok: false, message: "Dat voorstel bestaat niet." };
+    return {
+      ok: false,
+      message: `Dit voorstel heeft geen onderdeel "${sectie}". Wel: ${alle.map((s) => s.sleutel).join(", ")}.`,
+    };
+  }
+
+  await db.voorstelSectie.update({
+    where: { id: bestaand.id },
+    data: {
+      inhoud,
+      bron: text(args.bron) || `geschreven door ${context.agentName}`,
+      status: "ingevuld",
+      // De sectie krijgt de agent die hem daadwerkelijk invulde, ook als hij
+      // oorspronkelijk aan iemand anders was toegewezen.
+      agentId: context.agentId,
+      opmerking: null,
+    },
+  });
+
+  const open = await db.voorstelSectie.count({ where: { voorstelId, status: { not: "ingevuld" } } });
+
+  return {
+    ok: true,
+    message:
+      `${sectie} vastgelegd bij het voorstel.` +
+      (open > 0 ? ` Nog ${open} onderde(e)l(en) open.` : ` Alle onderdelen zijn nu ingevuld.`),
+  };
+}
+
+async function reportProposalGap(args: Record<string, unknown>): Promise<ToolResult> {
+  const voorstelId = text(args.voorstel_id);
+  const wat = text(args.wat);
+  if (!voorstelId || !wat) return { ok: false, message: "voorstel_id en wat zijn verplicht" };
+
+  const voorstel = await db.voorstel.findUnique({ where: { id: voorstelId } });
+  if (!voorstel) return { ok: false, message: "Dat voorstel bestaat niet." };
+
+  const vanWie = text(args.vanWie);
+  const regel = vanWie ? `${wat} (${vanWie})` : wat;
+
+  if (voorstel.ontbreekt.includes(regel)) {
+    return { ok: true, message: "Stond er al op; niet nog een keer toegevoegd." };
+  }
+
+  await db.voorstel.update({
+    where: { id: voorstelId },
+    data: { ontbreekt: [...voorstel.ontbreekt, regel] },
+  });
+
+  return {
+    ok: true,
+    message: `Genoteerd als ontbrekend. Enriqueo ziet dit voordat hij tekent. Vul het niet zelf in.`,
+  };
+}
+
+async function checkProposal(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
+  const voorstelId = text(args.voorstel_id);
+  if (!voorstelId) return { ok: false, message: "voorstel_id is verplicht" };
+
+  const voorstel = await db.voorstel.findUnique({ where: { id: voorstelId } });
+  if (!voorstel) return { ok: false, message: "Dat voorstel bestaat niet." };
+
+  await db.voorstel.update({
+    where: { id: voorstelId },
+    data: {
+      samenvattingWat: text(args.wat),
+      samenvattingInvestering: text(args.investering),
+      samenvattingImpact: text(args.impact) || null,
+      samenvattingAandacht: text(args.aandachtspunt) || null,
+      samenvattingBeslissing: text(args.beslissing),
+    },
+  });
+
+  const { zetKlaarVoorAkkoord } = await import("./../voorstellen");
+  const uitkomst = await zetKlaarVoorAkkoord(voorstelId);
+
+  if (!uitkomst.ok) {
+    return {
+      ok: false,
+      message:
+        `Nog niet klaar. ${uitkomst.punten.length} punt(en): ` +
+        uitkomst.punten.map((p) => `${p.sectie} — ${p.wat}`).join("; ") +
+        `. Los dit op of stuur het onderdeel terug naar de collega die het schreef, en controleer daarna opnieuw.`,
+    };
+  }
+
+  await notify({
+    level: "warn",
+    title: `Voorstel klaar voor akkoord: ${voorstel.naam}`,
+    body: [
+      text(args.wat),
+      `Investering: ${text(args.investering)}`,
+      text(args.aandachtspunt) ? `Let op: ${text(args.aandachtspunt)}` : "",
+      `Beslissen: ${text(args.beslissing)}`,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    link: `/voorstellen/${voorstelId}`,
+    agentId: context.agentId,
+    push: true,
+  });
+
+  await logActivity({
+    agentId: context.agentId,
+    kind: "voorstel_klaar",
+    level: "success",
+    message: `${context.agentName} zette "${voorstel.naam}" klaar voor akkoord.`,
+  });
+
+  return {
+    ok: true,
+    message: `Gecontroleerd en klaargezet. Enriqueo heeft een melding met jouw samenvatting.`,
   };
 }
