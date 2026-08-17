@@ -1245,6 +1245,9 @@ enum PortalFormType {
   campagnebriefing
   contentaanlevering
   projectinformatie
+  /// De creator levert na afloop zijn resultaten aan. Geen account, geen
+  /// login: de link weet zelf al om welke creator en welke campagne het gaat.
+  creatorresultaten
 }
 
 /// Waar een aanvraag staat. Elke stap is zichtbaar in HQ, zodat je weet of een
@@ -1303,6 +1306,7 @@ model PortalRequest {
   createdAt DateTime @default(now())
 
   @@index([status, createdAt(sort: Desc)])
+  creatorUpload CreatorUpload?
 }
 
 /// Een campagne of opdracht van een klant.
@@ -1334,8 +1338,9 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tasks   Task[]
-  threads TelegramThread[]
+  tasks    Task[]
+  threads  TelegramThread[]
+  creators CreatorCampagne[]
 
   @@index([status, createdAt(sort: Desc)])
 }
@@ -1374,4 +1379,169 @@ model TelegramThread {
   answeredAt DateTime?
 
   @@index([answeredAt, askedAt(sort: Desc)])
+}
+
+// ============================================================
+// Creators
+// ============================================================
+
+/// Waar een creator vandaan komt. Bepaalt met wie je praat en wat je zelf
+/// mag afspreken.
+enum CreatorSoort {
+  /// Creator van Beerthuizen zelf.
+  eigen
+  /// Loopt via een ander bureau; afspraken gaan via dat bureau.
+  via_agency
+  /// Losse creator zonder vertegenwoordiging.
+  extern
+}
+
+enum CreatorStatus {
+  /// In beeld, nog niet benaderd.
+  kandidaat
+  /// Wordt actief ingezet.
+  actief
+  /// Even niet, maar niet afgeschreven.
+  rust
+  /// Niet meer inzetten. De reden hoort in de notities.
+  niet_inzetten
+}
+
+/// Een creator, los van welke campagne dan ook.
+///
+/// Bewust een eigen tabel en geen veld op een campagne: dezelfde creator werkt
+/// aan meerdere campagnes, en wat je over hem weet — bereik, prijs, hoe het
+/// eerder ging — hoort bij hém en niet bij één opdracht.
+///
+/// Alle cijfers zijn optioneel. Een leeg veld betekent "we weten het niet", en
+/// dat is een bruikbaar antwoord. Zodra hier een 0 staat waar niemand gemeten
+/// heeft, gaat een agent erop rekenen.
+model Creator {
+  id     String        @id @default(cuid())
+  name   String
+  soort  CreatorSoort  @default(extern)
+  status CreatorStatus @default(kandidaat)
+
+  /// Kanalen. De handle zonder @, zodat er één schrijfwijze is.
+  instagram String?
+  tiktok    String?
+  youtube   String?
+  /// Alles wat hierbuiten valt: "Twitch: naam", "Podcast: titel".
+  andereKanalen String[] @default([])
+
+  /// Waar hij over gaat. Meerdere mag: fitness én voeding.
+  niche     String[] @default([])
+  doelgroep String?
+  land      String?
+  taal      String?
+
+  /// Bereik per kanaal, zoals gemeten. null is niet hetzelfde als 0.
+  volgersInstagram Int?
+  volgersTiktok    Int?
+  volgersYoutube   Int?
+  gemiddeldeViews  Int?
+  /// Engagementpercentage, bijvoorbeeld 3.4 voor 3,4%.
+  engagement Float?
+  /// Waar dat cijfer vandaan komt en wanneer het gemeten is.
+  cijfersBron  String?
+  cijfersOp    DateTime?
+
+  /// Richtbedrag in euro's voor een standaardsamenwerking.
+  prijsindicatieEur Float?
+  /// Het bureau of management, als de creator daar zit.
+  agency String?
+
+  email    String?
+  telefoon String?
+
+  /// Ons eigen oordeel, 1 tot 5. Niet openbaar en nooit richting de klant.
+  beoordeling Int?
+  notities    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  campagnes CreatorCampagne[]
+
+  @@index([status, name])
+  @@index([soort])
+}
+
+/// Een creator die aan een campagne meedoet. Hier staat wat er voor déze
+/// campagne is afgesproken; wat er over de creator zelf bekend is staat op de
+/// creator.
+model CreatorCampagne {
+  id        String  @id @default(cuid())
+  creatorId String
+  creator   Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  /// voorgesteld | goedgekeurd | bevestigd | geleverd | afgezegd
+  status String @default("voorgesteld")
+
+  /// Waarom deze creator bij deze campagne past. Fleur schrijft dit; zonder
+  /// onderbouwing komt een naam niet op de shortlist.
+  motivatie String?
+  /// Wat hij oplevert: "2 Reels, 4 Stories".
+  deliverables String[] @default([])
+  vergoedingEur Float?
+
+  /// Wanneer we om zijn resultaten gevraagd hebben, en wanneer ze binnenkwamen.
+  resultatenGevraagdOp  DateTime?
+  resultatenOntvangenOp DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  uploads CreatorUpload[]
+
+  @@unique([creatorId, projectId])
+  @@index([projectId, status])
+}
+
+/// Wat een creator na afloop aanlevert, via zijn eigen uploadlink.
+///
+/// De cijfers staan los opgeslagen van de bestanden: een screenshot van
+/// Instagram Insights is geen getal, en wat we niet uit de aanlevering kunnen
+/// halen blijft leeg met een aantekening in `ontbreekt` — nooit geraden.
+model CreatorUpload {
+  id                String          @id @default(cuid())
+  creatorCampagneId String
+  creatorCampagne   CreatorCampagne @relation(fields: [creatorCampagneId], references: [id], onDelete: Cascade)
+
+  /// De portaalaanvraag waarmee dit binnenkwam.
+  requestId String?        @unique
+  request   PortalRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+
+  /// instagram | tiktok | youtube | overig
+  kanaal String @default("overig")
+
+  /// Links naar de geplaatste content.
+  contentLinks String[] @default([])
+  /// Bestanden zoals aangeleverd: foto's, video's, screenshots van insights.
+  bestanden Json?
+  opmerking String?
+
+  /// De cijfers, zoals afgelezen. Allemaal optioneel en null bij onbekend.
+  bereik        Int?
+  impressions   Int?
+  views         Int?
+  likes         Int?
+  comments      Int?
+  shares        Int?
+  saves         Int?
+  clicks        Int?
+  engagementRate Float?
+
+  /// Wat er ontbreekt en dus niet berekend kan worden. Deze lijst is het
+  /// verschil tussen een rapport en een rapport waar je op kunt vertrouwen.
+  ontbreekt String[] @default([])
+
+  /// Wie het nagekeken heeft en wanneer.
+  gecontroleerdOp DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([creatorCampagneId])
 }

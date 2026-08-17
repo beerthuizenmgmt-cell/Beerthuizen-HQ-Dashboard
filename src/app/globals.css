@@ -243,3 +243,37 @@ h3 {
     border: none;
   }
 }
+
+/* ── Wat de klant ziet ──────────────────────────────────────────────────
+   Intern werken we op bijna-zwart: prettig voor een scherm waar je de hele
+   dag in zit. Maar een klant of creator die één keer een link opent, hoort
+   de website te herkennen — en die is crème met bijna-zwarte tekst.
+
+   Dezelfde tokens, andere waarden. Alles wat erop gebouwd is — kaarten,
+   knoppen, invoervelden — volgt vanzelf, dus er is geen tweede stylesheet
+   die uit de pas kan gaan lopen. */
+.klantpagina {
+  --bg: #f5f0e8;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #faf7f2;
+  --border: #0d0d0d1a;
+  --border-strong: #0d0d0d33;
+
+  --text: #0d0d0d;
+  --text-muted: #0d0d0db3;
+  --text-faint: #0d0d0d66;
+
+  /* Het oranjerood blijft: dat is het merk. */
+  --accent: #ff4500;
+  --accent-hover: #e63e00;
+  --accent-soft: #ff45001a;
+
+  --ok: #16a34a;
+  --warn: #b45309;
+  --danger: #dc2626;
+  --info: #0047ff;
+
+  background: var(--bg);
+  color: var(--text);
+}

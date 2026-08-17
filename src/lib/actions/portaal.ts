@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireOwner, audit } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
 import { notify } from "@/lib/notifications";
+import { verwerkCreatorResultaten, vraagResultatenOp } from "@/lib/creators";
 import { logActivity } from "@/lib/agents";
 import {
   FORMULIEREN,
@@ -376,6 +377,18 @@ export async function verwerkFormulier(
   } else if (aanvraag.type === "campagnebriefing") {
     const uitkomst = await startProject(aanvraag.id, clientId, ingevuld);
     gaten = uitkomst.gaten;
+  } else if (aanvraag.type === "creatorresultaten") {
+    // De link wist al bij welke creator en welke campagne hij hoorde, dus hier
+    // hoeft niemand iets te koppelen. Wat de creator niet invulde blijft leeg
+    // en komt als gat terug — we rekenen niet met geraden cijfers.
+    const uitkomst = await verwerkCreatorResultaten(aanvraag.id, ingevuld);
+    if (uitkomst.ok) {
+      gaten = uitkomst.ontbreekt.map((punt) => ({
+        veld: "resultaten",
+        wat: punt,
+        vanWie: uitkomst.creatorNaam ?? "de creator",
+      }));
+    }
   }
 
   // Naar de juiste agents. De klant merkt hier niets van.
@@ -436,4 +449,23 @@ export async function markeerVerwerkt(id: string): Promise<void> {
   });
   await audit(user, "portaal_verwerkt", id);
   revalidatePath("/klanten");
+}
+
+/// Vraagt geselecteerde creators om hun campagneresultaten.
+///
+/// Elke creator krijgt een eigen link die al weet om welke creator en welke
+/// campagne het gaat. Er gaat hier niets de deur uit: je krijgt de links terug
+/// en stuurt ze zelf, precies zoals bij een klantlink.
+export async function vraagCreatorResultaten(
+  creatorCampagneIds: string[],
+): Promise<{ error?: string; links?: { creatorNaam: string; link: string; nieuw: boolean }[] }> {
+  const user = await requireUser();
+  if (creatorCampagneIds.length === 0) return { error: "Selecteer eerst een creator." };
+
+  const links = await vraagResultatenOp(creatorCampagneIds, user.id);
+  await audit(user, "creator_resultaten_opgevraagd", `${links.length} creator(s)`);
+  revalidatePath("/projecten");
+  revalidatePath("/creators");
+
+  return { links };
 }

@@ -62,7 +62,7 @@ export default async function PortaalPagina({ params }: PageProps<"/portaal/[tok
   }
 
   return (
-    <div className="min-h-screen bg-bg px-5 py-10 sm:py-16">
+    <div className="klantpagina min-h-screen px-5 py-10 sm:py-16">
       <div className="mx-auto max-w-2xl">
         <header className="mb-10">
           <Logo />

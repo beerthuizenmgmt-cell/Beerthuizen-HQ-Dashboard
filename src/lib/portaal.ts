@@ -465,6 +465,72 @@ export const FORMULIEREN: Record<PortalFormType, Formulier> = {
       },
     ],
   },
+  // De creator levert na afloop aan. Bewust het kortste formulier dat we
+  // hebben: een creator die na een campagne nog tien minuten formulierwerk
+  // krijgt, levert niets of levert het half. Alles wat wij zelf kunnen
+  // afleiden — welke creator, welke campagne, welke klant — vragen we niet.
+  creatorresultaten: {
+    type: "creatorresultaten",
+    titel: "Je campagneresultaten",
+    inleiding:
+      "Bedankt voor je werk aan deze campagne. Laat hieronder achter wat je geplaatst hebt en hoe het gelopen is. Je hoeft niets in te loggen en het kost je een paar minuten.",
+    naarAgents: ["influencer", "analytics"],
+    secties: [
+      {
+        kop: "Wat je geplaatst hebt",
+        velden: [
+          {
+            naam: "contentLinks",
+            label: "Links naar je content",
+            type: "textarea",
+            verplicht: true,
+            hint: "Eén link per regel. Reels, posts, video's — alles wat je voor deze campagne geplaatst hebt.",
+          },
+          {
+            naam: "kanalen",
+            label: "Op welke kanalen",
+            type: "multi",
+            verplicht: true,
+            opties: ["Instagram", "TikTok", "YouTube", "Anders"],
+          },
+        ],
+      },
+      {
+        kop: "Je cijfers",
+        velden: [
+          {
+            naam: "insights",
+            label: "Screenshots van je insights",
+            type: "textarea",
+            verplicht: false,
+            hint: "Deel de links naar je screenshots, of plak de cijfers hieronder. Instagram: bereik, weergaven, interacties. TikTok: weergaven, likes, reacties, opslaan. YouTube: weergaven, kijktijd.",
+          },
+          {
+            naam: "bereik",
+            label: "Totaal bereik",
+            type: "text",
+            verplicht: false,
+            hint: "Weet je het niet precies? Laat het dan leeg — dan gokken wij het niet.",
+          },
+          { naam: "weergaven", label: "Weergaven", type: "text", verplicht: false },
+          { naam: "interacties", label: "Likes, reacties, opslaan", type: "text", verplicht: false },
+        ],
+      },
+      {
+        kop: "Nog iets",
+        velden: [
+          {
+            naam: "opmerking",
+            label: "Wil je ons nog iets meegeven?",
+            type: "textarea",
+            verplicht: false,
+            hint: "Wat viel op, wat werkte goed, wat zou je anders doen. Mag ook leeg blijven.",
+          },
+        ],
+      },
+    ],
+  },
+
   projectinformatie: {
     type: "projectinformatie",
     titel: "Projectinformatie",
