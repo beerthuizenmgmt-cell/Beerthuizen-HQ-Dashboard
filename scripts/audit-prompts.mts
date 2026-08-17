@@ -49,7 +49,7 @@ async function main() {
   // Wat het model kost. Uit de tarieventabel als die er is; anders een
   // gangbaar tarief, duidelijk als schatting gemarkeerd.
   const prijzen = await db.modelPrice.findMany();
-  const perMiljoenIn = prijzen[0]?.inputPerMillion ?? 2.5;
+  const perMiljoenIn = prijzen[0]?.promptPerMillion ?? 2.5;
   const geschat = prijzen.length === 0;
 
   for (const agent of agents) {
