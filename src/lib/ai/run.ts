@@ -4,7 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { chat, getAiConfig, AiNotConfiguredError, type ChatMessage, type ToolDefinition } from "./provider";
 import { resolveCost, checkBudget, assertWithinBudget } from "./cost";
-import { AGENT_TOOLS, CHIEF_TOOLS, FINANCE_TOOLS, RESEARCH_TOOLS, runTool } from "./tools";
+import { AGENT_TOOLS, CHIEF_TOOLS, CONTRACT_TOOLS, FINANCE_TOOLS, RESEARCH_TOOLS, runTool } from "./tools";
 import { toolsForAgent, runAgentTool } from "./toolkit";
 import { DEFAULT_COMPANY_CONTEXT, SHARED_FRAMEWORK } from "./profiles";
 import { activeCharterFor, charterAsPrompt } from "./charters";
@@ -198,7 +198,9 @@ export async function runAgent(options: {
           // bedragen in.
           ...(agent.key === "finance" ? FINANCE_TOOLS : []),
           // Vastleggen is het vak van de Research Manager; opzoeken mag iedereen.
-          ...(agent.key === "research" ? RESEARCH_TOOLS : []),
+          // Contracten uitpluizen hoort daar ook bij — het is tekstonderzoek,
+          // geen juridisch advies, en dat onderscheid staat in de tool zelf.
+          ...(agent.key === "research" ? [...RESEARCH_TOOLS, ...CONTRACT_TOOLS] : []),
           ...ownTools.map((tool) => tool.definition),
         ];
 

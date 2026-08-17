@@ -219,6 +219,58 @@ export const FINANCE_TOOLS: ToolDefinition[] = [
 ];
 
 /// Alleen voor de Research Manager. Vastleggen is zijn vak; de rest leest mee.
+/// Contractanalyse. Bij de Research Manager omdat het uitpluizen van een tekst
+/// zijn vak is — en omdat het uitdrukkelijk geen juridisch advies is.
+export const CONTRACT_TOOLS: ToolDefinition[] = [
+  {
+    name: "leg_contractanalyse_vast",
+    description:
+      "Leg de analyse van een contract vast. Vul alleen in wat er daadwerkelijk in het contract staat. " +
+      "Alles wat je niet met zekerheid uit de tekst kunt halen zet je in 'onduidelijk' — dat veld leeg " +
+      "laten terwijl je iets niet zeker weet is de ernstigste fout die je hier kunt maken. Je geeft geen " +
+      "juridische zekerheid; je leest een tekst en zegt wat eruit blijkt.",
+    parameters: {
+      type: "object",
+      properties: {
+        contract_id: { type: "string", description: "Het ID van het contract dat je analyseert" },
+        samenvatting: { type: "string", description: "Waar dit contract over gaat, in een paar zinnen" },
+
+        vergoeding_eur: { type: "number", description: "Alleen als er een concreet bedrag staat" },
+        betaaltermijn: { type: "string" },
+        deliverables: { type: "array", items: { type: "string" } },
+        usage_rights: { type: "string", description: "Wat mag het merk met de content, en hoe lang" },
+        exclusiviteit: { type: "string" },
+        looptijd: { type: "string" },
+        annulering: { type: "string" },
+        boetes: { type: "string" },
+        whitelisting: { type: "string" },
+        paid_usage: { type: "string" },
+        contentrechten: { type: "string" },
+        revisies: { type: "string" },
+        concurrentiebeperking: { type: "string" },
+
+        voordelen: { type: "array", items: { type: "string" } },
+        nadelen: { type: "array", items: { type: "string" } },
+        risicos: { type: "array", items: { type: "string" } },
+        aandachtspunten: { type: "array", items: { type: "string" } },
+        advies: {
+          type: "string",
+          description:
+            "Wat jij zou doen, en waarom. Is de vergoeding logisch bij deze deliverables en deze rechten?",
+        },
+        onduidelijk: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Wat er niet met zekerheid uit het contract volgt. Verplicht wanneer iets ontbreekt of " +
+            "voor meer dan één uitleg vatbaar is.",
+        },
+      },
+      required: ["contract_id", "samenvatting", "advies"],
+    },
+  },
+];
+
 export const RESEARCH_TOOLS: ToolDefinition[] = [
   {
     name: "leg_onderzoek_vast",
@@ -288,6 +340,8 @@ export async function runTool(
         return await rememberThis(args, context);
       case "zoek_onderzoek":
         return await searchResearch(args);
+      case "leg_contractanalyse_vast":
+        return await recordContractAnalysis(args);
       case "leg_onderzoek_vast":
         return await recordResearch(args, context);
       case "lees_facturen":
@@ -748,5 +802,77 @@ async function messageFounder(
       urgentie === "info"
         ? "Verstuurd."
         : "Verstuurd. Zijn antwoord komt bij deze vraag terecht, dus je weet straks waar het over gaat.",
+  };
+}
+
+/// Legt een contractanalyse vast, veld voor veld.
+///
+/// De harde regel zit hier: staat er niets in `onduidelijk` terwijl er velden
+/// leeg blijven, dan vult dit die lijst zelf aan. Een analyse die doet alsof
+/// alles helder is, is gevaarlijker dan geen analyse — dan tekent iemand een
+/// contract in de veronderstelling dat het nagekeken is.
+async function recordContractAnalysis(args: Record<string, unknown>): Promise<ToolResult> {
+  const contractId = text(args.contract_id);
+  if (!contractId) return { ok: false, message: "contract_id is verplicht" };
+
+  const contract = await db.contract.findUnique({ where: { id: contractId } });
+  if (!contract) return { ok: false, message: "Dat contract bestaat niet." };
+
+  const lijst = (waarde: unknown): string[] =>
+    Array.isArray(waarde) ? waarde.map((x) => String(x)).filter(Boolean) : [];
+
+  const velden: Record<string, string | null> = {
+    betaaltermijn: text(args.betaaltermijn) || null,
+    usageRights: text(args.usage_rights) || null,
+    exclusiviteit: text(args.exclusiviteit) || null,
+    looptijd: text(args.looptijd) || null,
+    annulering: text(args.annulering) || null,
+    boetes: text(args.boetes) || null,
+    whitelisting: text(args.whitelisting) || null,
+    paidUsage: text(args.paid_usage) || null,
+    contentrechten: text(args.contentrechten) || null,
+    revisies: text(args.revisies) || null,
+    concurrentiebeperking: text(args.concurrentiebeperking) || null,
+  };
+
+  const onduidelijk = lijst(args.onduidelijk);
+  const leegGebleven = Object.entries(velden)
+    .filter(([, waarde]) => waarde === null)
+    .map(([naam]) => naam);
+
+  // Wat niet is ingevuld en ook niet als onduidelijk is gemeld, alsnog melden.
+  for (const naam of leegGebleven) {
+    if (!onduidelijk.some((punt) => punt.toLowerCase().includes(naam.toLowerCase()))) {
+      onduidelijk.push(`${naam}: staat niet in het contract, of is er niet uit op te maken`);
+    }
+  }
+
+  const vergoeding = typeof args.vergoeding_eur === "number" ? args.vergoeding_eur : null;
+  if (vergoeding === null) onduidelijk.push("vergoeding: geen concreet bedrag gevonden");
+
+  await db.contract.update({
+    where: { id: contractId },
+    data: {
+      ...velden,
+      vergoedingEur: vergoeding,
+      deliverables: lijst(args.deliverables),
+      samenvatting: text(args.samenvatting),
+      voordelen: lijst(args.voordelen),
+      nadelen: lijst(args.nadelen),
+      risicos: lijst(args.risicos),
+      aandachtspunten: lijst(args.aandachtspunten),
+      advies: text(args.advies),
+      onduidelijk,
+      status: "geanalyseerd",
+      geanalyseerdOp: new Date(),
+    },
+  });
+
+  return {
+    ok: true,
+    message:
+      `Analyse vastgelegd bij ${contract.naam}. ${onduidelijk.length} punt(en) staan als onduidelijk ` +
+      `genoteerd. Zeg in je antwoord expliciet wat er níét uit het contract blijkt — Enriqueo moet weten ` +
+      `waar hij zelf naar moet kijken.`,
   };
 }

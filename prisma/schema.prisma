@@ -1236,6 +1236,8 @@ model Client {
   threads  TelegramThread[]
 
   @@index([name])
+
+  contracten Contract[]
 }
 
 /// Welk formulier een klant te zien krijgt. Bepaalt ook naar welke agent de
@@ -1343,6 +1345,8 @@ model Project {
   creators CreatorCampagne[]
 
   @@index([status, createdAt(sort: Desc)])
+
+  contracten Contract[]
 }
 
 /// Een openstaande vraag van een agent aan Enriqueo via Telegram.
@@ -1465,6 +1469,8 @@ model Creator {
 
   @@index([status, name])
   @@index([soort])
+
+  contracten Contract[]
 }
 
 /// Een creator die aan een campagne meedoet. Hier staat wat er voor déze
@@ -1544,4 +1550,62 @@ model CreatorUpload {
   createdAt DateTime @default(now())
 
   @@index([creatorCampagneId])
+}
+
+/// Een contract dat is geüpload en geanalyseerd.
+///
+/// De analyse is bewust veld voor veld opgeslagen en niet als één lap tekst:
+/// zo kun je later filteren op "welke creators hebben exclusiviteit" zonder
+/// negen contracten opnieuw te lezen. Elk veld mag leeg zijn — dat betekent
+/// "staat niet in het contract", en dat is een bruikbaar antwoord.
+model Contract {
+  id        String   @id @default(cuid())
+  naam      String
+  /// Waar het contract over gaat. Alle drie optioneel: soms is het een creator,
+  /// soms een klant, soms allebei.
+  creatorId String?
+  creator   Creator? @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  clientId  String?
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  /// De tekst zoals aangeleverd. Zonder bron kun je een analyse niet nakijken.
+  brontekst String?
+
+  /// nieuw | geanalyseerd | beoordeeld
+  status String @default("nieuw")
+
+  // ── Wat de analyse eruit haalde ────────────────────────────────────────
+  vergoedingEur     Float?
+  betaaltermijn     String?
+  deliverables      String[] @default([])
+  usageRights       String?
+  exclusiviteit     String?
+  looptijd          String?
+  annulering        String?
+  boetes            String?
+  whitelisting      String?
+  paidUsage         String?
+  contentrechten    String?
+  revisies          String?
+  concurrentiebeperking String?
+
+  samenvatting String?
+  voordelen    String[] @default([])
+  nadelen      String[] @default([])
+  risicos      String[] @default([])
+  aandachtspunten String[] @default([])
+  advies       String?
+
+  /// Wat niet met zekerheid uit het contract volgt. Dit is het belangrijkste
+  /// veld: een analyse die doet alsof alles duidelijk is, is gevaarlijker dan
+  /// geen analyse.
+  onduidelijk String[] @default([])
+
+  geanalyseerdOp DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
 }
