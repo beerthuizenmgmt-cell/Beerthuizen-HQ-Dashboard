@@ -46,6 +46,9 @@ export async function closeMeeting(meetingId: string) {
   revalidatePath("/overleg");
 }
 
+/// Manieren waarop een agent "ik loop nergens tegenaan" opschrijft.
+const GEEN_BLOKKADE = /^(geen|geen\.|nee|niets|niks|n\.?v\.?t\.?|-|—)$/i;
+
 /// Maakt van een gemelde blokkade meteen een taak, zodat het overleg iets
 /// oplevert in plaats van alleen iets vaststelt.
 export async function taskFromBlocker(entryId: string) {
@@ -55,7 +58,11 @@ export async function taskFromBlocker(entryId: string) {
     where: { id: entryId },
     include: { agent: { select: { id: true, name: true } } },
   });
-  if (!entry?.blockers) return;
+  // "geen." is een geldig antwoord op "waar loop je vast", maar geen blokkade.
+  // Zonder deze controle leverde de knop taken op met de titel
+  // "Blokkade oplossen: geen." — precies het soort spooktaak dat het takenbord
+  // onbetrouwbaar maakt.
+  if (!entry?.blockers || GEEN_BLOKKADE.test(entry.blockers.trim())) return;
 
   const task = await db.task.create({
     data: {

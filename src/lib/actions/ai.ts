@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+// Sleutels, budget, modelkeuze en bedrijfscontext. Allemaal eigenaarsterrein:
+// hier staat de API-sleutel en hier wordt bepaald wat het team mag uitgeven.
+import { requireOwner } from "@/lib/access";
 import { decryptSecret, encryptSecret } from "@/lib/crypto";
 import {
   assertUsableApiKey,
@@ -26,7 +28,7 @@ export async function saveAiSettings(
   _prev: AiSettingsState,
   formData: FormData,
 ): Promise<AiSettingsState> {
-  await requireUser();
+  await requireOwner();
 
   const provider = String(formData.get("provider") ?? "openrouter");
   const apiKey = String(formData.get("apiKey") ?? "").trim();
@@ -95,7 +97,7 @@ export async function saveFinanceSettings(
   _prev: AiSettingsState,
   formData: FormData,
 ): Promise<AiSettingsState> {
-  await requireUser();
+  await requireOwner();
 
   const number = (name: string): number | null => {
     const raw = String(formData.get(name) ?? "").replace(",", ".").trim();
@@ -131,7 +133,7 @@ export async function saveFinanceSettings(
 }
 
 export async function saveContext(_prev: AiSettingsState, formData: FormData): Promise<AiSettingsState> {
-  await requireUser();
+  await requireOwner();
 
   const text = String(formData.get("context") ?? "").trim();
   if (text.length < 50) {
@@ -146,7 +148,7 @@ export async function saveContext(_prev: AiSettingsState, formData: FormData): P
 /// Haalt de actuele modellenlijst bij de aanbieder op, zodat je kunt kiezen uit
 /// wat er echt bestaat.
 export async function fetchModels(): Promise<{ ok: boolean; models?: ModelOption[]; error?: string }> {
-  await requireUser();
+  await requireOwner();
   try {
     return { ok: true, models: await listModels() };
   } catch (error) {
@@ -155,7 +157,7 @@ export async function fetchModels(): Promise<{ ok: boolean; models?: ModelOption
 }
 
 export async function refreshPrices(): Promise<{ ok: boolean; message: string }> {
-  await requireUser();
+  await requireOwner();
   try {
     const stored = await refreshModelPrices();
     revalidatePath("/financien");
@@ -166,7 +168,7 @@ export async function refreshPrices(): Promise<{ ok: boolean; message: string }>
 }
 
 export async function setAgentModel(agentId: string, modelId: string) {
-  await requireUser();
+  await requireOwner();
   await db.agent.update({
     where: { id: agentId },
     data: { modelId: modelId.trim() || null },
@@ -176,7 +178,7 @@ export async function setAgentModel(agentId: string, modelId: string) {
 }
 
 export async function setAgentPaused(agentId: string, paused: boolean) {
-  await requireUser();
+  await requireOwner();
   await db.agent.update({ where: { id: agentId }, data: { paused } });
   revalidatePath("/agents");
   revalidatePath("/hq");

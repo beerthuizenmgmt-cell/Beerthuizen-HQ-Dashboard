@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireOwner } from "@/lib/access";
 import {
   ADAPTER_ORDER,
   encryptConfig,
@@ -53,8 +53,11 @@ function readConfig(formData: FormData, type: AdapterType): AdapterConfig {
   return config;
 }
 
+// Alles hieronder verandert wie er in het team zit of wat een agent mag —
+// inclusief koppelingen met tokens erin. Dat blijft bij de eigenaar; een
+// teamlid kan het team wel bekijken, niet inrichten.
 export async function saveAgent(_prev: SaveAgentState, formData: FormData): Promise<SaveAgentState> {
-  await requireUser();
+  await requireOwner();
 
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
@@ -141,7 +144,7 @@ export async function saveAgent(_prev: SaveAgentState, formData: FormData): Prom
 }
 
 export async function testConnectionAction(agentId: string) {
-  await requireUser();
+  await requireOwner();
   const result = await testAgentConnection(agentId);
   revalidatePath(`/agents/${agentId}`);
   revalidatePath("/hq");
@@ -149,7 +152,7 @@ export async function testConnectionAction(agentId: string) {
 }
 
 export async function togglePause(agentId: string) {
-  await requireUser();
+  await requireOwner();
   const agent = await db.agent.findUnique({ where: { id: agentId }, select: { paused: true } });
   if (!agent) return;
   await db.agent.update({ where: { id: agentId }, data: { paused: !agent.paused } });
@@ -159,7 +162,7 @@ export async function togglePause(agentId: string) {
 }
 
 export async function deleteAgent(agentId: string) {
-  await requireUser();
+  await requireOwner();
   await db.agent.delete({ where: { id: agentId } });
   revalidatePath("/agents");
   revalidatePath("/hq");

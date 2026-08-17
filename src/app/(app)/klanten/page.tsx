@@ -1,4 +1,4 @@
-import { requireOwner } from "@/lib/access";
+import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { KlantPaneel } from "@/components/klant-paneel";
 import { formatDate, timeAgo, isVerlopen } from "@/lib/format";
@@ -31,7 +31,7 @@ const STATUS_STIJL: Record<string, string> = {
 };
 
 export default async function KlantenPagina() {
-  await requireOwner();
+  const user = await requireUser();
 
   const [klanten, aanvragen] = await Promise.all([
     db.client.findMany({
@@ -57,6 +57,7 @@ export default async function KlantenPagina() {
       </header>
 
       <KlantPaneel
+        magIntrekken={user.role === "owner"}
         klanten={klanten.map((klant) => ({ id: klant.id, naam: klant.name }))}
         aanvragen={aanvragen.map((aanvraag) => ({
           id: aanvraag.id,

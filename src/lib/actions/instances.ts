@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+// Een instance heeft een eigen sleutel waarmee van buiten data binnenkomt.
+import { requireOwner } from "@/lib/access";
 import { createInstance } from "@/lib/ingest";
 
 export type InstanceState = {
@@ -13,7 +14,7 @@ export type InstanceState = {
 };
 
 export async function addInstance(_prev: InstanceState, formData: FormData): Promise<InstanceState> {
-  await requireUser();
+  await requireOwner();
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { error: "Geef de koppeling een naam, bijvoorbeeld 'Mac Mini kantoor'." };
@@ -25,7 +26,7 @@ export async function addInstance(_prev: InstanceState, formData: FormData): Pro
 }
 
 export async function deleteInstance(instanceId: string) {
-  await requireUser();
+  await requireOwner();
   await db.instance.delete({ where: { id: instanceId } });
   revalidatePath("/instellingen");
 }

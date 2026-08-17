@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireOwner } from "@/lib/access";
 import { adapterCatalog, publicConfig, getAdapter } from "@/lib/adapters";
 import { AgentForm } from "@/components/agent-form";
 import { ConnectionTestButton } from "@/components/connection-test";
@@ -21,7 +21,10 @@ import { timeAgo } from "@/lib/format";
 export const dynamic = "force-dynamic";
 
 export default async function AgentSettingsPage({ params }: PageProps<"/agents/[id]/instellingen">) {
-  await requireUser();
+  // Hier staan koppelingen, tokens en gereedschapsrechten. Het dossier van een
+  // agent mag iedereen inzien; dit scherm bepaalt wat hij mág, en dat is aan de
+  // eigenaar.
+  await requireOwner();
   const { id } = await params;
 
   const agent = await db.agent.findUnique({

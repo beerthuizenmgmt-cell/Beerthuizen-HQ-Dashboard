@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+// Niemand beslist namens Enriqueo over externe acties of uitgaven.
+import { requireOwner } from "@/lib/access";
 import { logActivity } from "@/lib/agents";
 import { sendTelegram } from "@/lib/telegram";
 
@@ -43,7 +44,7 @@ async function leerVanBeslissing(
 }
 
 export async function approveRequest(approvalId: string, note: string): Promise<DecisionResult> {
-  const user = await requireUser();
+  const user = await requireOwner();
 
   const approval = await db.approval.findUnique({
     where: { id: approvalId },
@@ -108,7 +109,7 @@ export async function approveRequest(approvalId: string, note: string): Promise<
 }
 
 export async function rejectRequest(approvalId: string, note: string): Promise<DecisionResult> {
-  const user = await requireUser();
+  const user = await requireOwner();
 
   const approval = await db.approval.findUnique({
     where: { id: approvalId },

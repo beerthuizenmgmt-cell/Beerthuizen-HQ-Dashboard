@@ -73,6 +73,86 @@ function standupPrompt(
   ].join("\n");
 }
 
+/// Een antwoord op een vraag van eergisteren gaat over werk van eergisteren.
+/// Dat alsnog nasturen levert verwarring op in plaats van voortgang.
+const ANTWOORD_VERJARING_DAGEN = 2;
+
+/// Antwoorden die jij gaf maar die nooit bij de agent aankwamen — omdat hij op
+/// dat moment op pauze stond of nog geen koppeling had — alsnog nasturen.
+///
+/// Zonder dit blijft zo'n antwoord voor altijd hangen met een foutmelding die
+/// niemand meer wegwerkt, terwijl de reden allang verholpen is.
+export async function bezorgOpenAntwoorden(): Promise<{ bezorgd: number; afgesloten: number }> {
+  const open = await db.meetingQuestion.findMany({
+    where: { answer: { not: null }, deliveredAt: null },
+    include: {
+      agent: { select: { id: true, name: true, adapterType: true, paused: true } },
+      meeting: { select: { date: true } },
+    },
+  });
+  if (open.length === 0) return { bezorgd: 0, afgesloten: 0 };
+
+  const grens = Date.now() - ANTWOORD_VERJARING_DAGEN * 864e5;
+
+  const uitkomsten = await Promise.all(
+    open.map(async (vraag) => {
+      const dag = vraag.meeting.date.toISOString().slice(0, 10);
+
+      // Te oud om nog na te sturen: netjes afsluiten met de reden erbij, zodat
+      // er geen foutmelding blijft staan waar niemand iets mee kan.
+      if (vraag.meeting.date.getTime() < grens) {
+        await db.meetingQuestion.update({
+          where: { id: vraag.id },
+          data: {
+            deliveredAt: new Date(),
+            deliveryError: `Niet nagestuurd: dit antwoord hoorde bij het overleg van ${dag} en was niet meer actueel.`,
+          },
+        });
+        return "afgesloten" as const;
+      }
+
+      if (vraag.agent.paused || !getAdapter(vraag.agent.adapterType).capabilities.send) {
+        return null;
+      }
+
+      try {
+        const result = await sendToAgent(
+          vraag.agent.id,
+          [
+            `Antwoord van Enriqueo op je vraag uit het ochtendoverleg van ${dag}.`,
+            ``,
+            `Je vroeg: ${vraag.body}`,
+            `Zijn antwoord: ${vraag.answer}`,
+            ``,
+            `Verwerk dit en ga verder waar je gebleven was. Is dit een blijvende`,
+            `afspraak of voorkeur, leg het dan vast in je geheugen.`,
+          ].join("\n"),
+        );
+
+        await db.meetingQuestion.update({
+          where: { id: vraag.id },
+          data: {
+            deliveredAt: result.ok ? new Date() : null,
+            deliveryError: result.ok ? null : (result.error ?? "opnieuw mislukt"),
+          },
+        });
+        return result.ok ? ("bezorgd" as const) : null;
+      } catch (error) {
+        await db.meetingQuestion.update({
+          where: { id: vraag.id },
+          data: { deliveryError: readableError(error) },
+        });
+        return null;
+      }
+    }),
+  );
+
+  return {
+    bezorgd: uitkomsten.filter((u) => u === "bezorgd").length,
+    afgesloten: uitkomsten.filter((u) => u === "afgesloten").length,
+  };
+}
+
 /// Start het overleg van vandaag: maakt het aan als het nog niet bestaat en
 /// vraagt elke actieve agent om zijn standup.
 export async function runStandup(): Promise<{
@@ -93,6 +173,10 @@ export async function runStandup(): Promise<{
   // Anders staat de briefing elke ochtend vol met agents die nooit antwoorden.
   const agents = all.filter((agent) => getAdapter(agent.adapterType).capabilities.send);
   const skipped = all.length - agents.length;
+
+  // Eerst je openstaande antwoorden nasturen, dan pas de uitvraag. Zo weet een
+  // agent wat je gisteren besloot vóórdat hij vertelt wat hij vandaag gaat doen.
+  const nagestuurd = await bezorgOpenAntwoorden();
 
   const meeting = await db.meeting.upsert({
     where: { date },
@@ -177,7 +261,9 @@ export async function runStandup(): Promise<{
     message:
       `Ochtendoverleg gestart · ${asked} agents gevraagd` +
       (failed.length ? `, ${failed.length} onbereikbaar` : "") +
-      (skipped ? `, ${skipped} nog niet gekoppeld` : ""),
+      (skipped ? `, ${skipped} nog niet gekoppeld` : "") +
+      (nagestuurd.bezorgd ? `, ${nagestuurd.bezorgd} antwoord(en) alsnog bezorgd` : "") +
+      (nagestuurd.afgesloten ? `, ${nagestuurd.afgesloten} verouderd antwoord afgesloten` : ""),
   });
 
   return { meetingId: meeting.id, asked, failed, skipped };

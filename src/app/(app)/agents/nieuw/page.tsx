@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { requireOwner } from "@/lib/access";
 import { adapterCatalog } from "@/lib/adapters";
 import { AgentForm } from "@/components/agent-form";
 
 export default async function NewAgentPage() {
-  await requireUser();
+  // Wie er in het team zit bepaalt de eigenaar, en het koppelformulier vraagt
+  // om tokens. Beide horen niet bij een teamlid.
+  await requireOwner();
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">

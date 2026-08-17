@@ -2,18 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+// Signalen aan- en uitzetten is agentinrichting, en een detectieronde laten
+// draaien kost geld. Het scherm eromheen was al van de eigenaar; de knoppen
+// eronder waren dat nog niet.
+import { requireOwner } from "@/lib/access";
 import { detectAndActivate, type DetectionOutcome } from "@/lib/ai/watch";
 import { buildMorningReport, type HeadReport } from "@/lib/ai/head";
 
 export async function previewDetection(): Promise<DetectionOutcome[]> {
-  await requireUser();
+  await requireOwner();
   // Kijkt wat er zou gebeuren zonder ook maar één agent te laten denken.
   return detectAndActivate({ dryRun: true });
 }
 
 export async function runDetection(): Promise<DetectionOutcome[]> {
-  await requireUser();
+  await requireOwner();
   const outcomes = await detectAndActivate();
   revalidatePath("/monitoring");
   revalidatePath("/financien");
@@ -21,7 +24,7 @@ export async function runDetection(): Promise<DetectionOutcome[]> {
 }
 
 export async function runHeadReport(): Promise<HeadReport> {
-  await requireUser();
+  await requireOwner();
   const report = await buildMorningReport();
   revalidatePath("/monitoring");
   revalidatePath("/overleg");
@@ -35,7 +38,7 @@ export async function reportSignal(
   agentKey: string,
   message: string,
 ): Promise<{ ok: boolean; error?: string }> {
-  await requireUser();
+  await requireOwner();
 
   const text = message.trim();
   if (!text) return { ok: false, error: "Beschrijf wat je hebt gezien." };
@@ -58,7 +61,7 @@ export async function reportSignal(
 }
 
 export async function setWatchActive(watchId: string, active: boolean) {
-  await requireUser();
+  await requireOwner();
   await db.agentWatch.update({ where: { id: watchId }, data: { active } });
   revalidatePath("/monitoring");
 }

@@ -40,9 +40,14 @@ const TYPES = [
 export function KlantPaneel({
   klanten,
   aanvragen,
+  magIntrekken,
 }: {
   klanten: { id: string; naam: string }[];
   aanvragen: Aanvraag[];
+  /// Een ingetrokken link werkt bij de klant niet meer, dus dat blijft bij de
+  /// eigenaar. De knop tonen aan wie hem niet mag gebruiken is alleen maar
+  /// verwarrend.
+  magIntrekken: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [bezig, start] = useTransition();
@@ -190,14 +195,16 @@ export function KlantPaneel({
                     </button>
                   )}
 
-                  <button
-                    type="button"
-                    className="underline hover:text-danger"
-                    disabled={bezig}
-                    onClick={() => start(() => void verwijderAanvraag(aanvraag.id))}
-                  >
-                    intrekken
-                  </button>
+                  {magIntrekken && (
+                    <button
+                      type="button"
+                      className="underline hover:text-danger"
+                      disabled={bezig}
+                      onClick={() => start(() => void verwijderAanvraag(aanvraag.id))}
+                    >
+                      intrekken
+                    </button>
+                  )}
                 </div>
               </div>
 

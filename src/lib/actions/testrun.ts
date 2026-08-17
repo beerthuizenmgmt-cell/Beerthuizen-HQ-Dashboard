@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+// Een proefopdracht kost geld, net als het scherm eromheen al aangaf.
+import { requireOwner } from "@/lib/access";
 import { runAgent } from "@/lib/ai/run";
 import { getAiConfig } from "@/lib/ai/provider";
 
@@ -42,7 +43,7 @@ export async function runTestTask(
   instruction: string,
   gereedschap = false,
 ): Promise<TestRunResult> {
-  await requireUser();
+  await requireOwner();
 
   const text = instruction.trim();
   if (!text) return { ok: false, error: "Geef een opdracht mee." };

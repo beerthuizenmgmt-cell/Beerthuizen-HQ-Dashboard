@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+// Bepaalt waar agents vanzelf wakker van worden — agentinrichting.
+import { requireOwner } from "@/lib/access";
 import { DEFAULT_WATCHES } from "@/lib/ai/watch";
 
 /// Zet de standaard bewaakte onderwerpen klaar. Idempotent: opnieuw draaien
 /// laat bestaande vingerafdrukken en instellingen met rust.
 export async function installDefaultWatches(): Promise<{ created: number; total: number }> {
-  await requireUser();
+  await requireOwner();
 
   let created = 0;
 

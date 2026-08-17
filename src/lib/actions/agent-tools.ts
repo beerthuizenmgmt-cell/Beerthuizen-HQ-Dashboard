@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+// Koppelingen aan- en afzetten, hun configuratie met sleutels erin, en de
+// identiteit van een agent. Bepaalt waar een agent bij kan; dat is aan de
+// eigenaar.
+import { requireOwner } from "@/lib/access";
 import { getToolEntry, encryptToolConfig, decryptToolConfig } from "@/lib/ai/toolkit";
 import { maskSecret } from "@/lib/crypto";
 
@@ -11,7 +14,7 @@ export type ToolState = { error?: string; ok?: string };
 /// Koppelt een tool aan één agent. Bewust per agent: dezelfde tool bij een
 /// collega is een aparte koppeling met een eigen configuratie.
 export async function attachTool(_prev: ToolState, formData: FormData): Promise<ToolState> {
-  await requireUser();
+  await requireOwner();
 
   const agentId = String(formData.get("agentId") ?? "");
   const toolKey = String(formData.get("toolKey") ?? "");
@@ -64,7 +67,7 @@ export async function attachTool(_prev: ToolState, formData: FormData): Promise<
 }
 
 export async function detachTool(toolId: string) {
-  await requireUser();
+  await requireOwner();
   const tool = await db.agentTool.findUnique({ where: { id: toolId }, select: { agentId: true } });
   if (!tool) return;
   await db.agentTool.delete({ where: { id: toolId } });
@@ -72,7 +75,7 @@ export async function detachTool(toolId: string) {
 }
 
 export async function toggleTool(toolId: string, enabled: boolean) {
-  await requireUser();
+  await requireOwner();
   const tool = await db.agentTool.update({
     where: { id: toolId },
     data: { enabled },
@@ -83,7 +86,7 @@ export async function toggleTool(toolId: string, enabled: boolean) {
 
 /// Wat het scherm mag zien: geheimen gemaskeerd.
 export async function toolConfigForUi(toolId: string): Promise<Record<string, string>> {
-  await requireUser();
+  await requireOwner();
   const tool = await db.agentTool.findUnique({ where: { id: toolId } });
   if (!tool) return {};
 
@@ -110,7 +113,7 @@ const MAX_UPLOAD_BYTES = 8_000_000;
 /// een geüpload bestand; dat laatste bewaren we als data-URI in de database, dan
 /// werkt het ook online zonder aparte opslagdienst.
 export async function saveIdentity(_prev: IdentityState, formData: FormData): Promise<IdentityState> {
-  await requireUser();
+  await requireOwner();
 
   const agentId = String(formData.get("agentId") ?? "");
   const name = String(formData.get("name") ?? "").trim();
@@ -174,7 +177,7 @@ export async function saveIdentity(_prev: IdentityState, formData: FormData): Pr
 
 /// Laat een portret maken met dezelfde sleutel die de agents al gebruiken.
 export async function makePortrait(agentId: string): Promise<{ ok: boolean; message: string }> {
-  await requireUser();
+  await requireOwner();
 
   const { generatePortrait } = await import("@/lib/ai/portrait");
   const result = await generatePortrait(agentId);

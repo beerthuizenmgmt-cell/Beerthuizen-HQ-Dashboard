@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireOwner, audit } from "@/lib/access";
+import { requireUser } from "@/lib/auth";
 import { notify } from "@/lib/notifications";
 import { logActivity } from "@/lib/agents";
 import {
@@ -21,7 +22,9 @@ export async function maakKlantlink(
   _prev: PortaalState,
   formData: FormData,
 ): Promise<PortaalState> {
-  const user = await requireOwner();
+  // Klantcommunicatie hoort bij het dagelijkse werk, dus ook een teamlid mag
+  // een link klaarzetten. Wie het deed staat in het logboek.
+  const user = await requireUser();
 
   const label = String(formData.get("label") ?? "").trim();
   const clientId = String(formData.get("clientId") ?? "").trim() || null;
@@ -50,7 +53,7 @@ export async function maakKlantlink(
 
 /// Vastleggen dat je de link daadwerkelijk hebt verstuurd.
 export async function markeerVerstuurd(id: string): Promise<void> {
-  const user = await requireOwner();
+  const user = await requireUser();
   await db.portalRequest.updateMany({
     where: { id, status: "aangemaakt" },
     data: { status: "verstuurd" },
@@ -59,6 +62,8 @@ export async function markeerVerstuurd(id: string): Promise<void> {
   revalidatePath("/klanten");
 }
 
+/// Blijft bij de eigenaar: een ingetrokken link werkt bij de klant niet meer,
+/// en die kan al onderweg zijn.
 export async function verwijderAanvraag(id: string): Promise<void> {
   const user = await requireOwner();
   await db.portalRequest.delete({ where: { id } });
@@ -73,7 +78,7 @@ export async function verwijderAanvraag(id: string): Promise<void> {
 /// ligt. Alles opnieuw laten invullen is de snelste manier om een klant af te
 /// laten haken.
 export async function maakAanvullink(projectId: string): Promise<PortaalState> {
-  const user = await requireOwner();
+  const user = await requireUser();
 
   const project = await db.project.findUnique({
     where: { id: projectId },
@@ -424,7 +429,7 @@ export async function verwerkFormulier(
 
 /// Nagekeken en akkoord. Pas dan geldt de aanvraag als afgehandeld.
 export async function markeerVerwerkt(id: string): Promise<void> {
-  const user = await requireOwner();
+  const user = await requireUser();
   await db.portalRequest.update({
     where: { id },
     data: { status: "verwerkt", processedAt: new Date() },

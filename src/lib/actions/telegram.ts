@@ -1,13 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth";
+// De bot-token is een sleutel, en de Telegram-lijn loopt naar Enriqueo's eigen
+// telefoon. Beide horen niet bij een teamlid.
+import { requireOwner } from "@/lib/access";
 import { resolveChatId, saveBotToken, sendTelegram } from "@/lib/telegram";
 
 export type TelegramState = { error?: string; ok?: string };
 
 export async function connectBot(_prev: TelegramState, formData: FormData): Promise<TelegramState> {
-  await requireUser();
+  await requireOwner();
 
   const token = String(formData.get("botToken") ?? "").trim();
   if (!token) return { error: "Plak het token van @BotFather." };
@@ -19,7 +21,7 @@ export async function connectBot(_prev: TelegramState, formData: FormData): Prom
 
 /// Zoekt de chat waarin jij de bot hebt aangesproken.
 export async function findMyChat(): Promise<{ ok: boolean; message: string }> {
-  await requireUser();
+  await requireOwner();
   const result = await resolveChatId();
   revalidatePath("/instellingen");
   return { ok: result.ok, message: result.message };
@@ -28,7 +30,7 @@ export async function findMyChat(): Promise<{ ok: boolean; message: string }> {
 /// Eén proefbericht, zodat je ziet dat de lijn werkt. Gaat naar jouw eigen chat
 /// en nergens anders heen.
 export async function sendTestMessage(): Promise<{ ok: boolean; message: string }> {
-  await requireUser();
+  await requireOwner();
 
   const result = await sendTelegram(
     [
@@ -49,7 +51,7 @@ export async function sendTestMessage(): Promise<{ ok: boolean; message: string 
 /// Haalt nieuwe berichten op en laat de Head erop antwoorden. Werkt ook lokaal,
 /// waar Telegram geen webhook kan afleveren.
 export async function checkTelegram(): Promise<{ ok: boolean; message: string }> {
-  await requireUser();
+  await requireOwner();
 
   const { pollUpdates } = await import("@/lib/telegram");
   const result = await pollUpdates();
