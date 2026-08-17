@@ -8,6 +8,7 @@ import { AGENT_TOOLS, CHIEF_TOOLS, FINANCE_TOOLS, RESEARCH_TOOLS, runTool } from
 import { toolsForAgent, runAgentTool } from "./toolkit";
 import { DEFAULT_COMPANY_CONTEXT, SHARED_FRAMEWORK } from "./profiles";
 import { activeCharterFor, charterAsPrompt } from "./charters";
+import { werkafsprakenAlsPrompt } from "./werkafspraken";
 import { memoryAsPrompt } from "./memory";
 import { formatDayLong } from "@/lib/format";
 
@@ -153,16 +154,20 @@ export async function runAgent(options: {
 
   // Namen van collega's komen uit de database: hernoem je iemand in het
   // dashboard, dan heet hij ook in het denkwerk van zijn collega's anders.
-  const roster = charter
-    ? await db.agent.findMany({ select: { key: true, name: true } })
-    : [];
+  const roster = await db.agent.findMany({ select: { key: true, name: true } });
   const namen = Object.fromEntries(roster.map((member) => [member.key, member.name]));
+
+  // Waar hij eigenaar van is, wat hij van wie krijgt, en welke routes door hem
+  // heen lopen. Het functieprofiel zegt wat hij kán; dit zegt waar hij van is.
+  const werkafspraken = werkafsprakenAlsPrompt(agent.key, namen);
 
   const systemPrompt = [
     agent.systemPrompt?.trim() || `Jij bent ${agent.name}, ${agent.role}, bij Beerthuizen Management.`,
     ``,
     SHARED_FRAMEWORK,
     ...(charter ? [``, charterAsPrompt(charter, namen)] : []),
+    // Vóór het playbook: eerst weten waar je van bent, dan hoe je het doet.
+    ...(werkafspraken ? [``, werkafspraken] : []),
     // De werkinstructies staan ná het functieprofiel: het profiel zegt waar hij
     // over gaat, het playbook hoe hij het doet. Bij tegenspraak wint het
     // playbook, want dat is het meest specifiek opgeschreven.
