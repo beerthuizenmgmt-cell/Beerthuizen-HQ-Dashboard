@@ -1782,3 +1782,36 @@ model Studioboeking {
   @@index([ruimteId, dag])
   @@index([status, dag])
 }
+
+/// Eén uitvoering van een testscenario.
+///
+/// De tijdlijn wordt niet apart opgeslagen maar afgeleid: alles wat er tussen
+/// start en eind gebeurde — welke agent dacht, welke taken er kwamen, welke
+/// vragen er gesteld werden — staat al in de gewone tabellen. Dat is met opzet:
+/// een test die zijn eigen boekhouding bijhoudt bewijst niet dat het echte
+/// systeem werkt.
+model Testrun {
+  id       String @id @default(cuid())
+  scenario String
+  naam     String
+
+  gestartOp   DateTime  @default(now())
+  afgerondOp  DateTime?
+
+  /// Wat de opdracht was, letterlijk. Zodat een herhaling exact dezelfde vraag
+  /// stelt en je weet dat een betere uitkomst aan de verbetering ligt.
+  opdracht String
+
+  /// Het antwoord van de agent die begon.
+  antwoord String?
+  fout     String?
+
+  /// De beoordeling achteraf, per onderdeel. Vrij van vorm omdat elke agent op
+  /// iets anders wordt beoordeeld.
+  scores Json?
+  /// Gemiddelde, alleen gevuld als er beoordeeld is.
+  eindscore Float?
+  notities  String?
+
+  @@index([scenario, gestartOp(sort: Desc)])
+}

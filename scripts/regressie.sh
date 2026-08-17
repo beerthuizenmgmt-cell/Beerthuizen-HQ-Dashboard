@@ -10,12 +10,23 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 export DOTENV_CONFIG_PATH=.env.production
-export NODE_OPTIONS=--conditions=react-server
+# --import dotenv/config erbij: audit-standup importeert de standup-module
+# rechtstreeks en die leest de database al bij het laden.
+export NODE_OPTIONS="--conditions=react-server --import dotenv/config"
 
 echo "TYPECHECK EN BUILD"
 npx tsc --noEmit || { echo "  🔴 typecheck mislukt"; exit 1; }
 echo "  🟢 typecheck schoon"
-npm run build 2>&1 | grep -qi "compiled successfully" && echo "  🟢 build schoon" || { echo "  🔴 build mislukt"; exit 1; }
+# Eerst opvangen, dan pas doorzoeken. `grep -q` sluit de pijp zodra hij iets
+# vindt, npm krijgt SIGPIPE, en met pipefail leek een geslaagde build mislukt.
+BUILD=$(npm run build 2>&1)
+if echo "$BUILD" | grep -qi "compiled successfully"; then
+  echo "  🟢 build schoon"
+else
+  echo "  🔴 build mislukt"
+  echo "$BUILD" | tail -20
+  exit 1
+fi
 
 echo ""
 echo "TESTSETS"
@@ -25,8 +36,17 @@ for s in audit-rechten audit-bewaking audit-standup audit-creators audit-klantpo
          audit-gereedschap audit-randgevallen; do
   UIT=$(npx tsx "scripts/$s.mts" 2>&1 | tail -1)
   printf "  %-22s %s\n" "$s" "$UIT"
-  G=$(echo "$UIT" | grep -oE '^[0-9]+' || echo 0)
-  F=$(echo "$UIT" | grep -oE '[0-9]+ mislukt' | grep -oE '^[0-9]+' || echo 0)
+  # Een testset die crasht geeft geen telregel terug. Zonder deze controle
+  # telde de runner die crash als nul fouten en bleef alles groen — precies
+  # het soort stilte waar een testset waardeloos van wordt.
+  if ! echo "$UIT" | grep -qE '^[0-9]+ geslaagd, [0-9]+ mislukt'; then
+    echo "                         🔴 geen telling teruggekregen — deze set is gecrasht"
+    FOUT=$((FOUT + 1)); STUK="$STUK $s(crash)"
+    continue
+  fi
+
+  G=$(echo "$UIT" | grep -oE '^[0-9]+')
+  F=$(echo "$UIT" | grep -oE '[0-9]+ mislukt' | grep -oE '^[0-9]+')
   GOED=$((GOED + G)); FOUT=$((FOUT + F))
   [ "$F" != "0" ] && STUK="$STUK $s"
 done

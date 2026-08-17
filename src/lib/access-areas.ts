@@ -128,6 +128,14 @@ export const AREAS: Area[] = [
     groep: "systeem",
   },
   {
+    path: "/scenarios",
+    label: "Testscenario's",
+    icon: "🧪",
+    roles: ["owner"],
+    reason: "Een scenario laat meerdere agents denken en dat kost geld.",
+    groep: "systeem",
+  },
+  {
     path: "/instellingen",
     label: "Instellingen",
     icon: "⚙",
