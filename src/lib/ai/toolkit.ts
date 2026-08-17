@@ -750,9 +750,17 @@ export async function runAgentTool(
 
   const result = await match.entry.run(match.config, args);
 
+  // lastUsedAt hoort hier ook bij: een tool die net echt werk deed, is gebruikt.
+  // Zonder deze regel bleef "laatste gebruik" op de koppelingenpagina leeg,
+  // terwijl bijvoorbeeld "Webpagina lezen" al tientallen keren was aangeroepen.
+  const nu = new Date();
   await db.agentTool.update({
     where: { id: match.id },
-    data: { lastCheckedAt: new Date(), lastError: result.ok ? null : result.message.slice(0, 300) },
+    data: {
+      lastUsedAt: nu,
+      lastCheckedAt: nu,
+      lastError: result.ok ? null : result.message.slice(0, 300),
+    },
   });
 
   return result;
