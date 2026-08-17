@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState } from "react";
+import { useActie } from "./use-actie";
 import {
   maakKlantlink,
   markeerVerstuurd,
@@ -50,7 +51,7 @@ export function KlantPaneel({
   magIntrekken: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [bezig, start] = useTransition();
+  const { bezig, fout, doe } = useActie();
   const [gekopieerd, setGekopieerd] = useState<string | null>(null);
   const [uitgeklapt, setUitgeklapt] = useState<string | null>(null);
   const [state, formAction, pending] = useActionState<PortaalState, FormData>(maakKlantlink, {});
@@ -168,7 +169,7 @@ export function KlantPaneel({
                       type="button"
                       className="underline hover:text-text"
                       disabled={bezig}
-                      onClick={() => start(() => void markeerVerstuurd(aanvraag.id))}
+                      onClick={() => doe(() => markeerVerstuurd(aanvraag.id))}
                     >
                       verstuurd
                     </button>
@@ -189,7 +190,7 @@ export function KlantPaneel({
                       type="button"
                       className="btn btn-ghost text-xs"
                       disabled={bezig}
-                      onClick={() => start(() => void markeerVerwerkt(aanvraag.id))}
+                      onClick={() => doe(() => markeerVerwerkt(aanvraag.id))}
                     >
                       gecontroleerd
                     </button>
@@ -200,7 +201,7 @@ export function KlantPaneel({
                       type="button"
                       className="underline hover:text-danger"
                       disabled={bezig}
-                      onClick={() => start(() => void verwijderAanvraag(aanvraag.id))}
+                      onClick={() => doe(() => verwijderAanvraag(aanvraag.id))}
                     >
                       intrekken
                     </button>
