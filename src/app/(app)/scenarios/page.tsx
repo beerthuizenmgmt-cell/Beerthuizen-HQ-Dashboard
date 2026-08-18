@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { requireOwner } from "@/lib/access";
 import { db } from "@/lib/db";
-import { SCENARIOS, tijdlijnVan } from "@/lib/scenarios";
+import { SCENARIOS, tijdlijnVan, loopStatus } from "@/lib/scenarios";
 import { ScenarioPaneel } from "@/components/scenario-paneel";
 import { timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+// Een scenario laat de hele keten denken: Daan schakelt collega's in, en elk
+// van hen doet er twintig tot zeventig seconden over. Vandaar het maximum dat
+// het plan toestaat. Loopt het er alsnog overheen, dan blijft de run zichtbaar
+// als afgebroken in plaats van te blijven hangen.
+export const maxDuration = 300;
 
 // Testscenario's: het bureau nabootsen en kijken wat er echt gebeurt.
 //
@@ -84,6 +90,20 @@ export default async function ScenarioPagina() {
             </p>
           )}
 
+          {/* Afgekapt halverwege. Het werk dat er staat is echt gebeurd; alleen
+              de afronding ontbreekt. Dat verschil moet je kunnen zien. */}
+          {loopStatus(laatste.run) === "afgebroken" && (
+            <p className="mt-3 rounded-lg border border-warn/40 bg-warn/5 px-3 py-2 text-xs text-warn">
+              Deze run is halverwege afgebroken — het verzoek liep over de tijdslimiet. Wat je hieronder
+              ziet is echt gebeurd; alleen de afronding van {laatste.run.naam.split(" ")[0]} ontbreekt.
+            </p>
+          )}
+          {loopStatus(laatste.run) === "bezig" && (
+            <p className="mt-3 rounded-lg border border-border px-3 py-2 text-xs text-text-muted">
+              Loopt nog. Ververs deze pagina over een minuut.
+            </p>
+          )}
+
           {/* De tijdlijn: wat er werkelijk gebeurde, niet wat de agent zegt */}
           <div className="card mt-4 divide-y divide-border">
             {laatste.tijdlijn.length === 0 ? (
@@ -121,18 +141,23 @@ export default async function ScenarioPagina() {
         <section>
           <h2 className="eyebrow-rule start mb-3">Eerdere runs</h2>
           <div className="card divide-y divide-border">
-            {runs.slice(1).map((run) => (
-              <div key={run.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
-                <span className="min-w-0 flex-1 truncate">{run.naam}</span>
-                {run.eindscore !== null && (
-                  <span className={run.eindscore >= 7 ? "text-success" : "text-warn"}>
-                    {run.eindscore.toFixed(1)}/10
-                  </span>
-                )}
-                {run.fout && <span className="text-xs text-danger">mislukt</span>}
-                <span className="text-xs text-text-faint">{timeAgo(run.gestartOp)}</span>
-              </div>
-            ))}
+            {runs.slice(1).map((run) => {
+              const stand = loopStatus(run);
+              return (
+                <div key={run.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm">
+                  <span className="min-w-0 flex-1 truncate">{run.naam}</span>
+                  {run.eindscore !== null && (
+                    <span className={run.eindscore >= 7 ? "text-success" : "text-warn"}>
+                      {run.eindscore.toFixed(1)}/10
+                    </span>
+                  )}
+                  {stand === "mislukt" && <span className="text-xs text-danger">mislukt</span>}
+                  {stand === "afgebroken" && <span className="text-xs text-warn">afgebroken</span>}
+                  {stand === "bezig" && <span className="text-xs text-text-muted">loopt nog</span>}
+                  <span className="text-xs text-text-faint">{timeAgo(run.gestartOp)}</span>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

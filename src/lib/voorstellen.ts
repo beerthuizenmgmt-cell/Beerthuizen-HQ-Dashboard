@@ -83,6 +83,7 @@ export const ROUTERING: Record<VoorstelSoort, { sleutel: SectieSleutel; agentKey
     { sleutel: "concept", agentKey: "creative" },
     { sleutel: "creators", agentKey: "influencer" },
     { sleutel: "strategie", agentKey: "social" },
+    { sleutel: "deliverables", agentKey: "creative" },
     { sleutel: "planning", agentKey: "operations" },
     { sleutel: "investering", agentKey: "finance" },
     { sleutel: "voorwaarden", agentKey: "finance" },
@@ -114,6 +115,10 @@ export const ROUTERING: Record<VoorstelSoort, { sleutel: SectieSleutel; agentKey
   overig: [
     { sleutel: "aanleiding", agentKey: null },
     { sleutel: "doelstelling", agentKey: null },
+    // Deliverables horen bij elk voorstel: een klant wil weten wát hij krijgt.
+    // Ze ontbraken hier en bij een event, en vier agents probeerden ze alsnog
+    // in te vullen — terecht, want zonder is een voorstel niet af.
+    { sleutel: "deliverables", agentKey: "operations" },
     { sleutel: "planning", agentKey: "operations" },
     { sleutel: "investering", agentKey: "finance" },
     { sleutel: "vervolgstappen", agentKey: "chief" },

@@ -358,9 +358,22 @@ async function askColleague(
   if (!colleague) return { ok: false, message: `Onbekende agent: ${key}` };
   if (colleague.paused) return { ok: false, message: `${colleague.name} staat op pauze.` };
 
+  // Het voorstel-ID gaat mee in de opdracht zelf. Zonder dit riep een collega
+  // vul_voorstel_sectie aan zonder ID en kreeg tien keer "verplicht" terug —
+  // hij wist dat hij aan een voorstel werkte, maar niet aan welk.
+  const voorstelId = typeof args.voorstel_id === "string" ? args.voorstel_id.trim() : "";
+  const opdracht = [
+    `${askerName} vraagt je het volgende:`,
+    ``,
+    question,
+    ...(voorstelId
+      ? [``, `Dit hoort bij voorstel ${voorstelId}. Gebruik dat ID bij vul_voorstel_sectie en meld_ontbrekend_in_voorstel.`]
+      : []),
+  ].join("\n");
+
   const answer = await runAgent({
     agentId: colleague.id,
-    input: `${askerName} vraagt je het volgende:\n\n${question}`,
+    input: opdracht,
     trigger: "message",
     depth: depth + 1,
   });

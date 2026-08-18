@@ -40,6 +40,12 @@ export const TABLE_ORDER = [
   "client",
   "portalRequest",
   "project",
+
+  // Een creator bestaat los van elke campagne; de koppeling en wat hij
+  // aanleverde hangen aan creator, project en portaalaanvraag.
+  "creator",
+  "creatorCampagne",
+  "creatorUpload",
   "task",
   "taskUpdate",
   "message",
@@ -68,6 +74,20 @@ export const TABLE_ORDER = [
 
   "invoice",
   "incomingPayment",
+
+  // Contracten en voorstellen hangen aan klant, project en creator, dus ze
+  // komen na alle drie.
+  "contract",
+  "voorstel",
+  "voorstelSectie",
+
+  // Studio: de ruimte bestaat los, een boeking verwijst naar ruimte, klant en
+  // eventueel een factuur.
+  "studioruimte",
+  "studioboeking",
+
+  // Testruns staan op zichzelf; ze verwijzen nergens naar.
+  "testrun",
 
   "valueEntry",
   "costEntry",

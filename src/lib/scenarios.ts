@@ -141,6 +141,25 @@ export function scenario(key: string): Scenario | undefined {
   return SCENARIOS.find((s) => s.key === key);
 }
 
+/// Een run die niet is afgerond en ook niet meer loopt.
+///
+/// De keten draait synchroon in één verzoek. Wordt dat afgekapt — en bij zes
+/// collega's van elk een minuut gebeurt dat — dan is de laatste stap, het
+/// wegschrijven van de eindtijd, nooit uitgevoerd. Zonder deze regel blijft
+/// zo'n run voor altijd op "bezig" staan en denk je dat er iets hangt.
+const AFGEBROKEN_NA_MINUTEN = 12;
+
+export function loopStatus(run: { gestartOp: Date; afgerondOp: Date | null; fout: string | null }):
+  | "afgerond"
+  | "mislukt"
+  | "bezig"
+  | "afgebroken" {
+  if (run.fout) return "mislukt";
+  if (run.afgerondOp) return "afgerond";
+  const minuten = (Date.now() - run.gestartOp.getTime()) / 60_000;
+  return minuten > AFGEBROKEN_NA_MINUTEN ? "afgebroken" : "bezig";
+}
+
 /// Alles wat er tijdens een testrun gebeurde, uit de gewone tabellen.
 export async function tijdlijnVan(testrunId: string) {
   const run = await db.testrun.findUnique({ where: { id: testrunId } });

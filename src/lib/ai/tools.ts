@@ -184,15 +184,21 @@ export const CHIEF_TOOLS: ToolDefinition[] = [
   {
     name: "vraag_agent",
     description:
-      "Stel een vraag aan een van je agents of geef hem een opdracht. Hij denkt na en antwoordt je meteen.",
+      "Stel een vraag aan een van je agents of geef hem een opdracht. Hij denkt na en antwoordt je meteen. " +
+      "Werk je aan een voorstel, geef dan het voorstel-ID mee — anders kan hij zijn onderdeel niet invullen " +
+      "en gaat hij ernaar raden.",
     parameters: {
       type: "object",
       properties: {
         agent: {
           type: "string",
-          description: "Sleutel: influencer, analytics, research, creative, social, operations, bizdev",
+          description: "Sleutel: influencer, analytics, research, creative, social, operations, bizdev, finance",
         },
         vraag: { type: "string" },
+        voorstel_id: {
+          type: "string",
+          description: "Het voorstel waar hij aan meewerkt, als dat er is",
+        },
       },
       required: ["agent", "vraag"],
     },
