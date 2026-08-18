@@ -4,7 +4,7 @@ import { logout } from "@/lib/actions/auth";
 import { MobieleNav } from "@/components/mobiele-nav";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { Logo, LogoMark } from "@/components/logo";
-import { areasFor } from "@/lib/access";
+import { areasFor, GROEPEN } from "@/lib/access";
 import { db } from "@/lib/db";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
@@ -29,7 +29,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           <Logo />
         </div>
 
-        <SidebarNav links={links} unread={unread} />
+        <SidebarNav links={links} groepen={GROEPEN} unread={unread} />
 
         <div className="mt-auto border-t border-border p-4">
           <p className="truncate text-sm font-semibold">{user.name}</p>

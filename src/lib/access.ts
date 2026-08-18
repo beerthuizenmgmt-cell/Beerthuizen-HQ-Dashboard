@@ -11,7 +11,7 @@ import type { UserRole } from "@/generated/prisma/enums";
 // next/navigation, zodat scripts en tests hem kunnen lezen. Hier blijft alleen
 // wat een server nodig heeft.
 
-export { AREAS, areasFor, findArea, mayAccess, type Area } from "./access-areas";
+export { AREAS, GROEPEN, areasFor, findArea, mayAccess, type Area, type Groep } from "./access-areas";
 
 /// Voor pagina's die alleen de eigenaar mag zien. Stuurt een teamlid netjes
 /// terug naar HQ in plaats van een kale foutmelding te tonen.
