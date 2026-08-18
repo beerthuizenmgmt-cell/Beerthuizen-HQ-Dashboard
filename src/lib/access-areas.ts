@@ -26,15 +26,19 @@ export type Area = {
   /// Waar dit scherm bij hoort in het menu. Eenentwintig losse items zijn op
   /// een telefoon onvindbaar; gegroepeerd zijn het er zes.
   groep?: Groep;
+  /// Onder de secties in plaats van erboven. Voor je inbox: daar ga je
+  /// dagelijks heen, en de badge moet zichtbaar zijn zonder een sectie open
+  /// te klappen.
+  onderaan?: boolean;
 };
 
-export type Groep = "werk" | "klanten" | "geld" | "team" | "systeem";
+export type Groep = "werk" | "klanten" | "team" | "archief" | "systeem";
 
 export const GROEPEN: { key: Groep; label: string; icon: string }[] = [
   { key: "werk", label: "Werk", icon: "☑" },
   { key: "klanten", label: "Klanten", icon: "◈" },
-  { key: "geld", label: "Geld", icon: "€" },
-  { key: "team", label: "Team", icon: "💬" },
+  { key: "team", label: "Team", icon: "🤖" },
+  { key: "archief", label: "Archief", icon: "📚" },
   { key: "systeem", label: "Systeem", icon: "⚙" },
 ];
 
@@ -43,10 +47,10 @@ export const AREAS: Area[] = [
   { path: "/overleg", label: "Overleg", icon: "☀", groep: "werk" },
   { path: "/agenda", label: "Agenda", icon: "▦", groep: "werk" },
   { path: "/taken", label: "Taken", icon: "☑", groep: "werk" },
-  { path: "/projecten", label: "Projecten", icon: "▣", groep: "werk" },
-  { path: "/campagnes", label: "Campagnes", icon: "◈", groep: "klanten" },
-  { path: "/rapportages", label: "Rapportages", icon: "▤", groep: "klanten" },
-  { path: "/team", label: "Team", icon: "💬", groep: "team" },
+  { path: "/projecten", label: "Campagnes", icon: "▣", groep: "klanten" },
+  { path: "/campagnes", label: "Advertenties", icon: "◈", groep: "klanten" },
+  { path: "/rapportages", label: "Rapportages", icon: "▤", groep: "archief" },
+  { path: "/team", label: "Teamchat", icon: "💬", groep: "team" },
   { path: "/agents", label: "Agents", icon: "◉", groep: "team" },
   { path: "/creators", label: "Creators", icon: "◐", groep: "klanten" },
   { path: "/werkwijze", label: "Werkwijze", icon: "⇄", groep: "team" },
@@ -62,9 +66,9 @@ export const AREAS: Area[] = [
     buitenMenu: true,
     reason: "Wie er in het team zit, bepaalt de eigenaar.",
   },
-  { path: "/kennis", label: "Kennis", icon: "◇", groep: "team" },
-  { path: "/activiteit", label: "Activiteit", icon: "≡", groep: "team" },
-  { path: "/meldingen", label: "Meldingen", icon: "!", groep: "team" },
+  { path: "/kennis", label: "Kennis", icon: "◇", groep: "archief" },
+  { path: "/activiteit", label: "Activiteit", icon: "≡", groep: "archief" },
+  { path: "/meldingen", label: "Meldingen", icon: "!", onderaan: true },
 
   // Klanten staat bewust open voor het team: wie klantcommunicatie doet, moet
   // bij de klantgegevens kunnen. Wat er niet in zit is geld — facturen en
@@ -93,7 +97,7 @@ export const AREAS: Area[] = [
     icon: "€",
     roles: ["owner"],
     reason: "Financiele administratie is alleen voor de eigenaar.",
-    groep: "geld",
+    groep: "klanten",
   },
   {
     path: "/tools",
@@ -117,7 +121,7 @@ export const AREAS: Area[] = [
     icon: "€",
     roles: ["owner"],
     reason: "Kosten en budget zijn voor de eigenaar.",
-    groep: "geld",
+    groep: "systeem",
   },
   {
     path: "/proefdraaien",

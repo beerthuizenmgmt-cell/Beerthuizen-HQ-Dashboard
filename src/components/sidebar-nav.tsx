@@ -14,13 +14,14 @@ import { useEffect, useState } from "react";
 //
 //   - De sectie waar je nu in zit staat altijd open. Je verliest je plek niet
 //     door te navigeren.
-//   - Een ongelezen melding is zichtbaar op de sectiekop, ook als die dicht is.
-//     Anders verdwijnt precies het signaal waar de badge voor bedoeld is.
+//   - Meldingen staat los onder de secties. Het is je inbox: daar ga je
+//     dagelijks heen, en de badge moet zichtbaar zijn zonder dat je eerst
+//     een sectie moet openklappen.
 //
 // Welke secties open staan wordt onthouden, zodat de balk er na een reload
 // uitziet zoals je hem achterliet.
 
-export type NavLink = { path: string; label: string; icon: string; groep?: string };
+export type NavLink = { path: string; label: string; icon: string; groep?: string; onderaan?: boolean };
 
 export type NavGroep = { key: string; label: string; icon: string };
 
@@ -39,7 +40,8 @@ export function SidebarNav({
   const pathname = usePathname();
   const isActief = (pad: string) => pathname === pad || pathname.startsWith(`${pad}/`);
 
-  const losseLinks = links.filter((l) => !l.groep);
+  const bovenaan = links.filter((l) => !l.groep && !l.onderaan);
+  const onderaan = links.filter((l) => l.onderaan);
   const inGroep = (key: string) => links.filter((l) => l.groep === key);
 
   /// De sectie waar je nu in zit. Die staat altijd open, ongeacht wat er is
@@ -72,7 +74,7 @@ export function SidebarNav({
   return (
     <nav className="flex flex-col gap-0.5 px-3">
       {/* HQ hoort in geen enkele sectie: het is de plek waar alles samenkomt. */}
-      {losseLinks.map((link) => (
+      {bovenaan.map((link) => (
         <Link
           key={link.path}
           href={link.path}
@@ -94,7 +96,6 @@ export function SidebarNav({
         // Vóór het laden uit localStorage alleen de actieve sectie open: dat
         // voorkomt dat de balk zichtbaar openklapt zodra de pagina hydrateert.
         const isOpen = geladen ? open.includes(groep.key) || actieveGroep === groep.key : actieveGroep === groep.key;
-        const badgeInSectie = !isOpen && unread > 0 && items.some((i) => i.path === BADGE_PATH);
 
         return (
           <div key={groep.key} className="mt-1">
@@ -106,11 +107,6 @@ export function SidebarNav({
             >
               <span className="w-4 text-center">{groep.icon}</span>
               <span className="flex-1">{groep.label}</span>
-              {badgeInSectie && (
-                <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {unread > 9 ? "9+" : unread}
-                </span>
-              )}
               <span className="text-[10px] text-text-faint">{isOpen ? "−" : "+"}</span>
             </button>
 
@@ -140,6 +136,32 @@ export function SidebarNav({
           </div>
         );
       })}
+
+      {/* Je inbox staat onder de secties, niet erin: je gaat er dagelijks
+          heen en de badge moet zichtbaar zijn zonder iets open te klappen. */}
+      {onderaan.length > 0 && (
+        <div className="mt-3 border-t border-border pt-2">
+          {onderaan.map((link) => (
+            <Link
+              key={link.path}
+              href={link.path}
+              className={`flex items-center gap-2.5 rounded px-3 py-2 text-sm transition-colors ${
+                isActief(link.path)
+                  ? "bg-surface font-semibold text-text"
+                  : "text-text-muted hover:bg-surface-hover hover:text-text"
+              }`}
+            >
+              <span className="w-4 text-center text-xs text-text-faint">{link.icon}</span>
+              <span className="flex-1">{link.label}</span>
+              {link.path === BADGE_PATH && unread > 0 && (
+                <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
+            </Link>
+          ))}
+        </div>
+      )}
     </nav>
   );
 }
