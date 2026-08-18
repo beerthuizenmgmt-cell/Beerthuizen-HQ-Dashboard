@@ -227,7 +227,7 @@ export async function runAgent(options: {
   let completionTokens = 0;
   let costEur = 0;
   let costKnown = true;
-  const performed: { name: string; arguments: Record<string, unknown>; result: string }[] = [];
+  const performed: { name: string; arguments: Record<string, unknown>; result: string; ok: boolean }[] = [];
   let finalText = "";
   let failure: string | undefined;
 
@@ -267,7 +267,31 @@ export async function runAgent(options: {
                 isChief: agent.isChief,
               })));
 
-        performed.push({ name: call.name, arguments: call.arguments, result: outcome.message });
+        // Ook vastleggen óf het lukte. Zonder dat is achteraf niet te zien
+        // welke aanroepen geweigerd werden: het bericht van een weigering en
+        // dat van een geslaagde aanroep zijn allebei gewone tekst, en zoeken
+        // op woorden als "bestaat niet" vindt ook agentteksten die dat toevallig
+        // bevatten. Dat leverde een telling van vijf fouten op waar er één was.
+        performed.push({ name: call.name, arguments: call.arguments, result: outcome.message, ok: outcome.ok });
+
+        // Dezelfde weigering blijven herhalen levert niets op en kost de agent
+        // zijn hele denkbeurt. Eén keer is een vergissing, drie keer is een lus:
+        // dan zeggen we het er expliciet bij, want een model dat vastloopt komt
+        // er zelden zelf uit.
+        if (!outcome.ok) {
+          const zelfde = performed.filter(
+            (eerder) => !eerder.ok && eerder.name === call.name && eerder.result === outcome.message,
+          ).length;
+          if (zelfde === 3) {
+            messages.push({
+              role: "user",
+              content:
+                `Je hebt ${call.name} nu drie keer geprobeerd met hetzelfde resultaat: "${outcome.message}". ` +
+                `Het gaat zo niet lukken. Probeer een andere aanpak, of meld wat je nodig hebt en ga verder ` +
+                `met de rest van je opdracht.`,
+            });
+          }
+        }
         messages.push({
           role: "tool",
           toolCallId: call.id,
@@ -350,6 +374,7 @@ async function askColleague(
   askerName: string,
   depth: number,
 ): Promise<{ ok: boolean; message: string }> {
+  const asker = await db.agent.findFirst({ where: { name: askerName }, select: { id: true } });
   const key = typeof args.agent === "string" ? args.agent.trim() : "";
   const question = typeof args.vraag === "string" ? args.vraag.trim() : "";
   if (!key || !question) return { ok: false, message: "agent en vraag zijn verplicht" };
@@ -377,6 +402,42 @@ async function askColleague(
     trigger: "message",
     depth: depth + 1,
   });
+
+  // Wat er wordt uitbesteed hoort op het bord te staan.
+  //
+  // De coördinator schakelde collega's rechtstreeks in en maakte er soms wel
+  // en soms geen taak bij. Dan werkt het team wél, maar zie je op het takenbord
+  // niets terug — en dat bord is juist waar Enriqueo kijkt. Het wordt hier
+  // vastgelegd, met het antwoord eraan, in plaats van te hopen dat iemand
+  // eraan denkt.
+  //
+  // Meteen op "done": de collega heeft al geantwoord. Het is een verslag van
+  // wat er gebeurd is, geen openstaand werk.
+  try {
+    const titel = question.split("\n")[0].slice(0, 100);
+    const taak = await db.task.create({
+      data: {
+        title: titel,
+        description: question,
+        agentId: colleague.id,
+        createdByAgentId: asker?.id ?? null,
+        status: answer.ok ? "done" : "blocked",
+        source: "agent",
+        ...(voorstelId ? { projectId: null } : {}),
+      },
+    });
+    await db.taskUpdate.create({
+      data: {
+        taskId: taak.id,
+        authorType: "agent",
+        authorAgentId: colleague.id,
+        kind: answer.ok ? "resultaat" : "status",
+        body: answer.ok ? answer.text.slice(0, 4000) : (answer.error ?? "Kon niet antwoorden."),
+      },
+    });
+  } catch {
+    // Het bord bijwerken mag het antwoord niet in de weg zitten.
+  }
 
   return answer.ok
     ? { ok: true, message: `${colleague.name} antwoordt:\n${answer.text}` }

@@ -161,6 +161,19 @@ async function main() {
   toets("studio heeft minder onderdelen dan influencer", studioV!.secties.length < voorstel!.secties.length, `${studioV!.secties.length} vs ${voorstel!.secties.length}`);
   toets("studio kent geen creators", !studioV!.secties.some((s) => s.sleutel === "creators"));
 
+  // ── Een ID waar een teken vanaf viel ─────────────────────────────────────
+  console.log("\nEen ID met een tikfout");
+  const kort = voorstel!.id.slice(0, voorstel!.id.length - 1);
+  const metTikfout = await runTool("vul_voorstel_sectie", {
+    voorstel_id: kort, sectie: "aanleiding",
+    inhoud: "Nike Nederland lanceert in oktober een nieuwe sportcollectie en wil daar zichtbaarheid bij.",
+  }, alsDaan);
+  toets("laatste teken weggevallen wordt opgevangen", metTikfout.ok, metTikfout.message.slice(0, 80));
+  toets("en meldt dat het is gecorrigeerd", /klopte net niet/i.test(metTikfout.message));
+
+  const veelTeKort = await runTool("vul_voorstel_sectie", { voorstel_id: "cms", sectie: "aanleiding", inhoud: "x" }, alsDaan);
+  toets("een te kort begin wordt niet geraden", !veelTeKort.ok, veelTeKort.message.slice(0, 60));
+
   console.log("\nFoute invoer");
   const zonderNaam = await runTool("start_voorstel", { soort: "influencer" }, alsDaan);
   toets("zonder naam geweigerd", !zonderNaam.ok);

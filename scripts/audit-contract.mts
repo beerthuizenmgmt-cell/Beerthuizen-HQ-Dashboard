@@ -99,15 +99,38 @@ async function main() {
   toets("advies vastgelegd", (volledig?.advies ?? "").includes("exclusiviteit"));
   toets("risico vastgelegd", (volledig?.risicos.length ?? 0) === 1);
 
+  // ── Een contract dat alleen als tekst binnenkwam ─────────────────────────
+  console.log("\nContract dat nog niet in het systeem staat");
+  const uitTekst = await runTool(
+    "leg_contractanalyse_vast",
+    {
+      naam: `${MERK}Uit een bericht`,
+      brontekst: "Vergoeding € 900 voor één Reel. Testdata.",
+      samenvatting: "Kleine samenwerking, één Reel.",
+      vergoeding_eur: 900,
+      advies: "Prima voor deze omvang.",
+    },
+    alsStefano,
+  );
+  // Een contract komt niet altijd als bestand binnen. De analyse weigeren omdat
+  // de papierwinkel nog niet is aangemaakt kost een agent zijn hele denkbeurt.
+  toets("wordt alsnog vastgelegd", uitTekst.ok, uitTekst.message.slice(0, 60));
+  const nieuw = await db.contract.findFirst({ where: { naam: `${MERK}Uit een bericht` } });
+  toets("contract is aangemaakt", Boolean(nieuw));
+  toets("brontekst bewaard om na te kijken", (nieuw?.brontekst ?? "").includes("900"));
+  toets("analyse eraan gekoppeld", nieuw?.status === "geanalyseerd");
+
   console.log("\nFoute invoer");
-  const zonderId = await runTool("leg_contractanalyse_vast", { samenvatting: "x", advies: "y" }, alsStefano);
-  toets("zonder contract-ID geweigerd", !zonderId.ok, zonderId.message.slice(0, 50));
+  const leeg = await runTool("leg_contractanalyse_vast", { samenvatting: "", advies: "y" }, alsStefano);
+  toets("zonder naam én zonder samenvatting geweigerd", !leeg.ok, leeg.message.slice(0, 60));
   const onbekend = await runTool(
     "leg_contractanalyse_vast",
     { contract_id: "bestaat-niet", samenvatting: "x", advies: "y" },
     alsStefano,
   );
-  toets("onbekend contract geweigerd", !onbekend.ok, onbekend.message.slice(0, 50));
+  // Een verkeerd ID is iets anders dan geen ID: dan bedoelde de agent een
+  // bestaand contract en is er iets mis, dus dat blijft een weigering.
+  toets("verkeerd contract-ID blijft geweigerd", !onbekend.ok, onbekend.message.slice(0, 60));
 
   await db.contract.deleteMany({ where: { naam: { startsWith: MERK } } });
   console.log(`\n${"═".repeat(70)}\n${goed} geslaagd, ${fout} mislukt. Testdata opgeruimd.`);

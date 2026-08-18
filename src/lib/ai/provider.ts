@@ -315,7 +315,7 @@ async function callOpenAiCompatible(
     }));
   }
 
-  const response = await fetch(`${BASE_URLS[config.provider]}/chat/completions`, {
+  const response = await fetchMetGeduld(`${BASE_URLS[config.provider]}/chat/completions`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -397,7 +397,7 @@ async function callAnthropic(
       return { role: message.role as "user" | "assistant", content: message.content };
     });
 
-  const response = await fetch(`${BASE_URLS.anthropic}/messages`, {
+  const response = await fetchMetGeduld(`${BASE_URLS.anthropic}/messages`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -456,6 +456,38 @@ async function callAnthropic(
 // Hulp
 // ============================================================
 
+/// Een aanroep die opnieuw wordt geprobeerd wanneer de aanbieder afremt.
+///
+/// Aanbieders beperken hoeveel aanroepen je per minuut mag doen — bij een nieuw
+/// account soms tien. Eén agent redt dat makkelijk, maar zodra de coördinator
+/// vijf collega's inschakelt zitten er twintig aanroepen in een minuut en valt
+/// de hele keten om op de eerste 429. Dat is zonde van het werk dat de eerdere
+/// agents al gedaan hadden.
+///
+/// Wachten en opnieuw proberen dus, oplopend. Wat de aanbieder zelf zegt in
+/// Retry-After gaat voor onze eigen inschatting.
+async function fetchMetGeduld(
+  url: string,
+  init: RequestInit,
+  pogingen = 4,
+): Promise<Response> {
+  let wachten = 4_000;
+
+  for (let poging = 1; poging <= pogingen; poging += 1) {
+    const response = await fetch(url, init);
+    if (response.status !== 429 || poging === pogingen) return response;
+
+    const gevraagd = Number(response.headers.get("retry-after"));
+    const pauze = Number.isFinite(gevraagd) && gevraagd > 0 ? gevraagd * 1000 : wachten;
+
+    await new Promise((klaar) => setTimeout(klaar, pauze));
+    wachten = Math.min(wachten * 2, 30_000);
+  }
+
+  // Onbereikbaar; de lus geeft altijd terug of gooit.
+  throw new Error("Aanroep mislukt na meerdere pogingen.");
+}
+
 /// Providerfouten zijn cryptisch. Dit maakt er iets van waar je wat mee kunt —
 /// vooral "dit model bestaat niet", want dat gaat gebeuren.
 async function describeFailure(response: Response, model: string): Promise<string> {
@@ -474,11 +506,14 @@ async function describeFailure(response: Response, model: string): Promise<strin
   if (response.status === 402) {
     return `Je saldo bij de aanbieder is op (402). Waardeer je account op, dan werken de agents meteen weer. Er is niets kapot en niets verloren.`;
   }
-  if (response.status === 404 || /model/i.test(detail)) {
-    return `Model "${model}" werd niet geaccepteerd: ${detail}. Kies een bestaand model bij Instellingen → Taalmodel.`;
-  }
+  // De statuscode wint van wat er in de tekst staat. Een 429 met het woord
+  // "model" erin werd anders gemeld als "dit model bestaat niet" — en dan ga
+  // je een model vervangen dat prima werkt.
   if (response.status === 429) {
     return `De aanbieder remt af (429): ${detail}`;
+  }
+  if (response.status === 404 || (response.status >= 400 && /model/i.test(detail))) {
+    return `Model "${model}" werd niet geaccepteerd: ${detail}. Kies een bestaand model bij Instellingen → Taalmodel.`;
   }
   return `Aanroep mislukt (${response.status}): ${detail}`;
 }

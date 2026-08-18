@@ -328,7 +328,20 @@ export const CONTRACT_TOOLS: ToolDefinition[] = [
     parameters: {
       type: "object",
       properties: {
-        contract_id: { type: "string", description: "Het ID van het contract dat je analyseert" },
+        contract_id: {
+          type: "string",
+          description:
+            "Het ID van het contract, als het al in het systeem staat. Kreeg je het contract als tekst " +
+            "aangeleverd, laat dit dan leeg en geef in plaats daarvan een naam op.",
+        },
+        naam: {
+          type: "string",
+          description: "Alleen nodig als het contract nog niet in het systeem staat, bijvoorbeeld: Samenwerking creator X",
+        },
+        brontekst: {
+          type: "string",
+          description: "De tekst van het contract zoals je hem kreeg, zodat de analyse later na te kijken is",
+        },
         samenvatting: { type: "string", description: "Waar dit contract over gaat, in een paar zinnen" },
 
         vergoeding_eur: { type: "number", description: "Alleen als er een concreet bedrag staat" },
@@ -362,7 +375,7 @@ export const CONTRACT_TOOLS: ToolDefinition[] = [
             "voor meer dan één uitleg vatbaar is.",
         },
       },
-      required: ["contract_id", "samenvatting", "advies"],
+      required: ["samenvatting", "advies"],
     },
   },
 ];
@@ -916,11 +929,25 @@ async function messageFounder(
 /// alles helder is, is gevaarlijker dan geen analyse — dan tekent iemand een
 /// contract in de veronderstelling dat het nagekeken is.
 async function recordContractAnalysis(args: Record<string, unknown>): Promise<ToolResult> {
-  const contractId = text(args.contract_id);
-  if (!contractId) return { ok: false, message: "contract_id is verplicht" };
+  // Een contract komt niet altijd als bestand binnen; soms staat het gewoon in
+  // een bericht. Een analyse weigeren omdat de papierwinkel nog niet is
+  // aangemaakt kost een agent zijn hele denkbeurt — dan maken we het hier aan.
+  let contractId = text(args.contract_id);
+  let contract = contractId ? await db.contract.findUnique({ where: { id: contractId } }) : null;
 
-  const contract = await db.contract.findUnique({ where: { id: contractId } });
-  if (!contract) return { ok: false, message: "Dat contract bestaat niet." };
+  if (!contract) {
+    const naam = text(args.naam) || text(args.samenvatting).slice(0, 80);
+    if (!naam) {
+      return { ok: false, message: "Geef een contract_id op, of een naam zodat ik het contract kan vastleggen." };
+    }
+    if (contractId) {
+      return { ok: false, message: `Contract ${contractId} bestaat niet. Laat contract_id leeg als het nog niet in het systeem staat.` };
+    }
+    contract = await db.contract.create({
+      data: { naam, brontekst: text(args.brontekst) || null, status: "nieuw" },
+    });
+    contractId = contract.id;
+  }
 
   const lijst = (waarde: unknown): string[] =>
     Array.isArray(waarde) ? waarde.map((x) => String(x)).filter(Boolean) : [];
@@ -985,6 +1012,34 @@ async function recordContractAnalysis(args: Record<string, unknown>): Promise<To
 // Voorstellen
 // ============================================================
 
+
+/// Een voorstel opzoeken, met begrip voor een ID waar een teken vanaf is
+/// gevallen.
+///
+/// Een cuid is vijfentwintig willekeurige tekens. Een model dat er eentje
+/// overtypt en doorgeeft aan vijf collega's laat er soms één vanaf vallen —
+/// en dan mislukken alle vervolgstappen op iets wat geen inhoudelijke fout is.
+/// In één testronde kwamen zevenendertig van de zesenveertig mislukte aanroepen
+/// daar vandaan.
+///
+/// Daarom: een begin dat maar één voorstel kan aanwijzen is goed genoeg. Wijst
+/// het er meer aan, dan is het geen vergissing meer maar een gok, en weigeren
+/// we alsnog.
+async function vindVoorstel(ruwId: string) {
+  const exact = await db.voorstel.findUnique({ where: { id: ruwId } });
+  if (exact) return { voorstel: exact, gecorrigeerd: false };
+
+  if (ruwId.length >= 12) {
+    const bijna = await db.voorstel.findMany({
+      where: { id: { startsWith: ruwId.slice(0, ruwId.length - 1) } },
+      take: 2,
+    });
+    if (bijna.length === 1) return { voorstel: bijna[0], gecorrigeerd: true };
+  }
+
+  return { voorstel: null, gecorrigeerd: false };
+}
+
 async function startProposal(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {
   const naam = text(args.naam);
   const soort = text(args.soort);
@@ -1036,12 +1091,23 @@ async function fillProposalSection(
   args: Record<string, unknown>,
   context: ToolContext,
 ): Promise<ToolResult> {
-  const voorstelId = text(args.voorstel_id);
+  let voorstelId = text(args.voorstel_id);
   const sectie = text(args.sectie);
   const inhoud = text(args.inhoud);
   if (!voorstelId || !sectie || !inhoud) {
     return { ok: false, message: "voorstel_id, sectie en inhoud zijn verplicht" };
   }
+
+  const { voorstel: gevonden, gecorrigeerd } = await vindVoorstel(voorstelId);
+  if (!gevonden) {
+    return {
+      ok: false,
+      message:
+        "Dat voorstel bestaat niet (meer). Blijf dit ID niet gebruiken: vraag de coördinator om het " +
+        "juiste ID, of laat hem met start_voorstel een nieuw voorstel beginnen.",
+    };
+  }
+  voorstelId = gevonden.id;
 
   const bestaand = await db.voorstelSectie.findUnique({
     where: { voorstelId_sleutel: { voorstelId, sleutel: sectie } },
@@ -1052,7 +1118,14 @@ async function fillProposalSection(
       select: { sleutel: true },
       orderBy: { sortOrder: "asc" },
     });
-    if (alle.length === 0) return { ok: false, message: "Dat voorstel bestaat niet." };
+    if (alle.length === 0) {
+      return {
+        ok: false,
+        message:
+          "Dat voorstel bestaat niet (meer). Blijf dit ID niet gebruiken: vraag de coördinator om het " +
+          "juiste ID, of laat hem met start_voorstel een nieuw voorstel beginnen.",
+      };
+    }
     return {
       ok: false,
       message: `Dit voorstel heeft geen onderdeel "${sectie}". Wel: ${alle.map((s) => s.sleutel).join(", ")}.`,
@@ -1078,6 +1151,7 @@ async function fillProposalSection(
     ok: true,
     message:
       `${sectie} vastgelegd bij het voorstel.` +
+      (gecorrigeerd ? ` Let op: het ID klopte net niet; ik heb ${voorstelId} gebruikt.` : ``) +
       (open > 0 ? ` Nog ${open} onderde(e)l(en) open.` : ` Alle onderdelen zijn nu ingevuld.`),
   };
 }
@@ -1087,8 +1161,15 @@ async function reportProposalGap(args: Record<string, unknown>): Promise<ToolRes
   const wat = text(args.wat);
   if (!voorstelId || !wat) return { ok: false, message: "voorstel_id en wat zijn verplicht" };
 
-  const voorstel = await db.voorstel.findUnique({ where: { id: voorstelId } });
-  if (!voorstel) return { ok: false, message: "Dat voorstel bestaat niet." };
+  const { voorstel } = await vindVoorstel(voorstelId);
+  if (!voorstel) {
+    return {
+      ok: false,
+      message:
+        "Dat voorstel bestaat niet (meer). Blijf dit ID niet gebruiken: vraag de coördinator om het " +
+        "juiste ID, of laat hem een nieuw voorstel starten.",
+    };
+  }
 
   const vanWie = text(args.vanWie);
   const regel = vanWie ? `${wat} (${vanWie})` : wat;
@@ -1098,7 +1179,7 @@ async function reportProposalGap(args: Record<string, unknown>): Promise<ToolRes
   }
 
   await db.voorstel.update({
-    where: { id: voorstelId },
+    where: { id: voorstel.id },
     data: { ontbreekt: [...voorstel.ontbreekt, regel] },
   });
 
