@@ -41,7 +41,6 @@ export function SidebarNav({
   const isActief = (pad: string) => pathname === pad || pathname.startsWith(`${pad}/`);
 
   const bovenaan = links.filter((l) => !l.groep && !l.onderaan);
-  const onderaan = links.filter((l) => l.onderaan);
   const inGroep = (key: string) => links.filter((l) => l.groep === key);
 
   /// De sectie waar je nu in zit. Die staat altijd open, ongeacht wat er is
@@ -139,29 +138,45 @@ export function SidebarNav({
 
       {/* Je inbox staat onder de secties, niet erin: je gaat er dagelijks
           heen en de badge moet zichtbaar zijn zonder iets open te klappen. */}
-      {onderaan.length > 0 && (
-        <div className="mt-3 border-t border-border pt-2">
-          {onderaan.map((link) => (
-            <Link
-              key={link.path}
-              href={link.path}
-              className={`flex items-center gap-2.5 rounded px-3 py-2 text-sm transition-colors ${
-                isActief(link.path)
-                  ? "bg-surface font-semibold text-text"
-                  : "text-text-muted hover:bg-surface-hover hover:text-text"
-              }`}
-            >
-              <span className="w-4 text-center text-xs text-text-faint">{link.icon}</span>
-              <span className="flex-1">{link.label}</span>
-              {link.path === BADGE_PATH && unread > 0 && (
-                <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  {unread > 9 ? "9+" : unread}
-                </span>
-              )}
-            </Link>
-          ))}
-        </div>
-      )}
     </nav>
+  );
+}
+
+/// Wat onderaan de balk hoort, vlak boven je account.
+///
+/// Bewust geen onderdeel van de nav hierboven: die groeit mee met het aantal
+/// secties, en een blok dat daaraan vastzit belandt halverwege het scherm — of
+/// duwt bij een korte vensterhoogte het accountblok eruit. De layout bepaalt
+/// waar de onderkant is, niet de navigatie.
+export function OnderaanNav({ links, unread }: { links: NavLink[]; unread: number }) {
+  const pathname = usePathname();
+  const items = links.filter((l) => l.onderaan);
+  if (items.length === 0) return null;
+
+  return (
+    <div className="px-3 pb-2">
+      {items.map((link) => {
+        const actief = pathname === link.path || pathname.startsWith(`${link.path}/`);
+        return (
+          <Link
+            key={link.path}
+            href={link.path}
+            className={`flex items-center gap-2.5 rounded px-3 py-2 text-sm transition-colors ${
+              actief
+                ? "bg-surface font-semibold text-text"
+                : "text-text-muted hover:bg-surface-hover hover:text-text"
+            }`}
+          >
+            <span className="w-4 text-center text-xs text-text-faint">{link.icon}</span>
+            <span className="flex-1">{link.label}</span>
+            {link.path === BADGE_PATH && unread > 0 && (
+              <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
+          </Link>
+        );
+      })}
+    </div>
   );
 }

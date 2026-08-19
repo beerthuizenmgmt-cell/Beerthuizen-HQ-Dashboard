@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { logout } from "@/lib/actions/auth";
 import { MobieleNav } from "@/components/mobiele-nav";
-import { SidebarNav } from "@/components/sidebar-nav";
+import { SidebarNav, OnderaanNav } from "@/components/sidebar-nav";
 import { Logo, LogoMark } from "@/components/logo";
 import { areasFor, GROEPEN } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -20,18 +20,27 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       label: area.label,
       icon: area.icon,
       groep: area.groep,
+      onderaan: area.onderaan,
     }));
 
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-bg-elevated md:flex">
+      {/* Vast aan de zijkant met een eigen schuifbalk. Zonder dit groeit de balk
+          mee met de pagina en staat de onderkant — je account, je meldingen —
+          buiten beeld zodra een scherm langer is dan het venster. */}
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto border-r border-border bg-bg-elevated md:flex">
         <div className="px-5 py-6">
           <Logo />
         </div>
 
         <SidebarNav links={links} groepen={GROEPEN} unread={unread} />
 
-        <div className="mt-auto border-t border-border p-4">
+        {/* Vlak boven je account, vastgezet aan de onderkant van de balk. */}
+        <div className="mt-auto">
+          <OnderaanNav links={links} unread={unread} />
+        </div>
+
+        <div className="border-t border-border p-4">
           <p className="truncate text-sm font-semibold">{user.name}</p>
           <p className="truncate text-xs text-text-faint">{user.email}</p>
           <p className="eyebrow mt-1">{user.role === "owner" ? "Eigenaar" : "Teamlid"}</p>
