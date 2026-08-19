@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
+import { useActie } from "@/components/use-actie";
+import { ActieFout } from "@/components/actie-fout";
 import { answerQuestion, endCall, skipQuestion, taskFromCall } from "@/lib/actions/call";
 import { useSpeech } from "./use-speech";
 
@@ -91,7 +93,7 @@ export function CallRoom({ questions }: { questions: CallQuestion[] }) {
 function AnswerPanel({ question, onAnswered }: { question: CallQuestion; onAnswered: () => void }) {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const { doe, fout, bezig: pending } = useActie();
 
   const speech = useSpeech((text) => {
     // Ingesproken tekst komt in stukjes binnen; netjes achter elkaar plakken.
@@ -146,7 +148,7 @@ function AnswerPanel({ question, onAnswered }: { question: CallQuestion; onAnswe
             className="btn btn-primary"
             disabled={pending || !draft.trim()}
             onClick={() =>
-              startTransition(async () => {
+              doe(async () => {
                 if (speech.listening) speech.stop();
                 const result = await answerQuestion(question.id, draft);
                 if (result.ok) onAnswered();
@@ -161,7 +163,7 @@ function AnswerPanel({ question, onAnswered }: { question: CallQuestion; onAnswe
             type="button"
             className="btn btn-ghost"
             disabled={pending}
-            onClick={() => startTransition(() => skipQuestion(question.id))}
+            onClick={() => doe(() => skipQuestion(question.id))}
           >
             Sla over
           </button>
@@ -173,6 +175,7 @@ function AnswerPanel({ question, onAnswered }: { question: CallQuestion; onAnswe
           </p>
         )}
         {speech.error && <p className="text-xs text-warn">{speech.error}</p>}
+        <ActieFout fout={fout} />
         {error && (
           <p className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">{error}</p>
         )}
@@ -182,10 +185,10 @@ function AnswerPanel({ question, onAnswered }: { question: CallQuestion; onAnswe
 }
 
 function EndCallButton() {
-  const [pending, startTransition] = useTransition();
+  const { doe, fout, bezig: pending } = useActie();
   return (
     <form
-      action={() => startTransition(() => endCall())}
+      action={() => doe(() => endCall())}
       className="mt-5"
     >
       <button type="submit" className="btn btn-primary" disabled={pending}>
@@ -208,7 +211,7 @@ function QuickTask({ agents }: { agents: CallQuestion["agent"][] }) {
   const [agentId, setAgentId] = useState(unique[0]?.id ?? "");
   const [title, setTitle] = useState("");
   const [saved, setSaved] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const { doe, fout, bezig: pending } = useActie();
 
   if (!open) {
     return (
@@ -252,7 +255,7 @@ function QuickTask({ agents }: { agents: CallQuestion["agent"][] }) {
           className="btn btn-primary"
           disabled={pending || !title.trim() || !agentId}
           onClick={() =>
-            startTransition(async () => {
+            doe(async () => {
               const result = await taskFromCall(agentId, title);
               if (result.ok) {
                 setTitle("");

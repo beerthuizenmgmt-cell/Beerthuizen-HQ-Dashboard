@@ -105,5 +105,42 @@ for (const [bestand, waarom] of STRENG) {
   toets(`${bestand.padEnd(20)} ${waarom}`, !losseUser, losseUser ? "bevat nog requireUser()" : "");
 }
 
+// ── Knoppen die stil kunnen falen ─────────────────────────────────────────
+//
+// `start(() => void deActie(id))` gooit het antwoord weg, fout en al. Mislukt
+// de actie, dan gebeurt er zichtbaar niets — niet te onderscheiden van "het is
+// gelukt maar je ziet het nog niet". Daar is useActie() voor. Deze test zoekt
+// het hele dashboard af, zodat het patroon niet ergens terugsluipt.
+console.log("\nKnoppen die stil kunnen falen");
+
+/// Loopt alle .tsx onder src/ langs.
+function bronbestanden(map: string): string[] {
+  const uit: string[] = [];
+  for (const naam of readdirSync(map)) {
+    const vol = join(map, naam);
+    if (statSync(vol).isDirectory()) uit.push(...bronbestanden(vol));
+    else if (naam.endsWith(".tsx")) uit.push(vol);
+  }
+  return uit;
+}
+
+// Een transitie die een serveractie start zonder hem af te wachten: het
+// resultaat verdwijnt, dus een fout ook.
+const WEGGEGOOID = /start\w*\s*\(\s*\(\s*\)\s*=>\s*void\s+\w/;
+// Of: wel aangeroepen, maar niet ge-await en niet in een try.
+const NIET_AFGEWACHT = /startTransition\s*\(\s*\(\s*\)\s*=>\s*\w+\s*\([^)]*\)\s*\)/;
+
+const stille: string[] = [];
+for (const bestand of bronbestanden("src")) {
+  const bron = readFileSync(bestand, "utf8");
+  if (WEGGEGOOID.test(bron) || NIET_AFGEWACHT.test(bron)) stille.push(bestand.replace("src/", ""));
+}
+
+toets(
+  "geen knop gooit zijn foutmelding weg",
+  stille.length === 0,
+  stille.length ? stille.join(", ") : "",
+);
+
 console.log(`\n${"─".repeat(72)}\n${goed} geslaagd, ${fout} mislukt.`);
 if (fout > 0) process.exit(1);

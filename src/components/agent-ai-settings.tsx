@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useActie } from "@/components/use-actie";
+import { ActieFout } from "@/components/actie-fout";
 import { setAgentModel, setAgentPaused } from "@/lib/actions/ai";
 
 /// Model per agent. Leeg betekent: gebruik het standaardmodel uit de
@@ -19,7 +21,7 @@ export function AgentAiSettings({
 }) {
   const [value, setValue] = useState(modelId ?? "");
   const [saved, setSaved] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const { doe, fout, bezig: pending } = useActie();
 
   return (
     <div className="space-y-4">
@@ -43,7 +45,7 @@ export function AgentAiSettings({
             className="btn btn-ghost"
             disabled={pending}
             onClick={() =>
-              startTransition(async () => {
+              doe(async () => {
                 await setAgentModel(agentId, value);
                 setSaved(true);
               })
@@ -53,6 +55,7 @@ export function AgentAiSettings({
           </button>
         </div>
         {saved && <p className="mt-1 text-xs text-ok">Opgeslagen.</p>}
+        <ActieFout fout={fout} />
         <p className="mt-1 text-xs text-text-faint">
           Kies zwaar denkwerk voor analyses en advies, en iets goedkopers voor repetitief werk.
         </p>
@@ -71,7 +74,7 @@ export function AgentAiSettings({
           type="button"
           className="btn btn-ghost"
           disabled={pending}
-          onClick={() => startTransition(() => setAgentPaused(agentId, !paused))}
+          onClick={() => doe(() => setAgentPaused(agentId, !paused))}
         >
           {paused ? "Activeren" : "Pauzeren"}
         </button>

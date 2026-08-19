@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useActie } from "@/components/use-actie";
+import { ActieFout } from "@/components/actie-fout";
 import { dispatchTask, setTaskStatus, assignTask } from "@/lib/actions/tasks";
 
 const STATUS_OPTIONS = [
@@ -25,7 +27,7 @@ export function TaskActions({
   agents: { id: string; name: string; emoji: string | null }[];
   canSend: boolean;
 }) {
-  const [pending, startTransition] = useTransition();
+  const { doe, fout, bezig: pending } = useActie();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
   return (
@@ -38,7 +40,7 @@ export function TaskActions({
           onChange={(event) => {
             const next = event.target.value;
             if (!next) return;
-            startTransition(() => assignTask(taskId, next));
+            doe(() => assignTask(taskId, next));
           }}
         >
           <option value="">Niemand toegewezen</option>
@@ -56,7 +58,7 @@ export function TaskActions({
           disabled={pending}
           onChange={(event) => {
             const next = event.target.value;
-            startTransition(() => setTaskStatus(taskId, next));
+            doe(() => setTaskStatus(taskId, next));
           }}
         >
           {STATUS_OPTIONS.map((option) => (
@@ -78,7 +80,7 @@ export function TaskActions({
                 : undefined
           }
           onClick={() => {
-            startTransition(async () => {
+            doe(async () => {
               const result = await dispatchTask(taskId);
               setFeedback({
                 ok: result.ok,
@@ -97,6 +99,8 @@ export function TaskActions({
           Telegram of de gateway om taken te kunnen uitbesteden.
         </p>
       )}
+
+      <ActieFout fout={fout} />
 
       {feedback && (
         <p

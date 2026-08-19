@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { moveTaskToDay, planOnDay, type QuickPlanState } from "@/lib/actions/agenda";
 import { useActionState } from "react";
+import { useActie } from "@/components/use-actie";
+import { ActieFout } from "@/components/actie-fout";
 
 export type AgendaTask = {
   id: string;
@@ -43,18 +45,23 @@ export function WeekBoard({
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const { doe, fout } = useActie();
 
   function drop(dayKey: string | null) {
     const taskId = dragging;
     setDragging(null);
     setOver(null);
     if (!taskId) return;
-    startTransition(() => moveTaskToDay(taskId, dayKey));
+    // Mislukt het verplaatsen, dan springt de kaart terug naar zijn oude dag en
+    // gebeurt er verder niets zichtbaars. Dat is niet te onderscheiden van "het
+    // is gelukt maar de pagina liep achter", dus de reden hoort in beeld.
+    doe(() => moveTaskToDay(taskId, dayKey));
   }
 
   return (
     <div className="space-y-4">
+      <ActieFout fout={fout} />
+
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
         {days.map((day) => (
           <section

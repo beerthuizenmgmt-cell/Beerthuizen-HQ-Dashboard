@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useActie } from "@/components/use-actie";
+import { ActieFout } from "@/components/actie-fout";
 import { rotateInboundToken } from "@/lib/actions/notifications";
 
 /// Laat zien hoe een agent terugpraat. Het token staat standaard verborgen —
@@ -17,7 +19,7 @@ export function InboundSetup({
   isTelegram: boolean;
 }) {
   const [visible, setVisible] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const { doe, fout, bezig: pending } = useActie();
 
   const replyUrl = `${appUrl}/api/agents/${agentId}/reply`;
   const webhookUrl = `${appUrl}/api/webhooks/telegram/${agentId}`;
@@ -25,6 +27,7 @@ export function InboundSetup({
 
   return (
     <div className="space-y-3">
+      <ActieFout fout={fout} />
       <p className="text-xs text-text-muted">
         Hiermee meldt de agent resultaten terug. Het token krijgt hij automatisch mee in elke opdracht
         die je hem stuurt — je hoeft het alleen zelf te gebruiken als je de koppeling handmatig instelt.
@@ -35,7 +38,7 @@ export function InboundSetup({
           type="button"
           className="btn btn-ghost"
           disabled={pending}
-          onClick={() => startTransition(() => rotateInboundToken(agentId))}
+          onClick={() => doe(() => rotateInboundToken(agentId))}
         >
           {pending ? "Bezig…" : "Token aanmaken"}
         </button>
@@ -73,7 +76,7 @@ Authorization: Bearer ${shown}
               type="button"
               className="btn btn-ghost text-xs"
               disabled={pending}
-              onClick={() => startTransition(() => rotateInboundToken(agentId))}
+              onClick={() => doe(() => rotateInboundToken(agentId))}
             >
               {pending ? "Bezig…" : "Nieuw token"}
             </button>

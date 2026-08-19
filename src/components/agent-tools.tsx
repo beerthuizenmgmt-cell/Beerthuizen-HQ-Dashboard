@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useState } from "react";
+import { useActie } from "@/components/use-actie";
+import { ActieFout } from "@/components/actie-fout";
 import { attachTool, detachTool, toggleTool, type ToolState } from "@/lib/actions/agent-tools";
 import type { ToolField } from "@/lib/ai/toolkit";
 
@@ -129,10 +131,11 @@ function ToolChip({ item, onClick }: { item: CatalogItem; onClick: () => void })
 }
 
 function AttachedRow({ tool }: { tool: AttachedTool }) {
-  const [pending, startTransition] = useTransition();
+  const { doe, fout, bezig: pending } = useActie();
 
   return (
     <div className="card p-3">
+      <ActieFout fout={fout} />
       <div className="flex flex-wrap items-center gap-2">
         <span
           className="h-2 w-2 shrink-0 rounded-full"
@@ -160,7 +163,7 @@ function AttachedRow({ tool }: { tool: AttachedTool }) {
             type="button"
             className="btn btn-ghost px-2 py-1 text-xs"
             disabled={pending}
-            onClick={() => startTransition(() => toggleTool(tool.id, !tool.enabled))}
+            onClick={() => doe(() => toggleTool(tool.id, !tool.enabled))}
           >
             {tool.enabled ? "Uitzetten" : "Aanzetten"}
           </button>
@@ -168,7 +171,7 @@ function AttachedRow({ tool }: { tool: AttachedTool }) {
             type="button"
             className="btn btn-ghost px-2 py-1 text-xs"
             disabled={pending}
-            onClick={() => startTransition(() => detachTool(tool.id))}
+            onClick={() => doe(() => detachTool(tool.id))}
           >
             Verwijderen
           </button>
