@@ -463,6 +463,20 @@ async function main() {
       /export async function bezorgBericht/.test(kanaalBron),
   );
 
+  toets(
+    "een bericht zonder tag in de groep komt bij iemand terecht",
+    /kiesAgentVoor/.test(kanaalBron),
+  );
+  toets(
+    "agents onderling worden niet automatisch gerouteerd",
+    /input\.fromType === "user"/.test(kanaalBron),
+  );
+
+  const routeBron = await readFile(new URL("../src/lib/ai/routeren.ts", import.meta.url), "utf8");
+  toets("bij twijfel gaat het naar de Head of Operations", /chief/.test(routeBron));
+  toets("een mislukte keuze laat nooit niemand achter", /catch/.test(routeBron));
+  toets("het kiezen gebruikt geen gereedschap en blijft dus snel", !/tools:/.test(routeBron));
+
   const actieBron = await readFile(new URL("../src/lib/actions/messages.ts", import.meta.url), "utf8");
   toets("het denkwerk gebeurt na de bevestiging", /after\(/.test(actieBron));
   toets("een mislukt antwoord laat een spoor na", /bericht_niet_bezorgd/.test(actieBron));

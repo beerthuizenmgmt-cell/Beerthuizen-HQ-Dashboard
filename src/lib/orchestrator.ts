@@ -63,8 +63,24 @@ export async function plaatsBericht(input: PostMessageInput) {
 
   // In een DM is de ontvanger vanzelfsprekend; in een teamkanaal bepalen de
   // mentions wie er daadwerkelijk iets in zijn inbox krijgt.
-  const explicitTarget = input.toAgentId ?? channel.agentId ?? null;
-  const recipients = explicitTarget ? [explicitTarget] : mentions.ids;
+  let explicitTarget = input.toAgentId ?? channel.agentId ?? null;
+  let recipients = explicitTarget ? [explicitTarget] : mentions.ids;
+
+  // Zeg je gewoon iets in de groep, zonder iemand te taggen, dan pakt degene die
+  // erover gaat het op.
+  //
+  // Hiervoor kwam zo'n bericht bij niemand terecht en bleef het onbeantwoord
+  // staan. In een kantoor werkt dat niet zo: je zegt iets in de groep en degene
+  // die erover gaat reageert. Alleen bij berichten van mensen — laten we agents
+  // onderling ook automatisch routeren, dan praten ze eindeloos door.
+  if (recipients.length === 0 && input.fromType === "user" && channel.kind === "team") {
+    const { kiesAgentVoor } = await import("./ai/routeren");
+    const gekozen = await kiesAgentVoor(input.body);
+    if (gekozen) {
+      explicitTarget = gekozen;
+      recipients = [gekozen];
+    }
+  }
 
   const message = await db.message.create({
     data: {
