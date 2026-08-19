@@ -7,6 +7,7 @@ import { TaskActions } from "@/components/task-actions";
 import { TaskComment } from "@/components/task-comment";
 import { formatDate, formatDateTime, timeAgo } from "@/lib/format";
 import { AgentAvatar } from "@/components/agent-avatar";
+import { ChatVerversen } from "@/components/chat-verversen";
 
 export const dynamic = "force-dynamic";
 
@@ -63,8 +64,18 @@ export default async function TaskDetailPage({ params }: PageProps<"/taken/[id]"
 
   const canSend = task.agent ? getAdapter(task.agent.adapterType).capabilities.send : false;
 
+  // Is de agent hier nu mee bezig? Dan haalt de pagina zichzelf op, zodat zijn
+  // tussenstand en zijn resultaat binnendruppelen in plaats van dat je moet
+  // verversen om te zien of er al iets is.
+  const aanHetWerk =
+    task.status === "in_progress" &&
+    task.dispatchedAt !== null &&
+    Date.now() - task.dispatchedAt.getTime() < 10 * 60_000;
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      <ChatVerversen wachtend={aanHetWerk} />
+
       <header>
         <Link href="/taken" className="text-xs text-text-muted hover:text-text">
           ← Taken

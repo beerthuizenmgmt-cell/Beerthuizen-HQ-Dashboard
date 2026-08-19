@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { markeerGoedkeuringUitgevoerd } from "@/lib/goedkeuring-afronden";
@@ -78,12 +79,74 @@ export async function createTask(_prev: TaskState, formData: FormData): Promise<
   return { ok: "Taak aangemaakt." };
 }
 
+/// Uitbesteden: bevestigen en teruggeven, het werk gebeurt erachteraan.
+///
+/// Wachtte je op de hele opdracht, dan stond je tot enkele minuten naar een
+/// draaiend knopje te kijken — en op Vercel kapte de server action er soms
+/// middenin af, waarna je een foutmelding zag terwijl het werk gewoon liep.
 export async function dispatchTask(taskId: string): Promise<{ ok: boolean; error?: string }> {
+  const aankondiging = await kondigAan(taskId);
+  if (!aankondiging.ok) return aankondiging;
+
+  after(async () => {
+    try {
+      await voerUit(taskId);
+    } catch (error) {
+      await db.taskUpdate.create({
+        data: {
+          taskId,
+          authorType: "system",
+          kind: "error",
+          body: `Er ging iets mis tijdens het uitvoeren: ${
+            error instanceof Error ? error.message : "onbekende fout"
+          }`,
+        },
+      });
+    }
+  });
+
+  revalidatePath("/taken");
+  revalidatePath(`/taken/${taskId}`);
+  return { ok: true };
+}
+
+async function kondigAan(taskId: string): Promise<{ ok: boolean; error?: string }> {
   await requireUser();
 
   const task = await db.task.findUnique({ where: { id: taskId }, include: { agent: true } });
   if (!task) return { ok: false, error: "Taak bestaat niet meer." };
   if (!task.agent) return { ok: false, error: "Wijs de taak eerst aan een agent toe." };
+
+  const token = await ensureInboundToken(task.agent.id);
+  const brief = buildTaskBrief(task, `${appUrl()}/api/agents/${task.agent.id}/reply`, token);
+
+  // Meteen laten weten dat hij begonnen is.
+  //
+  // Hiervoor was uitbesteden een zwart gat: je klikte, en dan gebeurde er
+  // zichtbaar niets tot de agent helemaal klaar was — soms minuten later. Je
+  // wist niet of hij bezig was, of dat er iets was misgegaan.
+  await db.taskUpdate.create({
+    data: {
+      taskId: task.id,
+      authorType: "agent",
+      authorAgentId: task.agent.id,
+      kind: "comment",
+      body: `${task.agent.name} heeft dit opgepakt en gaat ermee aan de slag.`,
+    },
+  });
+
+  await db.task.update({ where: { id: task.id }, data: { dispatchedAt: new Date() } });
+  await db.task.updateMany({
+    where: { id: task.id, status: "assigned" },
+    data: { status: "in_progress" },
+  });
+
+  return { ok: true };
+}
+
+async function voerUit(taskId: string): Promise<void> {
+  const task = await db.task.findUnique({ where: { id: taskId }, include: { agent: true } });
+  if (!task?.agent) return;
 
   const token = await ensureInboundToken(task.agent.id);
   const brief = buildTaskBrief(task, `${appUrl()}/api/agents/${task.agent.id}/reply`, token);
@@ -102,17 +165,6 @@ export async function dispatchTask(taskId: string): Promise<{ ok: boolean; error
   });
 
   if (result.ok) {
-    await db.task.update({ where: { id: task.id }, data: { dispatchedAt: new Date() } });
-
-    // Alleen doorzetten als de taak nog steeds klaarstaat. Ingebouwde agents
-    // werken synchroon binnen sendToAgent hierboven, dus tegen de tijd dat we
-    // hier zijn kan de agent hem al op klaar, ter controle of vastgelopen
-    // hebben gezet. Schreven we die status weg met de momentopname van vóór
-    // het versturen, dan verdween elke afronding weer onder "bezig".
-    await db.task.updateMany({
-      where: { id: task.id, status: "assigned" },
-      data: { status: "in_progress" },
-    });
     await logActivity({
       agentId: task.agent.id,
       kind: "taak_verstuurd",
@@ -132,7 +184,6 @@ export async function dispatchTask(taskId: string): Promise<{ ok: boolean; error
 
   revalidatePath("/taken");
   revalidatePath(`/taken/${task.id}`);
-  return { ok: result.ok, error: result.error };
 }
 
 export async function setTaskStatus(taskId: string, status: string) {

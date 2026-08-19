@@ -503,6 +503,18 @@ async function main() {
   toets("een mislukte keuze laat nooit niemand achter", /catch/.test(routeBron));
   toets("het kiezen gebruikt geen gereedschap en blijft dus snel", !/tools:/.test(routeBron));
 
+  // ── Uitbesteden is geen zwart gat meer ───────────────────────────────────
+  console.log("\nUitbesteden bevestigen");
+
+  const takenBron = await readFile(new URL("../src/lib/actions/tasks.ts", import.meta.url), "utf8");
+  toets("de agent bevestigt meteen dat hij begint", /heeft dit opgepakt/.test(takenBron));
+  toets("het werk gebeurt na de bevestiging", /after\(/.test(takenBron));
+  toets("aankondigen en uitvoeren zijn gescheiden", /kondigAan/.test(takenBron) && /voerUit/.test(takenBron));
+  toets("een klapper tijdens het werk laat een spoor na", /kind: "error"/.test(takenBron));
+
+  const briefBron = await readFile(new URL("../src/lib/orchestrator.ts", import.meta.url), "utf8");
+  toets("langer werk hoort tussendoor gemeld te worden", /meld dan tussendoor/.test(briefBron));
+
   const actieBron = await readFile(new URL("../src/lib/actions/messages.ts", import.meta.url), "utf8");
   toets("het denkwerk gebeurt na de bevestiging", /after\(/.test(actieBron));
   toets("een mislukt antwoord laat een spoor na", /bericht_niet_bezorgd/.test(actieBron));

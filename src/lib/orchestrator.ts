@@ -244,6 +244,12 @@ export function buildTaskBrief(task: {
     `Header: Authorization: Bearer ${inboundToken}`,
     `Body: {"taskId": "${task.id}", "status": "done", "message": "wat je gedaan hebt"}`,
     `\nLoop je vast, gebruik dan status "blocked" met uitleg.`,
+    // Zonder deze regel hoort Enriqueo niets tot het helemaal af is. Bij werk
+    // dat meer dan een paar stappen kost is dat te lang stil: hij weet dan niet
+    // of je bezig bent of vastgelopen.
+    `\nKost dit meer dan een paar stappen, meld dan tussendoor kort waar je staat`,
+    `met werk_taak_bij en status "in_progress" — één regel is genoeg. Schrijf als`,
+    `collega die even laat weten hoe het loopt, niet als voortgangsrapport.`,
   ];
   return lines.filter(Boolean).join("\n");
 }
