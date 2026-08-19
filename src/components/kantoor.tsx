@@ -24,12 +24,12 @@ type Indeling = {
 
 /// Op een breed scherm twee rijen van vijf en vier: de achterste hoger en
 /// kleiner, zodat het een ruimte wordt in plaats van een rij poppetjes.
-const BREED: Indeling = { rijen: [5, 4], breedte: 1000, hoogte: 260, eersteRij: 92, rijafstand: 86 };
+const BREED: Indeling = { rijen: [5, 4], breedte: 1000, hoogte: 300, eersteRij: 100, rijafstand: 104 };
 
 /// Op een telefoon zou datzelfde neerkomen op negen figuren over driehonderd
 /// pixels — namen van vier pixels hoog, dus onleesbaar. Daar drie rijen van
 /// drie, in een kamer die hoger is dan breed.
-const SMAL: Indeling = { rijen: [3, 3, 3], breedte: 400, hoogte: 330, eersteRij: 66, rijafstand: 96 };
+const SMAL: Indeling = { rijen: [3, 3, 3], breedte: 400, hoogte: 400, eersteRij: 80, rijafstand: 118 };
 
 function Werkplek({
   lid,
@@ -81,26 +81,72 @@ function Werkplek({
       {/* Slagschaduw van het hoofd op de borst */}
       <ellipse cx="0" cy="11" rx="10" ry="4" fill="#000" opacity="0.22" />
 
-      {/* Hoofd */}
+      {/* Hoofd.
+
+          Hetzelfde gezicht als in de lijst met je digitale medewerkers: eerst
+          zijn portret, anders zijn emoji, anders zijn initialen. Twee getekende
+          oogjes zouden een tweede, ander gezicht opleveren voor dezelfde
+          collega — dan herken je hem in de kamer niet terug uit de lijst. */}
+      <clipPath id={`hoofd-${merk}-${lid.id}`}>
+        <circle cx="0" cy="0" r="9.5" />
+      </clipPath>
+
       <circle cx="0" cy="0" r="9.5" fill={kleur} opacity={lid.bezig ? 1 : 0.8} />
-      <circle cx="0" cy="0" r="9.5" fill={`url(#hoofd-schaduw-${merk})`} />
-      <circle cx="0" cy="0" r="9.5" fill={`url(#hoofd-licht-${merk})`} />
+
+      {lid.avatarUrl ? (
+        <image
+          href={lid.avatarUrl}
+          x="-9.5"
+          y="-9.5"
+          width="19"
+          height="19"
+          clipPath={`url(#hoofd-${merk}-${lid.id})`}
+          preserveAspectRatio="xMidYMid slice"
+        />
+      ) : lid.emoji ? (
+        <text x="0" y="0" textAnchor="middle" dominantBaseline="central" fontSize="10">
+          {lid.emoji}
+        </text>
+      ) : (
+        <text
+          x="0"
+          y="0"
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize="8"
+          fontWeight="600"
+          fill="#fff"
+          opacity="0.9"
+        >
+          {lid.naam.slice(0, 2).toUpperCase()}
+        </text>
+      )}
+
+      {/* Licht en schaduw eroverheen. Zachter als er een portret onder zit —
+          anders was je zijn gezicht weg met je eigen belichting. */}
+      <circle
+        cx="0"
+        cy="0"
+        r="9.5"
+        fill={`url(#hoofd-schaduw-${merk})`}
+        opacity={lid.avatarUrl ? 0.55 : 1}
+      />
+      <circle
+        cx="0"
+        cy="0"
+        r="9.5"
+        fill={`url(#hoofd-licht-${merk})`}
+        opacity={lid.avatarUrl ? 0.45 : 1}
+      />
       {/* Randlicht langs de bovenkant, dat maakt de bol rond */}
       <path
         d="M -8.4 -4.4 A 9.5 9.5 0 0 1 8.4 -4.4"
         fill="none"
         stroke="#fff"
-        strokeOpacity="0.5"
+        strokeOpacity="0.45"
         strokeWidth="1.1"
         strokeLinecap="round"
       />
-
-      {/* Ogen. Twee stipjes zijn genoeg: meer detail wordt op deze maat modder,
-          en een gezicht met te veel trekjes gaat er raar uitzien. */}
-      <ellipse cx="-3.2" cy="0.6" rx="1.15" ry="1.5" fill="#0b0b0b" opacity="0.8" />
-      <ellipse cx="3.2" cy="0.6" rx="1.15" ry="1.5" fill="#0b0b0b" opacity="0.8" />
-      <circle cx="-2.9" cy="0.1" r="0.4" fill="#fff" opacity="0.85" />
-      <circle cx="3.5" cy="0.1" r="0.4" fill="#fff" opacity="0.85" />
 
       {/* Beeldscherm ervoor. Brandt in zijn eigen kleur zodra hij echt aan het
           werk is; staat het uit, dan is het een donker vlak. */}
@@ -230,7 +276,10 @@ function Kamer({
             x={plek(i, rij.length)}
             y={indeling.eersteRij + r * indeling.rijafstand}
             // Verder naar achteren is kleiner: dat maakt de diepte.
-            schaal={(indeling.breedte < 600 ? 0.5 : 0.78) + (r / laatsteRij) * 0.22}
+            // Groot genoeg om een portret te herkennen. Er past meer dan er
+            // eerst stond: een bureau is 72 eenheden breed en er is ruim honderd
+            // per plek beschikbaar.
+            schaal={(indeling.breedte < 600 ? 0.85 : 0.95) + (r / laatsteRij) * 0.25}
             merk={merk}
           />
         )),

@@ -588,6 +588,19 @@ async function main() {
     /const merk = `k\$\{indeling\.breedte\}`/.test(kantoorBron),
   );
 
+  toets(
+    "in de kamer zie je hetzelfde gezicht als in de lijst",
+    /lid\.avatarUrl/.test(kantoorBron) && /lid\.emoji/.test(kantoorBron),
+  );
+  toets(
+    "een portret wordt niet weggewassen door de belichting",
+    /lid\.avatarUrl \? 0\.55 : 1/.test(kantoorBron),
+  );
+  toets(
+    "elk hoofd heeft zijn eigen knipmasker",
+    /hoofd-\$\{merk\}-\$\{lid\.id\}/.test(kantoorBron),
+  );
+
   const hqBron = await readFile(new URL("../src/app/(app)/hq/page.tsx", import.meta.url), "utf8");
   toets("bij elke medewerker staat zijn functie", /\{lid\.rol\}/.test(hqBron));
 
