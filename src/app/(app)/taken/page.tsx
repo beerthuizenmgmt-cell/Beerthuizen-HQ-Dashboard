@@ -9,6 +9,11 @@ import type { TaskPriority, TaskStatus } from "@/generated/prisma/enums";
 
 export const dynamic = "force-dynamic";
 
+// Een taak uitbesteden wacht op de agent, en die denkt soms drie minuten door.
+// Zonder deze regel kapt Vercel de server action na zestig seconden af en zie
+// je een foutmelding terwijl de taak wél gewoon is uitgevoerd.
+export const maxDuration = 300;
+
 const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: "inbox", label: "Inbox" },
   { status: "assigned", label: "Toegewezen" },
@@ -62,11 +67,18 @@ export default async function TasksPage() {
         />
       </header>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {/* Zes kolommen naast elkaar, met een schuifbalk als het niet past.
+          Eerder was dit een raster van drie dat doorliep naar een tweede rij:
+          Vastgelopen stond dan vijftienhonderd pixels onder Inbox, achter de
+          hele kolom Toegewezen. Juist een vastgelopen taak wil je meteen zien.
+
+          De kolommen krijgen een vaste breedte in plaats van mee te rekken,
+          zodat een kaart met een lange titel de rest niet samenduwt. */}
+      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2">
         {COLUMNS.map((column) => {
           const columnTasks = tasks.filter((task) => task.status === column.status);
           return (
-            <section key={column.status} className="space-y-2">
+            <section key={column.status} className="w-[17rem] shrink-0 space-y-2">
               <div className="flex items-center justify-between px-1">
                 <h2 className="text-xs font-semibold tracking-wide text-text-muted uppercase">
                   {column.label}

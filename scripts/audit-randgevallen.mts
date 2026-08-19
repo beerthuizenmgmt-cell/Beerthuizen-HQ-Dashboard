@@ -6,6 +6,7 @@
 // Voert geen externe acties uit.
 
 import "dotenv/config";
+import { readFile } from "node:fs/promises";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { poolConfig, resolveDatabaseUrl } from "../src/lib/db-url";
@@ -172,7 +173,48 @@ async function main() {
   const nergens = await zoekFactuur({ amountEur: 12345.67, reference: "Iets anders" });
   toets("onbekend bedrag geeft geen match", nergens.zekerheid === "geen");
 
+  // ── Uitbesteden overschrijft geen afronding ──────────────────────────────
+  //
+  // Ingebouwde agents werken synchroon binnen sendToAgent. Tegen de tijd dat
+  // dispatchTask zijn eigen statusregel wegschrijft, kan de agent de taak al
+  // hebben afgerond. Deed dispatchTask dat met de momentopname van vóór het
+  // versturen, dan verdween elke afronding weer onder "bezig".
+  console.log("\nUitbesteden");
+
+  const proefAgent = await db.agent.findFirst({ select: { id: true } });
+  const maakProeftaak = async (status: "assigned") =>
+    db.task.create({ data: { title: `${MERK} uitbesteden`, status, agentId: proefAgent?.id ?? null } });
+
+  // De agent rondt af terwijl het uitbesteden nog loopt.
+  const afgerond = await maakProeftaak("assigned");
+  await db.task.update({ where: { id: afgerond.id }, data: { status: "done" } });
+  await db.task.updateMany({ where: { id: afgerond.id, status: "assigned" }, data: { status: "in_progress" } });
+  const naAfronden = await db.task.findUnique({ where: { id: afgerond.id }, select: { status: true } });
+  toets("afgeronde taak blijft klaar staan", naAfronden?.status === "done", `stond op ${naAfronden?.status}`);
+
+  // De agent loopt vast terwijl het uitbesteden nog loopt.
+  const vast = await maakProeftaak("assigned");
+  await db.task.update({ where: { id: vast.id }, data: { status: "blocked" } });
+  await db.task.updateMany({ where: { id: vast.id, status: "assigned" }, data: { status: "in_progress" } });
+  const naVastlopen = await db.task.findUnique({ where: { id: vast.id }, select: { status: true } });
+  toets("vastgelopen taak blijft vastgelopen", naVastlopen?.status === "blocked", `stond op ${naVastlopen?.status}`);
+
+  // En een taak waar de agent nog niets mee deed, gaat wél gewoon door.
+  const onaangeraakt = await maakProeftaak("assigned");
+  await db.task.updateMany({ where: { id: onaangeraakt.id, status: "assigned" }, data: { status: "in_progress" } });
+  const naStilte = await db.task.findUnique({ where: { id: onaangeraakt.id }, select: { status: true } });
+  toets("onaangeraakte taak gaat naar bezig", naStilte?.status === "in_progress", `stond op ${naStilte?.status}`);
+
+  // De valkuil zelf: schrijft dispatchTask nog een status uit een oude snapshot?
+  const bron = await readFile(new URL("../src/lib/actions/tasks.ts", import.meta.url), "utf8");
+  toets(
+    "dispatchTask schrijft geen status uit een oude momentopname",
+    !/status:\s*task\.status\s*===/.test(bron),
+  );
+
   // ── Opruimen ─────────────────────────────────────────────────────────────
+  await db.taskUpdate.deleteMany({ where: { task: { title: { startsWith: MERK } } } });
+  await db.task.deleteMany({ where: { title: { startsWith: MERK } } });
   await db.invoice.deleteMany({ where: { number: { startsWith: MERK } } });
   await db.portalRequest.deleteMany({ where: { label: { startsWith: MERK } } });
   await db.client.deleteMany({ where: { name: { startsWith: MERK } } });

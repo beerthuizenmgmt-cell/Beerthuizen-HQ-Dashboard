@@ -10,6 +10,11 @@ import { AgentAvatar } from "@/components/agent-avatar";
 
 export const dynamic = "force-dynamic";
 
+// Een taak uitbesteden wacht op de agent, en die denkt soms drie minuten door.
+// Zonder deze regel kapt Vercel de server action na zestig seconden af en zie
+// je een foutmelding terwijl de taak wél gewoon is uitgevoerd.
+export const maxDuration = 300;
+
 const STATUS_LABEL: Record<string, string> = {
   inbox: "Inbox",
   assigned: "Toegewezen",

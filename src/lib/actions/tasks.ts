@@ -101,9 +101,16 @@ export async function dispatchTask(taskId: string): Promise<{ ok: boolean; error
   });
 
   if (result.ok) {
-    await db.task.update({
-      where: { id: task.id },
-      data: { dispatchedAt: new Date(), status: task.status === "assigned" ? "in_progress" : task.status },
+    await db.task.update({ where: { id: task.id }, data: { dispatchedAt: new Date() } });
+
+    // Alleen doorzetten als de taak nog steeds klaarstaat. Ingebouwde agents
+    // werken synchroon binnen sendToAgent hierboven, dus tegen de tijd dat we
+    // hier zijn kan de agent hem al op klaar, ter controle of vastgelopen
+    // hebben gezet. Schreven we die status weg met de momentopname van vóór
+    // het versturen, dan verdween elke afronding weer onder "bezig".
+    await db.task.updateMany({
+      where: { id: task.id, status: "assigned" },
+      data: { status: "in_progress" },
     });
     await logActivity({
       agentId: task.agent.id,
@@ -158,10 +165,10 @@ export async function assignTask(taskId: string, agentId: string) {
 
   const agent = await db.agent.findUnique({ where: { id: agentId }, select: { name: true } });
 
-  await db.task.update({
-    where: { id: taskId },
-    data: { agentId, status: task.status === "inbox" ? "assigned" : task.status },
-  });
+  await db.task.update({ where: { id: taskId }, data: { agentId } });
+
+  // Uit de inbox halen mag, maar wat er verder al mee gebeurd is laten we staan.
+  await db.task.updateMany({ where: { id: taskId, status: "inbox" }, data: { status: "assigned" } });
   await db.taskUpdate.create({
     data: {
       taskId,
