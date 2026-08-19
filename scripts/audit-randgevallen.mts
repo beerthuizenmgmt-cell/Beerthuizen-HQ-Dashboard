@@ -447,6 +447,17 @@ async function main() {
   toets("berichten van bots worden genegeerd", /is_bot/.test(route));
   toets("Telegram krijgt direct antwoord, het denkwerk komt erna", /after\(/.test(route));
 
+  // ── Een gesprek in plaats van losse opdrachten ───────────────────────────
+  console.log("\nTeamchat");
+
+  const kanaalBron = await readFile(new URL("../src/lib/orchestrator.ts", import.meta.url), "utf8");
+  toets("het antwoord van een agent komt terug in het kanaal", /fromType:\s*"agent"/.test(kanaalBron));
+  toets("de agent krijgt de eerdere berichten mee", /message\.findMany/.test(kanaalBron));
+  toets(
+    "een agent die zelf al postte krijgt er geen tweede versie onder",
+    /alGepost/.test(kanaalBron),
+  );
+
   // ── Opruimen ─────────────────────────────────────────────────────────────
   await db.taskUpdate.deleteMany({ where: { task: { title: { startsWith: MERK } } } });
   await db.task.deleteMany({ where: { title: { startsWith: MERK } } });

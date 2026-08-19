@@ -9,6 +9,11 @@ import { AgentAvatar } from "@/components/agent-avatar";
 
 export const dynamic = "force-dynamic";
 
+// Een bericht sturen betekent wachten tot de agent erover nagedacht heeft; dat
+// haalt de zestig seconden die Vercel een server action standaard geeft niet
+// altijd.
+export const maxDuration = 300;
+
 const DELIVERY_NOTE: Record<string, string> = {
   pending: "wordt bezorgd…",
   sent: "bezorgd",

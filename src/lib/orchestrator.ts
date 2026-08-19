@@ -73,12 +73,79 @@ export async function postMessage(input: PostMessageInput) {
     : null;
   const prefix = sender ? `[${sender.name} · #${channel.key}]` : `[#${channel.key}]`;
 
+  // Waar ging dit gesprek over?
+  //
+  // Zonder dit begint een agent bij elk bericht opnieuw en kun je dus geen
+  // vervolgvraag stellen: "en hoeveel dan?" betekent voor hem niets. Dat maakte
+  // van de teamchat een reeks losse opdrachten in plaats van een gesprek.
+  const eerder = await db.message.findMany({
+    where: { channelId: channel.id },
+    orderBy: { createdAt: "desc" },
+    take: 15,
+    select: { fromType: true, body: true, fromAgent: { select: { name: true } } },
+  });
+
+  // Het bericht dat we net zelf hebben vastgelegd staat er ook bij; eraf halen,
+  // anders staat de vraag twee keer in de prompt.
+  const geschiedenis = eerder
+    .slice(1)
+    .reverse()
+    .map((m) => `${m.fromType === "agent" ? (m.fromAgent?.name ?? "Een collega") : "Enriqueo"}: ${m.body}`)
+    .join("\n");
+
+  const gesprek = geschiedenis
+    ? `\n\nWat er hiervoor in dit kanaal is gezegd, oudste eerst:\n${geschiedenis}\n\n`
+    : "\n\n";
+
+  const toon = [
+    `Antwoord als collega in het gesprek, niet als systeem dat een opdracht afhandelt.`,
+    `Kort en gewoon Nederlands. Reageer op wat er staat, stel gerust een wedervraag,`,
+    `en zeg wat je gaat doen als je iets oppakt. Weet je iets niet, zeg dat — verzin niets.`,
+  ].join(" ");
+
   const results = await Promise.all(
     recipients
       // Een agent hoeft zijn eigen bericht niet terug te krijgen.
       .filter((agentId) => agentId !== input.fromAgentId)
-      .map(async (agentId) => ({ agentId, result: await sendToAgent(agentId, `${prefix} ${input.body}`) })),
+      .map(async (agentId) => ({
+        agentId,
+        result: await sendToAgent(agentId, `${prefix} ${input.body}${gesprek}${toon}`),
+      })),
   );
+
+  // Het antwoord terug in het kanaal.
+  //
+  // sendToAgent gaf het antwoord altijd al terug, maar hier werd alleen gekeken
+  // óf het versturen lukte — de tekst zelf werd weggegooid. Je typte dus iets in
+  // de teamchat, de agent dacht erover na, en jij zag nooit wat eruit kwam.
+  for (const { agentId, result } of results) {
+    const antwoord = result.ok ? result.reply?.trim() : null;
+    if (!antwoord) continue;
+
+    // Agents kunnen zelf al in een kanaal posten. Deed hij dat tijdens het
+    // nadenken, dan staat zijn punt er al en zou dit een tweede, bijna gelijke
+    // versie eronder zetten.
+    const alGepost = await db.message.findFirst({
+      where: {
+        channelId: channel.id,
+        fromAgentId: agentId,
+        createdAt: { gt: message.createdAt },
+      },
+      select: { id: true },
+    });
+    if (alGepost) continue;
+
+    await db.message.create({
+      data: {
+        channelId: channel.id,
+        fromType: "agent",
+        fromAgentId: agentId,
+        toAgentId: input.fromAgentId ?? null,
+        body: antwoord,
+        delivery: "delivered",
+      },
+    });
+  }
 
   const failed = results.filter((entry) => !entry.result.ok);
 
