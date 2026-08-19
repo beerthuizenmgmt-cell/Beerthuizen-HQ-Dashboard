@@ -18,6 +18,7 @@ import { verstuurGoedgekeurdeMail } from "../src/lib/mail";
 import { webhookGeheimKlopt } from "../src/lib/telegram";
 import { KANALEN, kanaal, kanaalkeuzeAlsPrompt } from "../src/lib/kanalen";
 import { haalOverzicht } from "../src/lib/overzicht";
+import { TOOL_CATALOG } from "../src/lib/ai/toolkit";
 
 const db = new PrismaClient({ adapter: new PrismaPg(poolConfig(resolveDatabaseUrl()!)) });
 
@@ -683,6 +684,30 @@ async function main() {
   toets(
     "een proefdraai telt wat er zou activeren, niet wat er activeerde",
     /outcome\.zouActiveren/.test(monitorBron),
+  );
+
+  // ── Zelf uitzoeken in plaats van vragen ──────────────────────────────────
+  console.log("\nZelfstandigheid");
+
+  const zoek = TOOL_CATALOG.find((t) => t.key === "web_search");
+  toets("de zoekmachine is gebouwd", Boolean(zoek?.implemented));
+  toets("er staat er precies één in de catalogus", TOOL_CATALOG.filter((t) => t.key === "web_search").length === 1);
+  toets("zonder sleutel wordt er niet gezocht", !(await zoek!.run!({}, { vraag: "test" })).ok);
+  toets("zonder vraag wordt er niet gezocht", !(await zoek!.run!({ apiKey: "x" }, {})).ok);
+  toets(
+    "de agent wordt naar de bron gestuurd, niet naar de samenvatting",
+    /lees_webpagina/.test(zoek!.definition!({}, "Zoekmachine").description),
+  );
+
+  const kaderBron = await readFile(new URL("../src/lib/ai/profiles.ts", import.meta.url), "utf8");
+  toets("er staat een volgorde: eerst archief, dan dashboard, dan internet", /Eerst zelf uitzoeken/.test(kaderBron));
+  toets(
+    "vragen mag alleen over wat alleen Enriqueo weet",
+    /alleen wat alleen hij kan weten/.test(kaderBron),
+  );
+  toets(
+    "niet vinden is geen reden om te gokken",
+    /Niets verzinnen blijft de belangrijkste regel/.test(kaderBron),
   );
 
   const hqBron = await readFile(new URL("../src/app/(app)/hq/page.tsx", import.meta.url), "utf8");

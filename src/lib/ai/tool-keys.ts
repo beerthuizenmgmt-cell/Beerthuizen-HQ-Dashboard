@@ -8,7 +8,7 @@
 // Zet je een koppeling af in toolkit.ts, dan hoort hij ook hier weg. De test
 // in toolkit.ts bewaakt dat ze gelijk blijven.
 
-export const GEBOUWD_GEREEDSCHAP = ["web_fetch", "custom_webhook"] as const;
+export const GEBOUWD_GEREEDSCHAP = ["web_fetch", "web_search", "custom_webhook"] as const;
 
 export function isGebouwd(toolKey: string): boolean {
   return (GEBOUWD_GEREEDSCHAP as readonly string[]).includes(toolKey);
