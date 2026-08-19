@@ -1,8 +1,12 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
+import { useActie } from "@/components/use-actie";
+import { ActieFout } from "@/components/actie-fout";
 import {
   checkTelegram,
+  zetInkomendeLijnAan,
+  zetInkomendeLijnUit,
   connectBot,
   findMyChat,
   sendTestMessage,
@@ -13,18 +17,20 @@ const initial: TelegramState = {};
 
 export function TelegramSettings({
   hasToken,
+  webhook,
   botUsername,
   chatId,
   ready,
 }: {
   hasToken: boolean;
+  webhook: { aan: boolean; url: string | null; wachtrij: number; laatsteFout: string | null };
   botUsername: string | null;
   chatId: string | null;
   ready: boolean;
 }) {
   const [state, formAction, pending] = useActionState(connectBot, initial);
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null);
-  const [busy, startTransition] = useTransition();
+  const { doe, fout, bezig: busy } = useActie();
 
   return (
     <div className="card space-y-4 p-5">
@@ -94,7 +100,7 @@ export function TelegramSettings({
             className="btn btn-primary"
             disabled={busy}
             onClick={() =>
-              startTransition(async () => {
+              doe(async () => {
                 setFeedback(await findMyChat());
               })
             }
@@ -115,7 +121,7 @@ export function TelegramSettings({
               className="btn btn-ghost"
               disabled={busy}
               onClick={() =>
-                startTransition(async () => {
+                doe(async () => {
                   setFeedback(await sendTestMessage());
                 })
               }
@@ -128,7 +134,7 @@ export function TelegramSettings({
               className="btn btn-primary"
               disabled={busy}
               onClick={() =>
-                startTransition(async () => {
+                doe(async () => {
                   setFeedback(await checkTelegram());
                 })
               }
@@ -137,13 +143,58 @@ export function TelegramSettings({
             </button>
           </div>
 
+          {/* De inkomende lijn.
+
+              Hiervoor kwam een bericht pas binnen als iemand op "ophalen" drukte.
+              Stuurde je de bot iets, dan bleef het liggen. Met de webhook duwt
+              Telegram elk bericht meteen door en is het een gesprek in plaats van
+              een postbus die je zelf moet legen. */}
+          <div className="rounded-xl border border-border bg-bg p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: webhook.aan ? "var(--ok)" : "var(--warn)" }}
+              />
+              <span className={`text-sm ${webhook.aan ? "text-ok" : "text-warn"}`}>
+                {webhook.aan
+                  ? "De lijn staat open — berichten komen direct binnen"
+                  : "De lijn staat dicht — berichten komen pas binnen als je op ophalen drukt"}
+              </span>
+            </div>
+
+            {webhook.wachtrij > 0 && (
+              <p className="mt-1 text-xs text-warn">
+                {webhook.wachtrij} bericht(en) blijven hangen bij Telegram.
+              </p>
+            )}
+            {webhook.laatsteFout && (
+              <p className="mt-1 text-xs text-danger">Laatste fout: {webhook.laatsteFout}</p>
+            )}
+
+            <button
+              type="button"
+              className={`btn mt-3 ${webhook.aan ? "btn-ghost" : "btn-primary"}`}
+              disabled={busy}
+              onClick={() =>
+                doe(async () =>
+                  setFeedback(webhook.aan ? await zetInkomendeLijnUit() : await zetInkomendeLijnAan()),
+                )
+              }
+            >
+              {busy ? "Bezig…" : webhook.aan ? "Lijn sluiten" : "Lijn openzetten"}
+            </button>
+          </div>
+
           <p className="text-xs text-text-muted">
-            Stuur de bot een bericht en klik op ophalen — de Head leest het, denkt na en antwoordt in
-            Telegram. Zolang het dashboard lokaal draait moet dat handmatig: Telegram kan je eigen Mac
-            niet bereiken. Online gaat dat vanzelf.
+            Staat de lijn open, dan leest de Head elk bericht meteen, denkt na en antwoordt in
+            Telegram. Ophalen hoeft dan niet meer — die knop blijft staan voor als je wilt
+            controleren of er iets is blijven liggen. Lokaal werkt de lijn niet: Telegram kan je
+            eigen Mac niet bereiken.
           </p>
         </div>
       )}
+
+      <ActieFout fout={fout} />
 
       {state.error && <p className="text-sm text-danger">{state.error}</p>}
       {state.ok && <p className="text-sm text-ok">{state.ok}</p>}

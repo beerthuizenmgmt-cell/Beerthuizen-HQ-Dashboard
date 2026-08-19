@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "./db";
-import { decryptSecret, encryptSecret } from "./crypto";
+import { decryptSecret, encryptSecret, randomToken } from "./crypto";
 import { TELEGRAM_MAX, isOpmaakfout, knipOp, zonderOpmaak } from "./telegram-tekst";
 
 // De persoonlijke lijn tussen Enriqueo en de Head of Operations.
@@ -255,10 +255,46 @@ export async function handleIncoming(
         .join("\n")
     : "";
 
+  // Waar ging het over? Zonder dit begint elk bericht bij nul en moet Enriqueo
+  // bij "en dat budget dan?" er elke keer bij zetten waarover — dat is geen
+  // gesprek, dat is een reeks losse opdrachten.
+  const eerder = channel
+    ? await db.message.findMany({
+        where: { channelId: channel.id },
+        orderBy: { createdAt: "desc" },
+        take: 13,
+        select: { fromType: true, body: true },
+      })
+    : [];
+
+  // Het bericht dat we net zelf hebben vastgelegd staat er ook bij; die halen
+  // we eraf, anders staat de vraag twee keer in de prompt.
+  const geschiedenis = eerder
+    .slice(1)
+    .reverse()
+    .map((m) => `${m.fromType === "user" ? "Enriqueo" : "Jij"}: ${m.body}`)
+    .join("\n");
+
+  const gesprek = geschiedenis
+    ? `\n\nWat jullie hiervoor besproken hebben, oudste eerst:\n${geschiedenis}\n`
+    : "";
+
   const { runAgent } = await import("./ai/run");
   const result = await runAgent({
     agentId: chiefId,
-    input: `Enriqueo stuurt je dit via Telegram:\n\n${text}${context}\n\nAntwoord kort en direct — dit leest hij op zijn telefoon.`,
+    input: [
+      `Enriqueo stuurt je dit via Telegram:`,
+      ``,
+      text,
+      context,
+      gesprek,
+      ``,
+      `Antwoord kort en direct — dit leest hij op zijn telefoon, tussen andere dingen door.`,
+      `Praat als een collega, niet als een systeem. Bevestig altijd dat je het hebt gezien,`,
+      `ook als je nog niets af hebt: "helder, ik leg het bij Fleur neer en kom erop terug"`,
+      `is een goed antwoord. Zeg wat je gaat doen en bij wie het ligt.`,
+      `Verzin niets: weet je iets niet, zeg dat, en zeg wat je nodig hebt om verder te kunnen.`,
+    ].join("\n"),
     trigger: "message",
     reason: draad ? `antwoord op: ${draad.question.slice(0, 80)}` : "bericht via Telegram",
   });
@@ -358,3 +394,139 @@ async function stuurEenStuk(
   }
 }
 
+
+// ============================================================
+// De inkomende lijn
+// ============================================================
+//
+// Tot nu toe haalde HQ berichten op met getUpdates, en dat gebeurde alleen als
+// iemand in Instellingen op "Controleer berichten" drukte. Stuurde je de bot
+// dus iets, dan bleef het liggen tot je toevallig die knop indrukte. De helft
+// van het gesprek bestond wel — handleIncoming hierboven doet al het echte werk
+// — maar hij ging nooit af.
+//
+// Met een webhook duwt Telegram elk bericht meteen naar HQ. Dat is direct, het
+// kost niets, en het is hoe Telegram het zelf voorschrijft. Het adres is vanaf
+// internet bereikbaar, dus er hoort een geheim bij: Telegram stuurt dat mee in
+// een header en wij weigeren alles waar het niet in staat.
+
+/// Het geheim waarmee we binnenkomende aanroepen herkennen. Wordt aangemaakt
+/// zodra je de webhook aanzet en verandert daarna niet meer.
+export async function getWebhookSecret(): Promise<string | null> {
+  const setting = await db.setting.findUnique({ where: { key: SETTING_KEY } });
+  const stored = (setting?.value ?? {}) as { webhookSecret?: string };
+  return stored.webhookSecret ?? null;
+}
+
+/// Klopt de header die Telegram meestuurt?
+///
+/// Een vergelijking die bij het eerste verschillende teken stopt, verraadt via
+/// de looptijd hoeveel er goed was. Daarom teken voor teken, altijd tot het eind.
+export async function webhookGeheimKlopt(meegestuurd: string | null): Promise<boolean> {
+  const geheim = await getWebhookSecret();
+  if (!geheim || !meegestuurd || geheim.length !== meegestuurd.length) return false;
+
+  let verschil = 0;
+  for (let i = 0; i < geheim.length; i += 1) {
+    verschil |= geheim.charCodeAt(i) ^ meegestuurd.charCodeAt(i);
+  }
+  return verschil === 0;
+}
+
+/// Zet de webhook aan bij Telegram.
+export async function zetWebhookAan(
+  basisUrl: string,
+): Promise<{ ok: boolean; message: string }> {
+  const config = await getTelegramConfig();
+  if (!config.botToken) return { ok: false, message: "Er is nog geen bot gekoppeld." };
+
+  const setting = await db.setting.findUnique({ where: { key: SETTING_KEY } });
+  const stored = (setting?.value ?? {}) as Record<string, unknown>;
+  const geheim = (stored.webhookSecret as string | undefined) ?? randomToken(24);
+
+  const adres = `${basisUrl.replace(/\/$/, "")}/api/telegram/inkomend`;
+
+  try {
+    await call(config.botToken, "setWebhook", {
+      url: adres,
+      secret_token: geheim,
+      // Alleen gewone berichten; de rest heeft HQ niet nodig.
+      allowed_updates: ["message"],
+      // Wat er tijdens het pollen is blijven liggen hoeft niet alsnog binnen te
+      // stromen: dat zijn oude berichten waar je allang geen antwoord meer op
+      // verwacht.
+      drop_pending_updates: true,
+    });
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Aanzetten mislukt." };
+  }
+
+  await db.setting.upsert({
+    where: { key: SETTING_KEY },
+    update: { value: { ...stored, webhookSecret: geheim, webhookUrl: adres } },
+    create: { key: SETTING_KEY, value: { ...stored, webhookSecret: geheim, webhookUrl: adres } },
+  });
+
+  return { ok: true, message: "De lijn staat open — stuur de bot een bericht." };
+}
+
+export async function zetWebhookUit(): Promise<{ ok: boolean; message: string }> {
+  const config = await getTelegramConfig();
+  if (!config.botToken) return { ok: false, message: "Er is nog geen bot gekoppeld." };
+
+  try {
+    await call(config.botToken, "deleteWebhook", {});
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Uitzetten mislukt." };
+  }
+
+  const setting = await db.setting.findUnique({ where: { key: SETTING_KEY } });
+  const stored = (setting?.value ?? {}) as Record<string, string>;
+  delete stored.webhookUrl;
+  await db.setting.update({ where: { key: SETTING_KEY }, data: { value: stored } });
+
+  return { ok: true, message: "De webhook staat uit; berichten komen niet meer binnen." };
+}
+
+/// Wat Telegram zelf zegt over de webhook. Eerlijker dan onze eigen administratie:
+/// hier zie je ook of er berichten blijven hangen.
+export async function getWebhookStatus(): Promise<{
+  aan: boolean;
+  url: string | null;
+  wachtrij: number;
+  laatsteFout: string | null;
+}> {
+  const config = await getTelegramConfig();
+  if (!config.botToken) return { aan: false, url: null, wachtrij: 0, laatsteFout: null };
+
+  try {
+    const info = await call<{
+      url?: string;
+      pending_update_count?: number;
+      last_error_message?: string;
+    }>(config.botToken, "getWebhookInfo");
+
+    return {
+      aan: Boolean(info.url),
+      url: info.url || null,
+      wachtrij: info.pending_update_count ?? 0,
+      laatsteFout: info.last_error_message || null,
+    };
+  } catch {
+    return { aan: false, url: null, wachtrij: 0, laatsteFout: null };
+  }
+}
+
+/// "Daan is aan het typen…" in Telegram.
+///
+/// Nadenken duurt seconden. Zonder dit staar je naar een stil scherm en weet je
+/// niet of je bericht überhaupt is aangekomen.
+export async function toonTypt(): Promise<void> {
+  const config = await getTelegramConfig();
+  if (!config.botToken || !config.chatId) return;
+  try {
+    await call(config.botToken, "sendChatAction", { chat_id: config.chatId, action: "typing" });
+  } catch {
+    // Een typindicator die niet lukt mag nooit een gesprek tegenhouden.
+  }
+}

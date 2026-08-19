@@ -8,7 +8,7 @@ import { getFinanceSettings } from "@/lib/ai/cost";
 import { getCompanyContext } from "@/lib/ai/run";
 import { TelegramSettings } from "@/components/telegram-settings";
 import { MailSettings } from "@/components/mail-settings";
-import { getTelegramStatus } from "@/lib/telegram";
+import { getTelegramStatus, getWebhookStatus } from "@/lib/telegram";
 import { getMailStatus } from "@/lib/mail";
 import { isRecent } from "@/lib/format";
 
@@ -26,7 +26,7 @@ export default async function SettingsPage() {
     db.setting.findUnique({ where: { key: "alerts" } }),
   ]);
 
-  const [aiConfig, finance, companyContext, builtinAgents, activeAgents, runCount, telegram, mail] = await Promise.all([
+  const [aiConfig, finance, companyContext, builtinAgents, activeAgents, runCount, telegram, mail, webhook] = await Promise.all([
     getAiStatus(),
     getFinanceSettings(),
     getCompanyContext(),
@@ -35,6 +35,7 @@ export default async function SettingsPage() {
     db.agentRun.count(),
     getTelegramStatus(),
     getMailStatus(),
+    getWebhookStatus(),
   ]);
 
 
@@ -223,6 +224,7 @@ export default async function SettingsPage() {
         </div>
         <TelegramSettings
           hasToken={telegram.hasToken}
+          webhook={webhook}
           botUsername={telegram.botUsername}
           chatId={telegram.chatId}
           ready={telegram.ready}

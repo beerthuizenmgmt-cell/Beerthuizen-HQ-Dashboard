@@ -15,6 +15,7 @@ import { assertUsableApiKey, keyProbleem } from "../src/lib/ai/provider";
 import { markeerGoedkeuringUitgevoerd } from "../src/lib/goedkeuring-afronden";
 import { TELEGRAM_MAX, isOpmaakfout, knipOp, zonderOpmaak } from "../src/lib/telegram-tekst";
 import { verstuurGoedgekeurdeMail } from "../src/lib/mail";
+import { webhookGeheimKlopt } from "../src/lib/telegram";
 
 const db = new PrismaClient({ adapter: new PrismaPg(poolConfig(resolveDatabaseUrl()!)) });
 
@@ -410,6 +411,41 @@ async function main() {
   toets("geen enkele geweigerde poging is als verstuurd geboekt", perOngelukUitgevoerd === 0);
 
   await db.approval.deleteMany({ where: { title: { startsWith: MERK } } });
+
+  // ── De inkomende Telegram-lijn ───────────────────────────────────────────
+  //
+  // Dit adres is vanaf internet bereikbaar. Alles hangt aan het geheim dat
+  // Telegram meestuurt: klopt dat niet, dan mag er geen agent aan het werk
+  // gezet worden door een vreemde.
+  console.log("\nInkomende lijn");
+
+  const setting = await db.setting.findUnique({ where: { key: "telegram" } });
+  const bewaard = (setting?.value ?? {}) as Record<string, string>;
+  const echtGeheim = bewaard.webhookSecret ?? null;
+
+  toets("een lege header wordt geweigerd", !(await webhookGeheimKlopt(null)));
+  toets("een verkeerd geheim wordt geweigerd", !(await webhookGeheimKlopt("niet-het-geheim")));
+  toets(
+    "een geheim van de juiste lengte maar verkeerde inhoud wordt geweigerd",
+    !(await webhookGeheimKlopt("x".repeat(echtGeheim?.length ?? 48))),
+  );
+
+  if (echtGeheim) {
+    toets("het echte geheim wordt geaccepteerd", await webhookGeheimKlopt(echtGeheim));
+  } else {
+    // Lokaal staat de lijn bewust uit; dan hoort niets erdoor te komen.
+    toets("zonder ingestelde lijn komt er niets binnen", !(await webhookGeheimKlopt("wat-dan-ook")));
+  }
+
+  const route = await readFile(
+    new URL("../src/app/api/telegram/inkomend/route.ts", import.meta.url),
+    "utf8",
+  );
+  toets("de route controleert het geheim vóór alles", /webhookGeheimKlopt/.test(route));
+  toets("een verkeerd geheim krijgt geen bevestiging", /status:\s*404/.test(route));
+  toets("alleen de eigen chat wordt verwerkt", /config\.chatId/.test(route));
+  toets("berichten van bots worden genegeerd", /is_bot/.test(route));
+  toets("Telegram krijgt direct antwoord, het denkwerk komt erna", /after\(/.test(route));
 
   // ── Opruimen ─────────────────────────────────────────────────────────────
   await db.taskUpdate.deleteMany({ where: { task: { title: { startsWith: MERK } } } });

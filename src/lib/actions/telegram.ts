@@ -96,3 +96,40 @@ export async function checkTelegram(): Promise<{ ok: boolean; message: string }>
         : `${result.handled} bericht(en) verwerkt — de Head heeft geantwoord.`,
   };
 }
+
+/// De inkomende lijn aan- of uitzetten.
+///
+/// Het adres leiden we af van waar HQ zelf draait; dat moet publiek bereikbaar
+/// zijn, want Telegram belt hem op. Op localhost werkt dat dus niet, en dat
+/// zeggen we dan ook in plaats van een adres te registreren dat nooit gebeld
+/// kan worden.
+export async function zetInkomendeLijnAan(): Promise<{ ok: boolean; message: string }> {
+  await requireOwner();
+
+  const basis =
+    process.env.APP_URL ??
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : null);
+
+  if (!basis || /localhost|127\.0\.0\.1/.test(basis)) {
+    return {
+      ok: false,
+      message:
+        "Dit werkt alleen op de live omgeving: Telegram moet HQ kunnen bereiken, en localhost kan hij niet bellen.",
+    };
+  }
+
+  const { zetWebhookAan } = await import("@/lib/telegram");
+  const uitkomst = await zetWebhookAan(basis);
+  revalidatePath("/instellingen");
+  return uitkomst;
+}
+
+export async function zetInkomendeLijnUit(): Promise<{ ok: boolean; message: string }> {
+  await requireOwner();
+  const { zetWebhookUit } = await import("@/lib/telegram");
+  const uitkomst = await zetWebhookUit();
+  revalidatePath("/instellingen");
+  return uitkomst;
+}
