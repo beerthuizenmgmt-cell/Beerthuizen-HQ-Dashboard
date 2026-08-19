@@ -180,7 +180,9 @@ export default async function StandupPage() {
                 ? "Dit overleg is afgesloten."
                 : "Samenvatting bijwerken of het overleg afsluiten."}
             </p>
-            <div className="flex gap-2">
+            {/* Zonder wrap staken deze twee knoppen samen veertien pixels
+                buiten een telefoonscherm, en schoof de hele pagina zijwaarts. */}
+            <div className="flex flex-wrap gap-2">
               <form action={refreshSummary.bind(null, meeting.id)}>
                 <button type="submit" className="btn btn-ghost text-xs" disabled={received.length === 0}>
                   Samenvatting bijwerken
