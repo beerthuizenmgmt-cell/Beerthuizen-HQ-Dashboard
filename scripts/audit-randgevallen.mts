@@ -12,6 +12,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { poolConfig, resolveDatabaseUrl } from "../src/lib/db-url";
 import { zoekBestaandeKlant, beoordeelBriefing, haalAanvraag, maakToken } from "../src/lib/portaal";
 import { assertUsableApiKey, keyProbleem } from "../src/lib/ai/provider";
+import { markeerGoedkeuringUitgevoerd } from "../src/lib/goedkeuring-afronden";
 
 const db = new PrismaClient({ adapter: new PrismaPg(poolConfig(resolveDatabaseUrl()!)) });
 
@@ -258,6 +259,50 @@ async function main() {
 
   await db.standupEntry.deleteMany({ where: { meetingId: overleg.id } });
   await db.meeting.delete({ where: { id: overleg.id } });
+
+  // ── Goedgekeurd is niet hetzelfde als uitgevoerd ─────────────────────────
+  //
+  // Akkoord geven zet de actie klaar als taak; de mail gaat niet vanzelf weg.
+  // executedAt werd nergens geschreven, dus op de goedkeuringenpagina was niet
+  // te zien of een akkoord ook echt was uitgevoerd. Op precies die pagina wil je
+  // dat verschil kunnen zien.
+  console.log("\nGoedkeuring afronden");
+
+  const vrager = await db.agent.findFirst({ select: { id: true } });
+  const maakGoedkeuring = async (status: "approved" | "rejected") => {
+    const taak = await db.task.create({ data: { title: `${MERK} na akkoord`, status: "assigned" } });
+    const goedkeuring = await db.approval.create({
+      data: {
+        agentId: vrager!.id,
+        kind: "email_send",
+        title: `${MERK} verzoek`,
+        summary: "Testverzoek.",
+        payload: { ontvanger: "niemand@testadres.invalid" },
+        status,
+        linkedTaskId: taak.id,
+      },
+    });
+    return { taak, goedkeuring };
+  };
+
+  const akkoord = await maakGoedkeuring("approved");
+  await markeerGoedkeuringUitgevoerd(akkoord.taak.id);
+  const naUitvoeren = await db.approval.findUnique({ where: { id: akkoord.goedkeuring.id } });
+  toets("afgeronde taak markeert het akkoord als uitgevoerd", naUitvoeren?.executedAt != null);
+
+  // Nog een keer afronden mag de eerste tijdstempel niet overschrijven.
+  const eerste = naUitvoeren?.executedAt;
+  await markeerGoedkeuringUitgevoerd(akkoord.taak.id);
+  const nogmaals = await db.approval.findUnique({ where: { id: akkoord.goedkeuring.id } });
+  toets("het tijdstip blijft op de eerste keer staan", nogmaals?.executedAt?.getTime() === eerste?.getTime());
+
+  // Een afgewezen verzoek hoort nooit als uitgevoerd te eindigen.
+  const afgewezen = await maakGoedkeuring("rejected");
+  await markeerGoedkeuringUitgevoerd(afgewezen.taak.id);
+  const naAfwijzen = await db.approval.findUnique({ where: { id: afgewezen.goedkeuring.id } });
+  toets("een afgewezen verzoek wordt nooit uitgevoerd", naAfwijzen?.executedAt == null);
+
+  await db.approval.deleteMany({ where: { title: { startsWith: MERK } } });
 
   // ── Opruimen ─────────────────────────────────────────────────────────────
   await db.taskUpdate.deleteMany({ where: { task: { title: { startsWith: MERK } } } });

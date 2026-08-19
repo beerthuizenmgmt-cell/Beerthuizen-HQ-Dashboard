@@ -14,6 +14,28 @@ export type ApprovalItem = {
   agent: { name: string; emoji: string | null; color: string | null; avatarUrl: string | null };
 };
 
+// Wat je gezien moet hebben vóór je "akkoord" klikt. De ontvanger staat
+// bovenaan: dát is het onomkeerbare deel. Eerder zat hij onderin een
+// dichtgeklapt blok JSON, achter de tekst van de mail, dus je kon akkoord geven
+// op een bericht naar een echt bedrijf zonder ooit gezien te hebben naar wie.
+const KERNPUNTEN: { sleutel: string; label: string; nadruk?: boolean }[] = [
+  { sleutel: "ontvanger", label: "Naar", nadruk: true },
+  { sleutel: "onderwerp", label: "Onderwerp" },
+  { sleutel: "bedrag", label: "Bedrag", nadruk: true },
+  { sleutel: "bijlage", label: "Bijlage" },
+  { sleutel: "termijn", label: "Termijn" },
+];
+
+function kernpunten(payload: unknown): { label: string; waarde: string; nadruk: boolean }[] {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return [];
+  const velden = payload as Record<string, unknown>;
+  return KERNPUNTEN.flatMap(({ sleutel, label, nadruk }) => {
+    const waarde = velden[sleutel];
+    if (waarde === undefined || waarde === null || waarde === "") return [];
+    return [{ label, waarde: String(waarde), nadruk: nadruk ?? false }];
+  });
+}
+
 const KIND_LABELS: Record<string, string> = {
   email_send: "E-mail versturen",
   external_message: "Bericht naar buiten",
@@ -27,6 +49,25 @@ export function ApprovalCard({ approval }: { approval: ApprovalItem }) {
   const [note, setNote] = useState("");
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const kern = kernpunten(approval.payload);
+
+  // Klapt de beslissing ergens onderweg, dan mag je daar nooit over in het
+  // ongewisse blijven: op deze pagina is "ik weet niet of mijn akkoord is
+  // aangekomen" het slechtste dat er kan gebeuren.
+  function beslis(actie: () => Promise<{ ok: boolean; message: string }>) {
+    startTransition(async () => {
+      try {
+        setResult(await actie());
+      } catch (error) {
+        setResult({
+          ok: false,
+          message: `Je beslissing is niet vastgelegd: ${
+            error instanceof Error ? error.message : "onbekende fout"
+          }. Ververs de pagina en kijk of het verzoek er nog staat.`,
+        });
+      }
+    });
+  }
 
   if (result?.ok) {
     return (
@@ -53,6 +94,19 @@ export function ApprovalCard({ approval }: { approval: ApprovalItem }) {
 
       <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">{approval.summary}</p>
 
+      {kern.length > 0 && (
+        <dl className="mt-3 space-y-1 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm">
+          {kern.map(({ label, waarde, nadruk }) => (
+            <div key={label} className="flex gap-2">
+              <dt className="w-20 shrink-0 text-xs text-text-faint">{label}</dt>
+              <dd className={`min-w-0 break-words ${nadruk ? "font-medium text-warn" : "text-text"}`}>
+                {waarde}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
       <details className="mt-3">
         <summary className="cursor-pointer text-xs text-text-muted hover:text-text">
           Wat er precies klaarstaat
@@ -75,11 +129,7 @@ export function ApprovalCard({ approval }: { approval: ApprovalItem }) {
             type="button"
             className="btn btn-primary"
             disabled={pending}
-            onClick={() =>
-              startTransition(async () => {
-                setResult(await approveRequest(approval.id, note));
-              })
-            }
+            onClick={() => beslis(() => approveRequest(approval.id, note))}
           >
             {pending ? "Bezig…" : "Akkoord"}
           </button>
@@ -87,11 +137,7 @@ export function ApprovalCard({ approval }: { approval: ApprovalItem }) {
             type="button"
             className="btn btn-danger"
             disabled={pending}
-            onClick={() =>
-              startTransition(async () => {
-                setResult(await rejectRequest(approval.id, note));
-              })
-            }
+            onClick={() => beslis(() => rejectRequest(approval.id, note))}
           >
             Niet doen
           </button>

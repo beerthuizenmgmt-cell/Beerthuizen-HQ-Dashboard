@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import { markeerGoedkeuringUitgevoerd } from "@/lib/goedkeuring-afronden";
 import { notify } from "@/lib/notifications";
 import { logActivity } from "@/lib/agents";
 import { meetingDate } from "@/lib/standup";
@@ -547,6 +548,8 @@ async function updateTask(args: Record<string, unknown>, context: ToolContext): 
         completedAt: status === "done" ? new Date() : null,
       },
     });
+
+    if (status === "done") await markeerGoedkeuringUitgevoerd(taskId);
 
     if (status === "blocked" || status === "done") {
       await notify({

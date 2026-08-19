@@ -82,6 +82,22 @@ export default async function ApprovalsPage() {
                     <span className="chip px-1.5 py-0 text-[10px]" style={{ color: style.color }}>
                       {style.label}
                     </span>
+                    {/* Akkoord geven zet de actie klaar, het voert hem niet uit.
+                        Zonder dit onderscheid zag "goedgekeurd" er hetzelfde uit
+                        als "de mail is de deur uit". */}
+                    {approval.status === "approved" && (
+                      <span
+                        className="chip px-1.5 py-0 text-[10px]"
+                        style={{ color: approval.executedAt ? "var(--ok)" : "var(--warn)" }}
+                        title={
+                          approval.executedAt
+                            ? "De taak die hieruit voortkwam is afgerond."
+                            : "Staat klaar bij de agent, maar is nog niet uitgevoerd."
+                        }
+                      >
+                        {approval.executedAt ? "uitgevoerd" : "nog niet uitgevoerd"}
+                      </span>
+                    )}
                     <span className="ml-auto text-text-faint">
                       {approval.decidedAt ? formatDateTime(approval.decidedAt) : timeAgo(approval.createdAt)}
                     </span>

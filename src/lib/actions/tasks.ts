@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
+import { markeerGoedkeuringUitgevoerd } from "@/lib/goedkeuring-afronden";
 import { randomToken } from "@/lib/crypto";
 import { sendToAgent, logActivity } from "@/lib/agents";
 import { buildTaskBrief } from "@/lib/orchestrator";
@@ -143,6 +144,8 @@ export async function setTaskStatus(taskId: string, status: string) {
     where: { id: taskId },
     data: { status: next, completedAt: next === "done" ? new Date() : null },
   });
+
+  if (next === "done") await markeerGoedkeuringUitgevoerd(taskId);
   await db.taskUpdate.create({
     data: {
       taskId,
