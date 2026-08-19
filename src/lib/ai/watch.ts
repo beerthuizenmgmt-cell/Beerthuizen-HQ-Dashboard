@@ -179,6 +179,13 @@ export type DetectionOutcome = {
   agent: string;
   changed: boolean;
   activated: boolean;
+  /// Alleen bij een proefdraai: zou deze bewaking nú echt een agent wakker maken?
+  ///
+  /// Niet af te leiden uit `changed`: die staat ook aan bij een bewaking die
+  /// wel veranderde data ziet maar toch niet afgaat, omdat de agent op pauze
+  /// staat of het minimuminterval nog loopt. Wie op `changed` telde, kreeg
+  /// vijftien terwijl er acht zouden aanslaan.
+  zouActiveren?: boolean;
   reason: string;
 };
 
@@ -288,6 +295,7 @@ export async function detectAndActivate(options: { dryRun?: boolean } = {}): Pro
         agent: watch.agent.name,
         changed: dataChanged,
         activated: false,
+        zouActiveren: true,
         reason: `zou activeren — ${reason}`,
       });
       continue;

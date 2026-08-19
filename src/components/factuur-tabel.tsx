@@ -58,6 +58,7 @@ const STATUSSEN = [
 export function FactuurTabel({ facturen }: { facturen: FactuurRij[] }) {
   const [bewerken, setBewerken] = useState<FactuurRij | null>(null);
   const [nieuw, setNieuw] = useState(false);
+  const [teWissen, setTeWissen] = useState<string | null>(null);
   const { bezig, fout, doe } = useActie();
   const [state, formAction, opslaan] = useActionState<FactuurState, FormData>(bewaarFactuur, {});
 
@@ -81,7 +82,17 @@ export function FactuurTabel({ facturen }: { facturen: FactuurRij[] }) {
       </div>
 
       {open !== undefined && (
-        <form action={formAction} className="card space-y-4 p-5">
+        // De sleutel dwingt een nieuw formulier af zodra je een andere factuur
+        // opent.
+        //
+        // Zonder dat hergebruikt React hetzelfde formulier: de tekstvelden
+        // werken dan wel bij, maar een keuzelijst niet — defaultValue geldt
+        // alleen bij het opbouwen. Wie eerst "factuur toevoegen" opende en
+        // daarna "bewerken", kreeg een betaalde factuur te zien met status
+        // "concept", en sloeg die met één klik ook zo op. Een betaalde factuur
+        // werd zo stilletjes weer een concept en dook terug op in je
+        // openstaande debiteuren.
+        <form key={open?.id ?? "nieuw"} action={formAction} className="card space-y-4 p-5">
           <input type="hidden" name="id" value={bewerken?.id ?? ""} />
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -246,14 +257,46 @@ export function FactuurTabel({ facturen }: { facturen: FactuurRij[] }) {
                           betaald
                         </button>
                       )}
-                      <button
-                        type="button"
-                        className="underline hover:text-danger"
-                        disabled={bezig}
-                        onClick={() => doe(() => verwijderFactuur(factuur.id))}
-                      >
-                        wissen
-                      </button>
+                      {/* Wissen vraagt eerst na.
+
+                          De knop stond pal naast "betaald" en "verstuurd", en
+                          één klik was genoeg om een factuur voorgoed weg te
+                          gooien. Bij financiële administratie is dat het soort
+                          knop dat je één keer per ongeluk aanraakt en daarna
+                          niet meer terug kunt draaien. */}
+                      {teWissen === factuur.id ? (
+                        <>
+                          <button
+                            type="button"
+                            className="underline text-danger"
+                            disabled={bezig}
+                            onClick={() =>
+                              doe(async () => {
+                                await verwijderFactuur(factuur.id);
+                                setTeWissen(null);
+                              })
+                            }
+                          >
+                            {bezig ? "bezig…" : "ja, wissen"}
+                          </button>
+                          <button
+                            type="button"
+                            className="underline"
+                            onClick={() => setTeWissen(null)}
+                          >
+                            toch niet
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="underline hover:text-danger"
+                          disabled={bezig}
+                          onClick={() => setTeWissen(factuur.id)}
+                        >
+                          wissen
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

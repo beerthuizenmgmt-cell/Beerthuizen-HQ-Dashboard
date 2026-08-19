@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { ontbrekendeResultaten } from "@/lib/creators";
 import { CreatorPaneel } from "@/components/creator-paneel";
+import { CreatorBewerken } from "@/components/creator-bewerken";
 import { timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -196,6 +197,25 @@ export default async function CreatorsPagina() {
                     </ul>
                   </div>
                 )}
+
+                <div className="mt-3">
+                  <CreatorBewerken
+                    creator={{
+                      id: creator.id,
+                      name: creator.name,
+                      soort: creator.soort,
+                      instagram: creator.instagram,
+                      tiktok: creator.tiktok,
+                      youtube: creator.youtube,
+                      niche: creator.niche,
+                      land: creator.land,
+                      agency: creator.agency,
+                      volgersInstagram: creator.volgersInstagram,
+                      volgersTiktok: creator.volgersTiktok,
+                      prijsindicatieEur: creator.prijsindicatieEur,
+                    }}
+                  />
+                </div>
               </article>
             );
           })}

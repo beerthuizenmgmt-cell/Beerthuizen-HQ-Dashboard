@@ -18,6 +18,12 @@ export function MonitoringPanel({
   signalAgents: { key: string; name: string; emoji: string | null }[];
 }) {
   const [outcomes, setOutcomes] = useState<DetectionOutcome[] | null>(null);
+  // Was dit een proefdraai of is het echt gebeurd? Bij een proefdraai staat
+  // `activated` overal op onwaar — er is immers niemand wakker gemaakt — en dan
+  // is "0 van 15 geactiveerd" precies het omgekeerde van wat er staat te
+  // gebeuren. Je leest nul en concludeert dat er niets zou gebeuren, terwijl er
+  // acht agents zouden aanslaan.
+  const [wasProef, setWasProef] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -48,6 +54,7 @@ export function MonitoringPanel({
             onClick={() =>
               startTransition(async () => {
                 setMessage(null);
+                setWasProef(true);
                 setOutcomes(await previewDetection());
               })
             }
@@ -62,6 +69,7 @@ export function MonitoringPanel({
             onClick={() =>
               startTransition(async () => {
                 setMessage(null);
+                setWasProef(false);
                 setOutcomes(await runDetection());
               })
             }
@@ -98,8 +106,17 @@ export function MonitoringPanel({
       {outcomes && (
         <div className="card divide-y divide-border">
           <div className="px-4 py-2.5 text-xs font-semibold tracking-wide text-text-muted uppercase">
-            Uitkomst — {outcomes.filter((outcome) => outcome.activated).length} van {outcomes.length}{" "}
-            geactiveerd
+            {wasProef ? (
+              <>
+                Proefdraai — {outcomes.filter((outcome) => outcome.zouActiveren).length} van{" "}
+                {outcomes.length} zouden activeren
+              </>
+            ) : (
+              <>
+                Uitkomst — {outcomes.filter((outcome) => outcome.activated).length} van{" "}
+                {outcomes.length} geactiveerd
+              </>
+            )}
           </div>
           {outcomes.map((outcome) => (
             <div key={outcome.watch} className="flex items-start gap-3 px-4 py-3">

@@ -15,7 +15,8 @@ import { toolCatalogForUi, getToolEntry, decryptToolConfig } from "@/lib/ai/tool
 import { maskSecret } from "@/lib/crypto";
 import { ActivityList } from "@/components/activity-list";
 import { StatusBadge } from "@/components/status-dot";
-import { deleteAgent, togglePause } from "@/lib/actions/agents";
+import { togglePause } from "@/lib/actions/agents";
+import { AgentVerwijderen } from "@/components/agent-verwijderen";
 import { timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -211,11 +212,7 @@ export default async function AgentSettingsPage({ params }: PageProps<"/agents/[
               {agent.paused ? "Hervatten" : "Pauzeren"}
             </button>
           </form>
-          <form action={deleteAgent.bind(null, agent.id)}>
-            <button type="submit" className="btn btn-danger">
-              Verwijderen
-            </button>
-          </form>
+          <AgentVerwijderen agentId={agent.id} naam={agent.name} />
         </div>
       </section>
     </div>

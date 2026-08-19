@@ -647,6 +647,44 @@ async function main() {
     !/\.komt-op\s*\{[^}]*opacity/.test(stijlBron.split("@media (prefers-reduced-motion")[0]),
   );
 
+  // ── Wat de paginacontrole opleverde ──────────────────────────────────────
+  console.log("\nSchermen");
+
+  const factuurBron = await readFile(new URL("../src/components/factuur-tabel.tsx", import.meta.url), "utf8");
+  toets(
+    "het factuurformulier begint opnieuw bij een andere factuur",
+    /<form key=\{open\?\.id \?\? "nieuw"\}/.test(factuurBron),
+  );
+  toets("een factuur wissen vraagt eerst na", /teWissen === factuur\.id/.test(factuurBron));
+
+  const agentWisBron = await readFile(
+    new URL("../src/components/agent-verwijderen.tsx", import.meta.url),
+    "utf8",
+  );
+  toets("een agent verwijderen vraagt eerst na", /zekerWeten/.test(agentWisBron));
+  toets("bij die vraag staat zijn naam", /\{naam\}/.test(agentWisBron));
+
+  const creatorActies = await readFile(new URL("../src/lib/actions/creators.ts", import.meta.url), "utf8");
+  toets("een creator kan bijgewerkt worden", /export async function werkCreatorBij/.test(creatorActies));
+  toets("een creator kan weggehaald worden", /export async function verwijderCreator/.test(creatorActies));
+  toets(
+    "een naamscorrectie verjongt de cijfers niet",
+    /nieuweCijfers\s*\?/.test(creatorActies),
+  );
+  toets(
+    "twee creators mogen niet dezelfde naam krijgen",
+    /id: \{ not: id \}/.test(creatorActies),
+  );
+
+  const monitorBron = await readFile(
+    new URL("../src/components/monitoring-panel.tsx", import.meta.url),
+    "utf8",
+  );
+  toets(
+    "een proefdraai telt wat er zou activeren, niet wat er activeerde",
+    /outcome\.zouActiveren/.test(monitorBron),
+  );
+
   const hqBron = await readFile(new URL("../src/app/(app)/hq/page.tsx", import.meta.url), "utf8");
   toets("bij elke medewerker staat zijn functie", /\{lid\.rol\}/.test(hqBron));
 
