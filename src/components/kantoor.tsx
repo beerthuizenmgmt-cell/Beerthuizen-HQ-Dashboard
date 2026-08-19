@@ -24,12 +24,24 @@ type Indeling = {
 
 /// Op een breed scherm twee rijen van vijf en vier: de achterste hoger en
 /// kleiner, zodat het een ruimte wordt in plaats van een rij poppetjes.
-const BREED: Indeling = { rijen: [5, 4], breedte: 1000, hoogte: 300, eersteRij: 100, rijafstand: 104 };
+const BREED: Indeling = { rijen: [5, 4], breedte: 1000, hoogte: 340, eersteRij: 108, rijafstand: 118 };
 
 /// Op een telefoon zou datzelfde neerkomen op negen figuren over driehonderd
 /// pixels — namen van vier pixels hoog, dus onleesbaar. Daar drie rijen van
 /// drie, in een kamer die hoger is dan breed.
-const SMAL: Indeling = { rijen: [3, 3, 3], breedte: 400, hoogte: 400, eersteRij: 80, rijafstand: 118 };
+const SMAL: Indeling = { rijen: [3, 3, 3], breedte: 400, hoogte: 470, eersteRij: 92, rijafstand: 138 };
+
+/// De regels op een laptopscherm. Vaste waarden en geen toeval: negen
+/// werkplekken die elke seconde iets anders tonen is onrustig, en bij elke
+/// herlading een andere indeling maakt de kamer een flikkerend ding.
+const REGELS = [
+  { inspring: 0, lengte: 0.62 },
+  { inspring: 2.4, lengte: 0.8 },
+  { inspring: 2.4, lengte: 0.55 },
+  { inspring: 4.8, lengte: 0.68 },
+  { inspring: 2.4, lengte: 0.42 },
+  { inspring: 0, lengte: 0.5 },
+];
 
 function Werkplek({
   lid,
@@ -56,64 +68,57 @@ function Werkplek({
   return (
     <g transform={`translate(${x} ${y}) scale(${schaal})`} opacity={slaapt ? 0.28 : 1}>
       {/* Schaduw op de vloer, zodat ze niet zweven */}
-      <ellipse cx="0" cy="46" rx="34" ry="6" fill="#000" opacity="0.35" />
+      <ellipse cx="0" cy="52" rx="36" ry="6" fill="#000" opacity="0.35" />
 
       {/* Bureau */}
-      <rect x="-36" y="26" width="72" height="7" rx="3.5" fill="var(--border)" />
-      <rect x="-36" y="26" width="72" height="7" rx="3.5" fill={`url(#bureaublad-${merk})`} />
-      <rect x="-30" y="33" width="4" height="13" rx="2" fill="var(--border)" opacity="0.7" />
-      <rect x="26" y="33" width="4" height="13" rx="2" fill="var(--border)" opacity="0.7" />
+      <rect x="-38" y="34" width="76" height="7" rx="3.5" fill="var(--border)" />
+      <rect x="-38" y="34" width="76" height="7" rx="3.5" fill={`url(#bureaublad-${merk})`} />
+      <rect x="-31" y="41" width="4" height="12" rx="2" fill="var(--border)" opacity="0.7" />
+      <rect x="27" y="41" width="4" height="12" rx="2" fill="var(--border)" opacity="0.7" />
 
-      {/* De collega zelf.
+      {/* Schouders. De laptop komt hier deels overheen te staan, zodat hij
+          er echt achter zit in plaats van ernaast. */}
+      <path d="M -20 34 Q -20 12 0 12 Q 20 12 20 34 Z" fill={kleur} opacity={lid.bezig ? 1 : 0.7} />
+      <path d="M -20 34 Q -20 12 0 12 Q 20 12 20 34 Z" fill={`url(#torso-licht-${merk})`} />
 
-          Het licht komt van linksboven, net als de lamp in de kamer. Daarom
-          liggen de lichtvlekken linksboven en de schaduw rechtsonder — op het
-          hoofd, op de schouders, en als slagschaduw van de kin op de borst.
-
-          De hoogsels zijn wit en zwart met een lage dekking bovenop de kleur van
-          de agent, niet lichtere en donkerder varianten van die kleur zelf. Zo
-          werkt het voor elke kleur die iemand instelt, zonder dat wij per agent
-          hoeven uit te rekenen wat zijn schaduw is. */}
-
-      {/* Schouders */}
-      <path d="M -17 26 Q -17 8 0 8 Q 17 8 17 26 Z" fill={kleur} opacity={lid.bezig ? 1 : 0.7} />
-      <path d="M -17 26 Q -17 8 0 8 Q 17 8 17 26 Z" fill={`url(#torso-licht-${merk})`} />
-      {/* Slagschaduw van het hoofd op de borst */}
-      <ellipse cx="0" cy="11" rx="10" ry="4" fill="#000" opacity="0.22" />
+      {/* Slagschaduw van de kin op de borst */}
+      <ellipse cx="0" cy="14" rx="12" ry="4" fill="#000" opacity="0.22" />
 
       {/* Hoofd.
 
           Hetzelfde gezicht als in de lijst met je digitale medewerkers: eerst
-          zijn portret, anders zijn emoji, anders zijn initialen. Twee getekende
-          oogjes zouden een tweede, ander gezicht opleveren voor dezelfde
-          collega — dan herken je hem in de kamer niet terug uit de lijst. */}
+          zijn portret, anders zijn emoji, anders zijn initialen. Een eigen
+          getekend koppie zou een tweede, ander gezicht opleveren voor dezelfde
+          collega — dan herken je hem in de kamer niet terug uit de lijst.
+
+          Ruim boven de laptop, want daar gaat het om: je wilt zien wie er zit. */}
       <clipPath id={`hoofd-${merk}-${lid.id}`}>
-        <circle cx="0" cy="0" r="9.5" />
+        <circle cx="0" cy="-4" r="13" />
       </clipPath>
 
-      <circle cx="0" cy="0" r="9.5" fill={kleur} opacity={lid.bezig ? 1 : 0.8} />
+      <circle cx="0" cy="-4" r="13" fill={kleur} opacity={lid.bezig ? 1 : 0.8} />
 
       {lid.avatarUrl ? (
         <image
           href={lid.avatarUrl}
-          x="-9.5"
-          y="-9.5"
-          width="19"
-          height="19"
+          x="-13"
+          y="-17"
+          width="26"
+          height="26"
           clipPath={`url(#hoofd-${merk}-${lid.id})`}
           preserveAspectRatio="xMidYMid slice"
         />
       ) : lid.emoji ? (
-        <text x="0" y="0" textAnchor="middle" dominantBaseline="central" fontSize="10">
+        <text x="0" y="-4" textAnchor="middle" dominantBaseline="central" fontSize="14">
           {lid.emoji}
         </text>
       ) : (
         <text
           x="0"
-          y="0"
+          y="-4"
           textAnchor="middle"
           dominantBaseline="central"
-          fontSize="8"
+          fontSize="11"
           fontWeight="600"
           fill="#fff"
           opacity="0.9"
@@ -126,58 +131,103 @@ function Werkplek({
           anders was je zijn gezicht weg met je eigen belichting. */}
       <circle
         cx="0"
-        cy="0"
-        r="9.5"
+        cy="-4"
+        r="13"
         fill={`url(#hoofd-schaduw-${merk})`}
-        opacity={lid.avatarUrl ? 0.55 : 1}
+        opacity={lid.avatarUrl ? 0.5 : 1}
       />
       <circle
         cx="0"
-        cy="0"
-        r="9.5"
+        cy="-4"
+        r="13"
         fill={`url(#hoofd-licht-${merk})`}
-        opacity={lid.avatarUrl ? 0.45 : 1}
+        opacity={lid.avatarUrl ? 0.4 : 1}
       />
       {/* Randlicht langs de bovenkant, dat maakt de bol rond */}
       <path
-        d="M -8.4 -4.4 A 9.5 9.5 0 0 1 8.4 -4.4"
+        d="M -11.5 -10 A 13 13 0 0 1 11.5 -10"
         fill="none"
         stroke="#fff"
         strokeOpacity="0.45"
-        strokeWidth="1.1"
+        strokeWidth="1.3"
         strokeLinecap="round"
       />
 
-      {/* Beeldscherm ervoor. Brandt in zijn eigen kleur zodra hij echt aan het
-          werk is; staat het uit, dan is het een donker vlak. */}
-      <rect
-        x="-19"
-        y="6"
-        width="38"
-        height="22"
-        rx="3"
+      {/* De laptop.
+
+          Een scherm dat iets naar achteren helt en een toetsenbord dat naar je
+          toe wijst — daarom lopen de zijkanten schuin. Een rechthoekig blok zou
+          er als een monitor uitzien, en achter een monitor zit je niet te typen. */}
+      <path
+        d="M -15 34 L -18 18 L 18 18 L 15 34 Z"
         fill="var(--bg)"
         stroke="var(--border)"
-        strokeWidth="1.5"
+        strokeWidth="1.4"
       />
-      <rect
-        x="-16.5"
-        y="8.5"
-        width="33"
-        height="17"
-        rx="2"
+      <path
+        d="M -13.6 32.6 L -16.3 19.4 L 16.3 19.4 L 13.6 32.6 Z"
         fill={lid.bezig ? kleur : "var(--bg-elevated)"}
       >
         {lid.bezig && (
           <animate attributeName="opacity" values="0.5;0.95;0.5" dur="2.4s" repeatCount="indefinite" />
         )}
-      </rect>
+      </path>
+
+      {/* Regels op het scherm.
+
+          Het scherm was een egaal vlak — dat leest als een uit monitor, niet als
+          iemand die zit te werken. Nu staan er regels op, ingesprongen en van
+          verschillende lengte zoals tekst dat is. Ze lopen mee met de helling
+          van het scherm, anders zweven ze ervoor.
+
+          Werkt hij, dan lichten ze op tegen de kleur van het scherm. Werkt hij
+          niet, dan blijven ze vaag zichtbaar: het scherm staat aan, er gebeurt
+          alleen niets. */}
+      <g clipPath={`url(#scherm-${merk}-${lid.id})`}>
+        {REGELS.map((regel, i) => {
+          const y = 21.4 + i * 2.15;
+          // Het scherm loopt taps toe naar beneden; de regels moeten dat volgen.
+          const halveBreedte = 16.3 - (y - 19.4) * 0.205;
+          const start = -halveBreedte + 1.6 + regel.inspring;
+          return (
+            <rect
+              key={i}
+              x={start}
+              y={y}
+              width={(halveBreedte * 2 - 3.2 - regel.inspring) * regel.lengte}
+              height="1.15"
+              rx="0.5"
+              fill="#fff"
+              opacity={lid.bezig ? 0.72 : 0.16}
+            />
+          );
+        })}
+      </g>
+      <clipPath id={`scherm-${merk}-${lid.id}`}>
+        <path d="M -13.6 32.6 L -16.3 19.4 L 16.3 19.4 L 13.6 32.6 Z" />
+      </clipPath>
+
+      {/* Toetsenbord: het deel dat plat op het bureau ligt */}
+      <path d="M -21 34 L 21 34 L 24 39 L -24 39 Z" fill="var(--border)" />
+      <path d="M -21 34 L 21 34 L 24 39 L -24 39 Z" fill={`url(#bureaublad-${merk})`} />
+
+      {/* Handen op het toetsenbord. Twee vlekjes in zijn eigen kleur, net licht
+          genoeg om te lezen als handen en niet als vlekken. */}
+      <ellipse cx="-9" cy="35.5" rx="4.2" ry="2.6" fill={kleur} opacity="0.85" />
+      <ellipse cx="9" cy="35.5" rx="4.2" ry="2.6" fill={kleur} opacity="0.85" />
+
+      {/* Het licht van het scherm op zijn gezicht en handen, als hij werkt */}
+      {lid.bezig && (
+        <ellipse cx="0" cy="24" rx="26" ry="16" fill={kleur} opacity="0.14">
+          <animate attributeName="opacity" values="0.07;0.18;0.07" dur="2.4s" repeatCount="indefinite" />
+        </ellipse>
+      )}
 
       {/* Gaat er iets mis, dan een stipje boven zijn hoofd. Rood valt op tussen
           negen gekleurde figuren; een rode figuur zou juist verdwijnen. */}
       {misgaat && (
-        <circle cx="15" cy="-11" r="4.5" fill="var(--danger)">
-          <animate attributeName="r" values="4;5.5;4" dur="1.6s" repeatCount="indefinite" />
+        <circle cx="18" cy="-15" r="5" fill="var(--danger)">
+          <animate attributeName="r" values="4.5;6;4.5" dur="1.6s" repeatCount="indefinite" />
         </circle>
       )}
 
@@ -186,7 +236,7 @@ function Werkplek({
           heb je hem nodig om te weten wie wie is. */}
       <text
         x="0"
-        y={58 / schaal}
+        y={64 / schaal}
         textAnchor="middle"
         fontSize={13 / schaal}
         fill="var(--text-muted)"
@@ -215,7 +265,7 @@ function Kamer({
   }
   if (rest.length > 0) rijen[rijen.length - 1].push(...rest);
 
-  const vloer = indeling.hoogte - 36;
+  const vloer = indeling.hoogte - 42;
   const merk = `k${indeling.breedte}`;
   const laatsteRij = Math.max(1, indeling.rijen.length - 1);
 

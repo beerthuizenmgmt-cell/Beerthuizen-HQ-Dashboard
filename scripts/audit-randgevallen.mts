@@ -594,11 +594,35 @@ async function main() {
   );
   toets(
     "een portret wordt niet weggewassen door de belichting",
-    /lid\.avatarUrl \? 0\.55 : 1/.test(kantoorBron),
+    // Geen vaste waarde: die verandert bij elke keer bijschaven. Waar het om
+    // gaat is dát de belichting zachter is zodra er een portret onder zit.
+    /lid\.avatarUrl \? 0\.\d+ : 1/.test(kantoorBron),
   );
   toets(
     "elk hoofd heeft zijn eigen knipmasker",
     /hoofd-\$\{merk\}-\$\{lid\.id\}/.test(kantoorBron),
+  );
+
+  toets("ze werken achter een laptop, geen monitor", /De laptop/.test(kantoorBron));
+  toets("er liggen handen op het toetsenbord", /Handen op het toetsenbord/.test(kantoorBron));
+  toets(
+    "het hoofd staat vrij boven het scherm",
+    // Hoofd loopt tot eenheid 9 (cy -4, straal 13); het scherm begint op 18.
+    /r="13"/.test(kantoorBron) && /L -18 18 L 18 18/.test(kantoorBron),
+  );
+
+  toets("er staan regels op het scherm", /const REGELS/.test(kantoorBron));
+  toets(
+    "de regels blijven binnen het schuine scherm",
+    /clipPath=\{`url\(#scherm-/.test(kantoorBron),
+  );
+  toets(
+    "de regels lopen mee met de helling van het scherm",
+    /halveBreedte/.test(kantoorBron),
+  );
+  toets(
+    "wie niets doet heeft geen leeg scherm maar een rustig scherm",
+    /lid\.bezig \? 0\.72 : 0\.16/.test(kantoorBron),
   );
 
   const hqBron = await readFile(new URL("../src/app/(app)/hq/page.tsx", import.meta.url), "utf8");
