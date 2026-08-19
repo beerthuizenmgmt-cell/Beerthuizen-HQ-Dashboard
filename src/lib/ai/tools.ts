@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import { kanaalkeuzeAlsPrompt } from "@/lib/kanalen";
 import { markeerGoedkeuringUitgevoerd } from "@/lib/goedkeuring-afronden";
 import { notify } from "@/lib/notifications";
 import { logActivity } from "@/lib/agents";
@@ -58,7 +59,8 @@ export const AGENT_TOOLS: ToolDefinition[] = [
   {
     name: "rapporteer_in_kanaal",
     description:
-      "Plaats een bericht in een teamkanaal zodat het team en Enriqueo meelezen. Kanalen: algemeen, campagnes, resultaten.",
+      "Plaats een bericht in een teamkanaal zodat het team en Enriqueo meelezen. Kies bewust één kanaal — hetzelfde bericht in twee kanalen maakt beide onbruikbaar.\n\n" +
+      kanaalkeuzeAlsPrompt(),
     parameters: {
       type: "object",
       properties: {

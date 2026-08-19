@@ -16,6 +16,7 @@ import { markeerGoedkeuringUitgevoerd } from "../src/lib/goedkeuring-afronden";
 import { TELEGRAM_MAX, isOpmaakfout, knipOp, zonderOpmaak } from "../src/lib/telegram-tekst";
 import { verstuurGoedgekeurdeMail } from "../src/lib/mail";
 import { webhookGeheimKlopt } from "../src/lib/telegram";
+import { KANALEN, kanaal, kanaalkeuzeAlsPrompt } from "../src/lib/kanalen";
 
 const db = new PrismaClient({ adapter: new PrismaPg(poolConfig(resolveDatabaseUrl()!)) });
 
@@ -470,6 +471,31 @@ async function main() {
   toets(
     "agents onderling worden niet automatisch gerouteerd",
     /input\.fromType === "user"/.test(kanaalBron),
+  );
+
+  // ── De drie kanalen zijn echt drie kanalen ───────────────────────────────
+  console.log("\nKanalen");
+
+  toets("er zijn drie teamkanalen met een eigen doel", KANALEN.length === 3);
+  toets(
+    "elk kanaal zegt wanneer je het gebruikt",
+    KANALEN.every((k) => k.wanneer.length > 40),
+  );
+  toets(
+    "elk kanaal zegt ook wat er níét hoort",
+    KANALEN.every((k) => k.nietHier.length > 20),
+  );
+  toets("een onbekend kanaal geeft niets terug", kanaal("bestaat-niet") === undefined);
+  toets("het gereedschap legt de keuze uit", kanaalkeuzeAlsPrompt().includes("resultaten"));
+
+  const gereedschapBron = await readFile(new URL("../src/lib/ai/tools.ts", import.meta.url), "utf8");
+  toets(
+    "de kanaalkeuze staat in de omschrijving van het gereedschap",
+    /kanaalkeuzeAlsPrompt\(\)/.test(gereedschapBron),
+  );
+  toets(
+    "de agent die antwoordt weet in welk kanaal hij zit",
+    /kanaalUitleg/.test(kanaalBron),
   );
 
   const routeBron = await readFile(new URL("../src/lib/ai/routeren.ts", import.meta.url), "utf8");

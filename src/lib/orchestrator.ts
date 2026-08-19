@@ -4,6 +4,7 @@ import { db } from "./db";
 import { sendToAgent, logActivity } from "./agents";
 import { notify } from "./notifications";
 import { formatDate } from "./format";
+import { kanaal } from "./kanalen";
 import type { ActorType } from "@/generated/prisma/enums";
 
 /// Elk bericht in het team loopt hier langs: van jou naar een agent, en van
@@ -145,10 +146,17 @@ export async function bezorgBericht(messageId: string): Promise<void> {
     ? `\n\nWat er hiervoor in dit kanaal is gezegd, oudste eerst:\n${geschiedenis}\n\n`
     : "\n\n";
 
+  // In welk kanaal zit je? Een antwoord in #resultaten hoort over cijfers te
+  // gaan, in #campagnes over de stand van een campagne. Zonder dit klinkt elk
+  // antwoord hetzelfde en wordt het onderscheid tussen de kanalen zinloos.
+  const hier = kanaal(channel.key);
+  const kanaalUitleg = hier ? ` Je zit in #${hier.key}: ${hier.wanneer} ${hier.nietHier}` : "";
+
   const toon = [
     `Antwoord als collega in het gesprek, niet als systeem dat een opdracht afhandelt.`,
     `Kort en gewoon Nederlands. Reageer op wat er staat, stel gerust een wedervraag,`,
     `en zeg wat je gaat doen als je iets oppakt. Weet je iets niet, zeg dat — verzin niets.`,
+    kanaalUitleg,
   ].join(" ");
 
   const results = await Promise.all(

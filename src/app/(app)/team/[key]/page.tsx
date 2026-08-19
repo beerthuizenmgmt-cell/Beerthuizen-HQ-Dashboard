@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { getAdapter } from "@/lib/adapters";
 import { MessageComposer } from "@/components/message-composer";
 import { ChatVerversen, DenktNa } from "@/components/chat-verversen";
+import { kanaal } from "@/lib/kanalen";
 import { formatDateTime } from "@/lib/format";
 import { AgentAvatar } from "@/components/agent-avatar";
 
@@ -130,7 +131,14 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
               </span>
             )}
           </h1>
-          {channel.purpose && <p className="mt-0.5 text-xs text-text-muted">{channel.purpose}</p>}
+          {/* De omschrijving uit kanalen.ts wint van die in de database: daar
+              staat de afspraak, en zo lezen scherm, agents en gereedschap
+              dezelfde regel. */}
+          {(kanaal(channel.key)?.omschrijving ?? channel.purpose) && (
+            <p className="mt-0.5 text-xs text-text-muted">
+              {kanaal(channel.key)?.omschrijving ?? channel.purpose}
+            </p>
+          )}
         </header>
 
         <ChatVerversen wachtend={wachtOp !== null} />
@@ -139,7 +147,8 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
           {channel.messages.length === 0 && (
             <p className="py-12 text-center text-sm text-text-faint">
               Nog geen berichten.
-              {channel.kind === "team" && " Noem een agent met @naam om hem mee te laten lezen."}
+              {channel.kind === "team" &&
+                " Zeg gewoon wat er is — degene die erover gaat reageert. Met @naam vraag je iemand rechtstreeks."}
             </p>
           )}
 
@@ -192,7 +201,7 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
                 ? canSend
                   ? `Bericht naar ${channel.name}`
                   : `${channel.name} is niet gekoppeld — je bericht blijft hier staan`
-                : "Bericht aan het team — noem een agent met @naam"
+                : `Bericht in #${channel.key} — wie erover gaat reageert vanzelf`
             }
           />
         </div>
