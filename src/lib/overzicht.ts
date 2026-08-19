@@ -11,6 +11,21 @@ import { db } from "./db";
 
 const DAGNAMEN = ["zo", "ma", "di", "wo", "do", "vr", "za"];
 
+// Kleuren voor verdelingen per agent. Vast op volgorde en niet willekeurig:
+// dezelfde agent hoort bij elke herlading dezelfde kleur te hebben, anders
+// vergelijk je twee bezoeken niet met elkaar.
+const AGENTKLEUREN = [
+  "var(--accent)",
+  "var(--info)",
+  "var(--ok)",
+  "var(--warn)",
+  "#a78bfa",
+  "#f472b6",
+  "#2dd4bf",
+  "#facc15",
+  "#94a3b8",
+];
+
 /// De laatste zeven dagen, oudste eerst, met nul voor dagen zonder iets.
 function laatsteZevenDagen(): { sleutel: string; dag: string }[] {
   const dagen: { sleutel: string; dag: string }[] = [];
@@ -30,7 +45,7 @@ export type Overzicht = {
   };
   agents: {
     runsPerAgent: { label: string; waarde: number }[];
-    kostenPerAgent: { label: string; waarde: number }[];
+    kostenPerAgent: { label: string; waarde: number; kleur: string }[];
     tijdPerAgent: { label: string; waarde: number }[];
   };
   advertenties: { gekoppeld: boolean; campagnes: number };
@@ -113,7 +128,8 @@ export async function haalOverzicht(): Promise<Overzicht> {
           waarde: Math.round((r._sum.costEur ?? 0) * 100) / 100,
         }))
         .filter((r) => r.waarde > 0)
-        .sort(opWaarde),
+        .sort(opWaarde)
+        .map((r, i) => ({ ...r, kleur: AGENTKLEUREN[i % AGENTKLEUREN.length] })),
       tijdPerAgent: runs
         .map((r) => ({
           label: naam.get(r.agentId) ?? "onbekend",

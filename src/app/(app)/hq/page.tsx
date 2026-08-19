@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { bouwCockpit, type Niveau } from "@/lib/cockpit";
 import { AgentAvatar } from "@/components/agent-avatar";
-import { Staafjes, PerDag, NogNietGekoppeld } from "@/components/grafiek";
+import { Staafjes, PerDag, Ring, NogNietGekoppeld } from "@/components/grafiek";
 import { haalOverzicht } from "@/lib/overzicht";
 import { ActivityList } from "@/components/activity-list";
 import { formatDayLong, hourInTimezone, timeAgo } from "@/lib/format";
@@ -238,7 +238,13 @@ export default async function HQPage() {
           <div className="card p-5">
             <p className="text-sm font-semibold">Taken per kolom</p>
             <p className="mb-3 text-xs text-text-faint">waar het werk nu staat</p>
-            <Staafjes data={overzicht.taken.perStatus} leeg="Nog geen taken." />
+            {/* Een ring in plaats van staafjes: bij een verdeling wil je zowel
+                de verhouding als het totaal zien, en dat staat hier allebei. */}
+            <Ring
+              data={overzicht.taken.perStatus}
+              onderschrift="taken"
+              leeg="Nog geen taken."
+            />
           </div>
 
           <div className="card p-5">
@@ -280,10 +286,10 @@ export default async function HQPage() {
           <div className="card p-5">
             <p className="text-sm font-semibold">Wat ze kostten</p>
             <p className="mb-3 text-xs text-text-faint">deze week, in euro</p>
-            <Staafjes
+            <Ring
               data={overzicht.agents.kostenPerAgent}
-              eenheid=" €"
-              kleur="var(--accent)"
+              midden={`€${overzicht.agents.kostenPerAgent.reduce((n, r) => n + r.waarde, 0).toFixed(2)}`}
+              onderschrift="deze week"
               leeg="Nog niets uitgegeven."
             />
           </div>

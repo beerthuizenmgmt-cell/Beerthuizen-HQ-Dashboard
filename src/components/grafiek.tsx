@@ -33,17 +33,20 @@ export function Staafjes({
     <div className="space-y-2">
       {data.map((d) => (
         <div key={d.label} className="flex items-center gap-3">
-          <span className="w-28 shrink-0 truncate text-xs text-text-muted">{d.label}</span>
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-bg">
+          <span className="w-24 shrink-0 truncate text-xs text-text-muted">{d.label}</span>
+          {/* De grijze baan blijft zichtbaar onder de balk, zodat je ziet hoe
+              groot het aandeel is en niet alleen hoe lang het balkje. */}
+          <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-bg">
             <div
-              className="h-full rounded-full"
+              className="h-full rounded-full transition-[width]"
               style={{
-                width: `${Math.max(2, (d.waarde / hoogste) * 100)}%`,
+                width: `${Math.max(3, (d.waarde / hoogste) * 100)}%`,
                 background: d.kleur ?? kleur,
+                boxShadow: `0 0 12px -4px ${d.kleur ?? kleur}`,
               }}
             />
           </div>
-          <span className="w-16 shrink-0 text-right text-xs tabular-nums">
+          <span className="w-14 shrink-0 text-right text-xs font-medium tabular-nums">
             {d.waarde}
             {eenheid}
           </span>
@@ -71,7 +74,7 @@ export function PerDag({
 
   return (
     <div className="flex h-28 items-stretch gap-1.5">
-      {data.map((d) => (
+      {data.map((d, i) => (
         <div key={d.dag} className="flex flex-1 flex-col items-center gap-1.5">
           {/* De staaf staat absoluut in een vak met een vaste hoogte. Een
               percentage-hoogte rekent tegen de ouder, en een flexkolom zonder
@@ -79,18 +82,24 @@ export function PerDag({
               cijfers kloppen. */}
           <div className="relative w-full flex-1">
             <div
-              className="absolute bottom-0 w-full rounded-t"
+              className="absolute bottom-0 w-full rounded-md"
               style={{
-                height: `${Math.max(4, (d.waarde / hoogste) * 100)}%`,
+                height: `${Math.max(5, (d.waarde / hoogste) * 100)}%`,
                 background: kleur,
-                opacity: d.waarde === 0 ? 0.25 : 0.85,
+                // Vandaag staat rechts en is nog bezig; die dimmen we niet weg.
+                opacity: d.waarde === 0 ? 0.18 : i === data.length - 1 ? 1 : 0.8,
+                boxShadow: d.waarde > 0 ? `0 0 14px -6px ${kleur}` : undefined,
               }}
               title={`${d.dag}: ${d.waarde}`}
             />
           </div>
-          <span className="shrink-0 text-[10px] text-text-faint">
+          <span
+            className={`shrink-0 text-[10px] ${
+              i === data.length - 1 ? "font-medium text-text-muted" : "text-text-faint"
+            }`}
+          >
             {d.dag}
-            <span className="ml-1 tabular-nums text-text-muted">{d.waarde || ""}</span>
+            {d.waarde > 0 && <span className="ml-1 tabular-nums text-text">{d.waarde}</span>}
           </span>
         </div>
       ))}
@@ -105,6 +114,97 @@ export function NogNietGekoppeld({ wat, watErMoet }: { wat: string; watErMoet: s
     <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center">
       <p className="text-sm text-text-muted">Nog geen {wat}.</p>
       <p className="mt-1 text-xs text-text-faint">{watErMoet}</p>
+    </div>
+  );
+}
+
+/// Een ring met het totaal in het midden.
+///
+/// Voor een verdeling waarvan het totaal net zo interessant is als de verhouding
+/// — hoeveel taken er zijn én hoe ze verdeeld staan. Als staafjes zie je de
+/// verhouding wel maar moet je optellen; zo staat het er allebei.
+///
+/// Getekend met stroke-dasharray op één cirkel: elk segment krijgt een stukje
+/// van de omtrek en een verschuiving. Geen bibliotheek, geen javascript.
+export function Ring({
+  data,
+  midden,
+  onderschrift,
+  leeg = "Nog niets te tonen.",
+}: {
+  data: Staaf[];
+  midden?: string | number;
+  onderschrift?: string;
+  leeg?: string;
+}) {
+  const totaal = data.reduce((n, d) => n + d.waarde, 0);
+  if (data.length === 0 || totaal === 0) {
+    return <p className="py-6 text-center text-xs text-text-faint">{leeg}</p>;
+  }
+
+  const straal = 42;
+  const omtrek = 2 * Math.PI * straal;
+
+  // Een klein gaatje tussen de segmenten, zodat aangrenzende kleuren niet in
+  // elkaar overlopen. Bij één segment slaan we dat over — anders zit er een
+  // kier in een hele ring.
+  const kier = data.length > 1 ? 1.5 : 0;
+
+  let verstreken = 0;
+  const segmenten = data.map((d) => {
+    const lengte = (d.waarde / totaal) * omtrek;
+    const segment = {
+      key: d.label,
+      kleur: d.kleur ?? "var(--accent)",
+      streep: `${Math.max(0, lengte - kier)} ${omtrek - Math.max(0, lengte - kier)}`,
+      verschuiving: -verstreken,
+    };
+    verstreken += lengte;
+    return segment;
+  });
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative shrink-0">
+        <svg viewBox="0 0 100 100" className="h-28 w-28 -rotate-90">
+          <circle cx="50" cy="50" r={straal} fill="none" stroke="var(--bg)" strokeWidth="11" />
+          {segmenten.map((seg) => (
+            <circle
+              key={seg.key}
+              cx="50"
+              cy="50"
+              r={straal}
+              fill="none"
+              stroke={seg.kleur}
+              strokeWidth="11"
+              strokeDasharray={seg.streep}
+              strokeDashoffset={seg.verschuiving}
+              strokeLinecap="butt"
+            />
+          ))}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl leading-none font-semibold tabular-nums">
+            {midden ?? totaal}
+          </span>
+          {onderschrift && (
+            <span className="mt-0.5 text-[10px] text-text-faint">{onderschrift}</span>
+          )}
+        </div>
+      </div>
+
+      <ul className="min-w-0 flex-1 space-y-1.5">
+        {data.map((d) => (
+          <li key={d.label} className="flex items-center gap-2 text-xs">
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ background: d.kleur ?? "var(--accent)" }}
+            />
+            <span className="min-w-0 flex-1 truncate text-text-muted">{d.label}</span>
+            <span className="shrink-0 tabular-nums">{d.waarde}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

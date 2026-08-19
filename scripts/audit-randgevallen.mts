@@ -559,6 +559,20 @@ async function main() {
     ),
   );
 
+  toets(
+    "elke agent in de kostenring heeft een eigen kleur",
+    new Set(cijfers.agents.kostenPerAgent.map((r) => r.kleur)).size ===
+      cijfers.agents.kostenPerAgent.length,
+  );
+
+  const grafiekVorm = await readFile(new URL("../src/components/grafiek.tsx", import.meta.url), "utf8");
+  toets("er is een ring voor verdelingen", /export function Ring/.test(grafiekVorm));
+  toets("de ring toont ook het totaal", /midden \?\? totaal/.test(grafiekVorm));
+  toets(
+    "een ring met één segment krijgt geen kier",
+    /data\.length > 1 \? 1\.5 : 0/.test(grafiekVorm),
+  );
+
   const cockpitBron = await readFile(new URL("../src/lib/cockpit.ts", import.meta.url), "utf8");
   toets("de briefing op HQ wordt ingekort", /eersteZinnen/.test(cockpitBron));
 
