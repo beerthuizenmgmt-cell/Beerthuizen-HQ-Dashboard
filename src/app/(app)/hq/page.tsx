@@ -3,6 +3,8 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { bouwCockpit, type Niveau } from "@/lib/cockpit";
 import { AgentAvatar } from "@/components/agent-avatar";
+import { Staafjes, PerDag, NogNietGekoppeld } from "@/components/grafiek";
+import { haalOverzicht } from "@/lib/overzicht";
 import { ActivityList } from "@/components/activity-list";
 import { formatDayLong, hourInTimezone, timeAgo } from "@/lib/format";
 
@@ -47,13 +49,14 @@ const CIJFER: Record<Niveau, string> = {
 export default async function HQPage() {
   const user = await requireUser();
 
-  const [cockpit, activiteit] = await Promise.all([
+  const [cockpit, activiteit, overzicht] = await Promise.all([
     bouwCockpit(),
     db.activityEvent.findMany({
       orderBy: { occurredAt: "desc" },
       take: 6,
       include: { agent: { select: { name: true, emoji: true, color: true, avatarUrl: true } } },
     }),
+    haalOverzicht(),
   ]);
 
   const { vandaag, blokken, prioriteiten, team, briefing } = cockpit;
@@ -110,9 +113,9 @@ export default async function HQPage() {
             <p className="eyebrow-rule start">Daan, vanochtend</p>
             <span className="text-xs text-text-faint">{timeAgo(briefing.wanneer)}</span>
           </div>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed">{briefing.tekst}</p>
-          <Link href={briefing.link} className="mt-4 inline-block text-xs underline hover:text-text">
-            Het hele overleg →
+          <p className="mt-3 text-sm leading-relaxed">{briefing.tekst}</p>
+          <Link href={briefing.link} className="mt-3 inline-block text-xs underline hover:text-text">
+            Het hele overleg — {briefing.gerapporteerd} van {briefing.gerapporteerd} gerapporteerd →
           </Link>
         </section>
       )}
@@ -217,6 +220,74 @@ export default async function HQPage() {
               <span className="shrink-0 text-xs text-text-faint">{lid.stand}</span>
             </Link>
           ))}
+        </div>
+      </section>
+
+      {/* ── Hoe het loopt ──────────────────────────────────────────────── */}
+      <section>
+        <h2 className="eyebrow-rule start mb-3">Hoe het loopt</h2>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="card p-5">
+            <p className="text-sm font-semibold">Taken per kolom</p>
+            <p className="mb-3 text-xs text-text-faint">waar het werk nu staat</p>
+            <Staafjes data={overzicht.taken.perStatus} leeg="Nog geen taken." />
+          </div>
+
+          <div className="card p-5">
+            <p className="text-sm font-semibold">Afgerond, per dag</p>
+            <p className="mb-3 text-xs text-text-faint">de afgelopen week</p>
+            <PerDag data={overzicht.taken.afgerondPerDag} leeg="Deze week nog niets afgerond." />
+          </div>
+
+          <div className="card p-5">
+            <p className="text-sm font-semibold">Openstaand werk per agent</p>
+            <p className="mb-3 text-xs text-text-faint">wat er nog op iemands bord ligt</p>
+            <Staafjes data={overzicht.taken.perAgent} leeg="Niemand heeft openstaand werk." />
+          </div>
+
+          <div className="card p-5">
+            <p className="text-sm font-semibold">Hoe druk je agents het hadden</p>
+            <p className="mb-3 text-xs text-text-faint">denkbeurten deze week</p>
+            <Staafjes data={overzicht.agents.runsPerAgent} leeg="Deze week nog niet aan het werk geweest." />
+          </div>
+
+          <div className="card p-5">
+            <p className="text-sm font-semibold">Wat ze kostten</p>
+            <p className="mb-3 text-xs text-text-faint">deze week, in euro</p>
+            <Staafjes data={overzicht.agents.kostenPerAgent} eenheid=" €" leeg="Nog niets uitgegeven." />
+          </div>
+
+          <div className="card p-5">
+            <p className="text-sm font-semibold">Hoe lang ze erover doen</p>
+            <p className="mb-3 text-xs text-text-faint">gemiddeld per denkbeurt</p>
+            <Staafjes data={overzicht.agents.tijdPerAgent} eenheid=" s" leeg="Nog niets gemeten." />
+          </div>
+
+          {/* Advertenties en campagnes hebben nog geen enkele rij in de database.
+              Een grafiek daarvan zou een verloop tonen dat niet bestaat, dus
+              zeggen we wat er ontbreekt en wat eraan te doen is. */}
+          {!overzicht.advertenties.gekoppeld && (
+            <div className="card p-5">
+              <p className="text-sm font-semibold">Advertenties</p>
+              <p className="mb-3 text-xs text-text-faint">bereik, besteding, resultaat</p>
+              <NogNietGekoppeld
+                wat="advertentiecijfers"
+                watErMoet="Meta is nog niet gekoppeld. Zolang dat niet staat komen er geen cijfers binnen en valt er niets te tonen."
+              />
+            </div>
+          )}
+
+          {overzicht.campagnes.aantal === 0 && (
+            <div className="card p-5">
+              <p className="text-sm font-semibold">Campagnes</p>
+              <p className="mb-3 text-xs text-text-faint">wat er loopt</p>
+              <NogNietGekoppeld
+                wat="campagnes"
+                watErMoet="Er staat nog geen enkele campagne geregistreerd. Vanuit een klantaanvraag wordt er hier vanzelf een."
+              />
+            </div>
+          )}
         </div>
       </section>
 

@@ -17,6 +17,7 @@ import { TELEGRAM_MAX, isOpmaakfout, knipOp, zonderOpmaak } from "../src/lib/tel
 import { verstuurGoedgekeurdeMail } from "../src/lib/mail";
 import { webhookGeheimKlopt } from "../src/lib/telegram";
 import { KANALEN, kanaal, kanaalkeuzeAlsPrompt } from "../src/lib/kanalen";
+import { haalOverzicht } from "../src/lib/overzicht";
 
 const db = new PrismaClient({ adapter: new PrismaPg(poolConfig(resolveDatabaseUrl()!)) });
 
@@ -514,6 +515,35 @@ async function main() {
 
   const briefBron = await readFile(new URL("../src/lib/orchestrator.ts", import.meta.url), "utf8");
   toets("langer werk hoort tussendoor gemeld te worden", /meld dan tussendoor/.test(briefBron));
+
+  // ── HQ toont alleen wat er echt is ───────────────────────────────────────
+  console.log("\nOverzicht op HQ");
+
+  const cijfers = await haalOverzicht();
+  toets(
+    "taken per kolom tellen op tot het echte aantal",
+    cijfers.taken.perStatus.reduce((n, r) => n + r.waarde, 0) === (await db.task.count()),
+  );
+  toets("het verloop beslaat zeven dagen", cijfers.taken.afgerondPerDag.length === 7);
+  toets(
+    "er wordt niets geteld dat er niet is",
+    cijfers.taken.perAgent.every((r) => r.waarde > 0) &&
+      cijfers.agents.kostenPerAgent.every((r) => r.waarde > 0),
+  );
+  toets(
+    "advertenties gelden pas als gekoppeld zodra er een campagne staat",
+    cijfers.advertenties.gekoppeld === (await db.adCampaign.count()) > 0,
+  );
+
+  const grafiekBron = await readFile(new URL("../src/components/grafiek.tsx", import.meta.url), "utf8");
+  toets("een lege grafiek zegt dat er niets is", /leeg/.test(grafiekBron));
+  toets(
+    "ontbrekende koppelingen krijgen uitleg in plaats van een lege grafiek",
+    /NogNietGekoppeld/.test(grafiekBron),
+  );
+
+  const cockpitBron = await readFile(new URL("../src/lib/cockpit.ts", import.meta.url), "utf8");
+  toets("de briefing op HQ wordt ingekort", /eersteZinnen/.test(cockpitBron));
 
   const actieBron = await readFile(new URL("../src/lib/actions/messages.ts", import.meta.url), "utf8");
   toets("het denkwerk gebeurt na de bevestiging", /after\(/.test(actieBron));

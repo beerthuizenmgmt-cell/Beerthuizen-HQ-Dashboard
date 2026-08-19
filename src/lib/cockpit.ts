@@ -61,7 +61,7 @@ export type Cockpit = {
   blokken: Blok[];
   prioriteiten: Prioriteit[];
   team: TeamRegel[];
-  briefing: { tekst: string; wanneer: Date; link: string } | null;
+  briefing: { tekst: string; wanneer: Date; link: string; gerapporteerd: number } | null;
 };
 
 const DAG = 864e5;
@@ -333,9 +333,36 @@ export async function bouwCockpit(): Promise<Cockpit> {
     // ruimte in bovenaan je scherm zonder je iets te vertellen.
     briefing:
       overleg?.summaryMd && overleg._count.entries > 0
-        ? { tekst: overleg.summaryMd, wanneer: overleg.createdAt, link: "/overleg" }
+        ? {
+            // Alleen de kern bovenaan. De hele samenvatting was achthonderd
+            // tekens proza op de plek waar je in één oogopslag wilt zien wat er
+            // speelt; dan lees je hem niet en staat de rest van je scherm eronder.
+            tekst: eersteZinnen(overleg.summaryMd, 2),
+            wanneer: overleg.createdAt,
+            link: "/overleg",
+            gerapporteerd: overleg._count.entries,
+          }
         : null,
   };
+}
+
+/// De eerste zinnen van een samenvatting, zonder opmaaktekens.
+///
+/// Genoeg om te weten of je moet doorklikken, niet zoveel dat je het overslaat.
+function eersteZinnen(tekst: string, hoeveel: number): string {
+  const plat = tekst
+    .replace(/[*_#`]/g, "")
+    .split("\n")
+    .map((r) => r.trim())
+    .filter(Boolean)
+    .join(" ");
+
+  const zinnen = plat.match(/[^.!?]+[.!?]+/g) ?? [plat];
+  const kort = zinnen.slice(0, hoeveel).join(" ").trim();
+
+  // Eén hele lange zin knippen we alsnog af; anders staat er via deze weg
+  // opnieuw een lap tekst.
+  return kort.length > 240 ? `${kort.slice(0, 237).trimEnd()}…` : kort;
 }
 
 function euro(bedrag: number): string {
