@@ -22,27 +22,44 @@ const VAST = [
 ];
 
 const GROEPLABELS: Record<string, string> = {
+  start: "Start",
+  beheer: "Beheer",
   werk: "Werk",
   klanten: "Klanten en campagnes",
+  archief: "Archief",
   geld: "Geld",
   team: "Team",
   systeem: "Systeem",
 };
 
-export function MobieleNav({ links, unread }: { links: NavLink[]; unread: number }) {
+export function MobieleNav({
+  links,
+  beheerLinks = [],
+  unread,
+}: {
+  links: NavLink[];
+  beheerLinks?: NavLink[];
+  unread: number;
+}) {
   const pad = usePathname();
   const [open, setOpen] = useState(false);
 
   const actief = (doel: string) => pad === doel || pad.startsWith(`${doel}/`);
   const beschikbaar = (doel: string) => links.some((l) => l.path === doel);
 
+  // HQ heeft geen groep; die hoort bovenaan en niet bij beheer te belanden.
   const gegroepeerd = Object.entries(
     links.reduce<Record<string, NavLink[]>>((acc, link) => {
-      const groep = link.groep ?? "systeem";
+      const groep = link.groep ?? "start";
       (acc[groep] ??= []).push(link);
       return acc;
     }, {}),
   );
+
+  // Beheer helemaal onderaan: je komt er zelden, en het hoort niet tussen de
+  // schermen waar je dagelijks heen gaat.
+  const alles: [string, NavLink[]][] =
+    beheerLinks.length > 0 ? [...gegroepeerd, ["beheer", beheerLinks]] : gegroepeerd;
 
   return (
     <>
@@ -57,7 +74,7 @@ export function MobieleNav({ links, unread }: { links: NavLink[]; unread: number
             onClick={() => setOpen(false)}
           />
           <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-border bg-bg-elevated p-5 pb-24">
-            {gegroepeerd.map(([groep, items]) => (
+            {alles.map(([groep, items]) => (
               <section key={groep} className="mb-5">
                 <p className="eyebrow mb-2">{GROEPLABELS[groep] ?? groep}</p>
                 <div className="grid grid-cols-2 gap-2">

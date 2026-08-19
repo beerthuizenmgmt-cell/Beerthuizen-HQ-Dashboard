@@ -3,8 +3,9 @@ import { requireUser } from "@/lib/auth";
 import { logout } from "@/lib/actions/auth";
 import { MobieleNav } from "@/components/mobiele-nav";
 import { SidebarNav, OnderaanNav } from "@/components/sidebar-nav";
+import { BeheerMenu } from "@/components/beheer-menu";
 import { Logo, LogoMark } from "@/components/logo";
-import { areasFor, GROEPEN } from "@/lib/access";
+import { areasFor, GROEPEN, isBeheer } from "@/lib/access";
 import { db } from "@/lib/db";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
@@ -17,7 +18,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   // De navigatie komt uit dezelfde lijst als de toegangscontrole, zodat er nooit
   // een link zichtbaar is die vervolgens geweigerd wordt.
-  const links = areasFor(user.role)
+  const zichtbaar = areasFor(user.role)
     .filter((area) => !area.buitenMenu)
     .map((area) => ({
       path: area.path,
@@ -26,6 +27,12 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       groep: area.groep,
       onderaan: area.onderaan,
     }));
+
+  // Beheer — opbouw, tools, monitoring, instellingen — is geen werk en hoort
+  // niet tussen de schermen waar je dagelijks heen gaat. Het zit achter het
+  // tandwiel onderin, vlak boven je account.
+  const links = zichtbaar.filter((area) => !isBeheer(area.groep));
+  const beheerLinks = zichtbaar.filter((area) => isBeheer(area.groep));
 
   return (
     <div className="flex min-h-screen">
@@ -40,8 +47,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <SidebarNav links={links} groepen={GROEPEN} unread={unread} />
 
         {/* Vlak boven je account, vastgezet aan de onderkant van de balk. */}
-        <div className="mt-auto">
+        <div className="mt-auto space-y-1 px-3 pb-2">
           <OnderaanNav links={links} unread={unread} />
+          <BeheerMenu links={beheerLinks} />
         </div>
 
         <div className="border-t border-border p-4">
@@ -70,7 +78,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             van elke pagina eronder. */}
         <main className="flex-1 px-5 py-6 pb-24 md:px-8 md:py-8 md:pb-8">{children}</main>
 
-        <MobieleNav links={links} unread={unread} />
+        <MobieleNav links={links} beheerLinks={beheerLinks} unread={unread} />
       </div>
     </div>
   );

@@ -34,13 +34,21 @@ export type Area = {
 
 export type Groep = "werk" | "klanten" | "team" | "archief" | "systeem";
 
+/// De secties in de zijbalk. "systeem" staat hier bewust niet tussen: dat is
+/// beheer, geen werk, en zit achter het tandwiel onderin. Het stond tussen de
+/// schermen waar je dagelijks heen gaat en maakte die lijst een derde langer,
+/// terwijl je er hooguit een paar keer per maand komt.
 export const GROEPEN: { key: Groep; label: string; icon: string }[] = [
   { key: "werk", label: "Werk", icon: "☑" },
   { key: "klanten", label: "Klanten", icon: "◈" },
   { key: "team", label: "Team", icon: "🤖" },
   { key: "archief", label: "Archief", icon: "📚" },
-  { key: "systeem", label: "Systeem", icon: "⚙" },
 ];
+
+/// Hoort dit scherm achter het tandwiel in plaats van in het menu?
+export function isBeheer(groep?: Groep): boolean {
+  return groep === "systeem";
+}
 
 export const AREAS: Area[] = [
   { path: "/hq", label: "HQ", icon: "◆" },
