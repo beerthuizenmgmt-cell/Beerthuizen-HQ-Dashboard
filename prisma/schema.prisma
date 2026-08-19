@@ -323,6 +323,8 @@ model Task {
   updatedAt   DateTime @updatedAt
 
   updates      TaskUpdate[]
+  /// De standup-blokkade waar deze taak uit voortkwam, als die er is.
+  standupEntry StandupEntry?
   advice       AdAdvice[]
   approvals    Approval[]
   agentRuns    AgentRun[]
@@ -481,6 +483,11 @@ model StandupEntry {
   requestedAt DateTime  @default(now())
   receivedAt  DateTime?
   error       String?
+
+  /// De taak die uit deze blokkade is gemaakt. Zonder deze link leverde elke
+  /// klik op "maak hier een taak van" een nieuwe taak op, ook de tweede keer.
+  taskId String? @unique
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
   @@unique([meetingId, agentId])
 }

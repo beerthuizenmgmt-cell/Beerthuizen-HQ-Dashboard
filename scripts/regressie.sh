@@ -9,7 +9,21 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-export DOTENV_CONFIG_PATH=.env.production
+# De auditsets maken testdata aan en gooien die daarna weer weg. Dat hoort niet
+# in de echte database te gebeuren: klapt een set halverwege, dan blijft die
+# rommel achter tussen je klanten, facturen en taken. Standaard draaien we dus
+# lokaal. Wil je bewust tegen productie aan, dan zeg je dat er expliciet bij:
+#
+#   ./scripts/regressie.sh --productie
+#
+if [ "${1:-}" = "--productie" ]; then
+  export DOTENV_CONFIG_PATH=.env.production
+  echo "⚠️  Draait tegen de PRODUCTIEDATABASE. Testdata wordt daar aangemaakt en weer verwijderd."
+  echo ""
+else
+  export DOTENV_CONFIG_PATH=.env
+fi
+
 # --import dotenv/config erbij: audit-standup importeert de standup-module
 # rechtstreeks en die leest de database al bij het laden.
 export NODE_OPTIONS="--conditions=react-server --import dotenv/config"

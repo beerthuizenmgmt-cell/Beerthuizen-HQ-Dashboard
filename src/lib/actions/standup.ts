@@ -8,7 +8,20 @@ import { runStandup, summariseMeeting } from "@/lib/standup";
 export async function startStandupNow(): Promise<{ ok: boolean; message: string }> {
   await requireUser();
 
-  const result = await runStandup();
+  // Loopt het uitvragen stuk — een sleutel die het niet doet, een provider die
+  // eruit ligt — dan hoort daar een melding bij. Liet je de fout doorlopen, dan
+  // sloeg de transitie om in het foutscherm en zag je alleen een lege pagina,
+  // zonder te weten of er iets gebeurd was.
+  let result: Awaited<ReturnType<typeof runStandup>>;
+  try {
+    result = await runStandup();
+  } catch (error) {
+    return {
+      ok: false,
+      message: `Het uitvragen liep vast: ${error instanceof Error ? error.message : "onbekende fout"}`,
+    };
+  }
+
   revalidatePath("/overleg");
   revalidatePath("/hq");
 
@@ -64,6 +77,11 @@ export async function taskFromBlocker(entryId: string) {
   // onbetrouwbaar maakt.
   if (!entry?.blockers || GEEN_BLOKKADE.test(entry.blockers.trim())) return;
 
+  // Twee keer klikken hoort niet twee taken op te leveren. De knop gaf geen
+  // terugkoppeling, dus dat gebeurde ook echt: dezelfde blokkade kwam dubbel
+  // op het bord te staan.
+  if (entry.taskId) return;
+
   const task = await db.task.create({
     data: {
       title: `Blokkade oplossen: ${entry.blockers.slice(0, 80)}`,
@@ -85,6 +103,8 @@ export async function taskFromBlocker(entryId: string) {
       body: "Aangemaakt vanuit het ochtendoverleg.",
     },
   });
+
+  await db.standupEntry.update({ where: { id: entry.id }, data: { taskId: task.id } });
 
   revalidatePath("/overleg");
   revalidatePath("/taken");

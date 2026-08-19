@@ -10,6 +10,11 @@ import { AgentAvatar } from "@/components/agent-avatar";
 
 export const dynamic = "force-dynamic";
 
+// Het overleg bevraagt negen agents. Ze werken parallel, maar de traagste
+// bepaalt de duur en dat is meer dan de zestig seconden die Vercel een server
+// action standaard geeft.
+export const maxDuration = 300;
+
 const NO_BLOCKER = /^(geen|nee|niets|n\.?v\.?t\.?|-)$/i;
 
 export default async function StandupPage() {
@@ -122,13 +127,21 @@ export default async function StandupPage() {
                       </div>
                     </dl>
 
-                    {hasBlocker && (
-                      <form action={taskFromBlocker.bind(null, entry.id)} className="mt-3">
-                        <button type="submit" className="btn btn-ghost text-xs">
-                          Maak hier een taak van
-                        </button>
-                      </form>
-                    )}
+                    {hasBlocker &&
+                      (entry.taskId ? (
+                        <Link
+                          href={`/taken/${entry.taskId}`}
+                          className="mt-3 inline-block text-xs text-text-muted hover:text-text"
+                        >
+                          ✓ Staat op het takenbord
+                        </Link>
+                      ) : (
+                        <form action={taskFromBlocker.bind(null, entry.id)} className="mt-3">
+                          <button type="submit" className="btn btn-ghost text-xs">
+                            Maak hier een taak van
+                          </button>
+                        </form>
+                      ))}
 
                     {entry.rawReply && entry.yesterday === null && entry.today === null && (
                       <details className="mt-3">

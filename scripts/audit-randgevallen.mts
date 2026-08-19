@@ -212,6 +212,53 @@ async function main() {
     !/status:\s*task\.status\s*===/.test(bron),
   );
 
+  // ── Een blokkade levert één taak op, niet twee ───────────────────────────
+  //
+  // De knop "maak hier een taak van" gaf geen terugkoppeling en bleef staan.
+  // Twee keer klikken leverde dus twee identieke taken op het bord op.
+  console.log("\nBlokkade naar taak");
+
+  // Meeting.date is uniek, dus we prikken een dag ver buiten het echte bereik.
+  const TESTDAG = new Date("2000-01-01T00:00:00Z");
+  await db.standupEntry.deleteMany({ where: { meeting: { date: TESTDAG } } });
+  await db.meeting.deleteMany({ where: { date: TESTDAG } });
+  const overleg = await db.meeting.create({ data: { date: TESTDAG, status: "ready" } });
+  const melder = await db.agent.findFirst({ select: { id: true } });
+  const melding = await db.standupEntry.create({
+    data: {
+      meetingId: overleg.id,
+      agentId: melder!.id,
+      blockers: `${MERK} wacht op een budget`,
+      receivedAt: new Date(),
+    },
+  });
+
+  const alsGeklikt = async () => {
+    const nu = await db.standupEntry.findUnique({ where: { id: melding.id } });
+    if (nu?.taskId) return;
+    const taak = await db.task.create({
+      data: { title: `${MERK} Blokkade oplossen: ${nu!.blockers}`, status: "assigned", priority: "high", source: "standup" },
+    });
+    await db.standupEntry.update({ where: { id: melding.id }, data: { taskId: taak.id } });
+  };
+
+  await alsGeklikt();
+  await alsGeklikt();
+  await alsGeklikt();
+
+  const gemaakt = await db.task.count({ where: { title: { startsWith: `${MERK} Blokkade` } } });
+  toets("drie keer klikken geeft één taak", gemaakt === 1, `${gemaakt} taken`);
+
+  const gekoppeld = await db.standupEntry.findUnique({ where: { id: melding.id }, select: { taskId: true } });
+  toets("de melding weet welke taak eruit kwam", gekoppeld?.taskId != null);
+
+  const actiebron = await readFile(new URL("../src/lib/actions/standup.ts", import.meta.url), "utf8");
+  toets("taskFromBlocker slaat de taak terug op de melding", /standupEntry\.update/.test(actiebron));
+  toets("taskFromBlocker stopt als er al een taak is", /if\s*\(entry\.taskId\)\s*return/.test(actiebron));
+
+  await db.standupEntry.deleteMany({ where: { meetingId: overleg.id } });
+  await db.meeting.delete({ where: { id: overleg.id } });
+
   // ── Opruimen ─────────────────────────────────────────────────────────────
   await db.taskUpdate.deleteMany({ where: { task: { title: { startsWith: MERK } } } });
   await db.task.deleteMany({ where: { title: { startsWith: MERK } } });
