@@ -14,10 +14,14 @@ export type Staaf = { label: string; waarde: number; kleur?: string };
 export function Staafjes({
   data,
   eenheid = "",
+  kleur = "var(--accent)",
   leeg = "Nog niets te tonen.",
 }: {
   data: Staaf[];
   eenheid?: string;
+  /// Eén kleur voor de hele grafiek. Staat er een kleur op een losse staaf —
+  /// zoals bij taakstatussen — dan wint die.
+  kleur?: string;
   leeg?: string;
 }) {
   const hoogste = Math.max(...data.map((d) => d.waarde), 0);
@@ -35,7 +39,7 @@ export function Staafjes({
               className="h-full rounded-full"
               style={{
                 width: `${Math.max(2, (d.waarde / hoogste) * 100)}%`,
-                background: d.kleur ?? "var(--accent)",
+                background: d.kleur ?? kleur,
               }}
             />
           </div>
@@ -53,9 +57,11 @@ export function Staafjes({
 /// suggereert tussenliggende metingen die er niet zijn.
 export function PerDag({
   data,
+  kleur = "var(--ok)",
   leeg = "Nog geen verloop te zien.",
 }: {
   data: { dag: string; waarde: number }[];
+  kleur?: string;
   leeg?: string;
 }) {
   const hoogste = Math.max(...data.map((d) => d.waarde), 0);
@@ -73,8 +79,12 @@ export function PerDag({
               cijfers kloppen. */}
           <div className="relative w-full flex-1">
             <div
-              className="absolute bottom-0 w-full rounded-t bg-accent/70"
-              style={{ height: `${Math.max(4, (d.waarde / hoogste) * 100)}%` }}
+              className="absolute bottom-0 w-full rounded-t"
+              style={{
+                height: `${Math.max(4, (d.waarde / hoogste) * 100)}%`,
+                background: kleur,
+                opacity: d.waarde === 0 ? 0.25 : 0.85,
+              }}
               title={`${d.dag}: ${d.waarde}`}
             />
           </div>

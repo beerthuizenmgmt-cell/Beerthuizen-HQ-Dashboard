@@ -224,10 +224,17 @@ export default async function HQPage() {
       </section>
 
       {/* ── Hoe het loopt ──────────────────────────────────────────────── */}
-      <section>
-        <h2 className="eyebrow-rule start mb-3">Hoe het loopt</h2>
+      {/* Twee groepen van drie in plaats van zes gelijke kaarten op een rij.
+          Zes kaarten met dezelfde oranje staafjes lezen als één blok: je ziet
+          wel dat er iets staat, maar niet wat. Elke grafiek heeft nu een eigen
+          kleur met betekenis — groen voor wat af is, rood voor wat vastloopt,
+          blauw voor je agents. */}
+      <section className="space-y-5">
+        <h2 className="eyebrow-rule start">Hoe het loopt</h2>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <p className="mb-2 text-xs tracking-wide text-text-faint uppercase">Het werk</p>
+          <div className="grid gap-4 md:grid-cols-3">
           <div className="card p-5">
             <p className="text-sm font-semibold">Taken per kolom</p>
             <p className="mb-3 text-xs text-text-faint">waar het werk nu staat</p>
@@ -237,36 +244,67 @@ export default async function HQPage() {
           <div className="card p-5">
             <p className="text-sm font-semibold">Afgerond, per dag</p>
             <p className="mb-3 text-xs text-text-faint">de afgelopen week</p>
-            <PerDag data={overzicht.taken.afgerondPerDag} leeg="Deze week nog niets afgerond." />
+            <PerDag
+              data={overzicht.taken.afgerondPerDag}
+              kleur="var(--ok)"
+              leeg="Deze week nog niets afgerond."
+            />
           </div>
 
           <div className="card p-5">
             <p className="text-sm font-semibold">Openstaand werk per agent</p>
             <p className="mb-3 text-xs text-text-faint">wat er nog op iemands bord ligt</p>
-            <Staafjes data={overzicht.taken.perAgent} leeg="Niemand heeft openstaand werk." />
+            <Staafjes
+              data={overzicht.taken.perAgent}
+              kleur="var(--warn)"
+              leeg="Niemand heeft openstaand werk."
+            />
           </div>
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs tracking-wide text-text-faint uppercase">Je agents</p>
+          <div className="grid gap-4 md:grid-cols-3">
 
           <div className="card p-5">
             <p className="text-sm font-semibold">Hoe druk je agents het hadden</p>
             <p className="mb-3 text-xs text-text-faint">denkbeurten deze week</p>
-            <Staafjes data={overzicht.agents.runsPerAgent} leeg="Deze week nog niet aan het werk geweest." />
+            <Staafjes
+              data={overzicht.agents.runsPerAgent}
+              kleur="var(--info)"
+              leeg="Deze week nog niet aan het werk geweest."
+            />
           </div>
 
           <div className="card p-5">
             <p className="text-sm font-semibold">Wat ze kostten</p>
             <p className="mb-3 text-xs text-text-faint">deze week, in euro</p>
-            <Staafjes data={overzicht.agents.kostenPerAgent} eenheid=" €" leeg="Nog niets uitgegeven." />
+            <Staafjes
+              data={overzicht.agents.kostenPerAgent}
+              eenheid=" €"
+              kleur="var(--accent)"
+              leeg="Nog niets uitgegeven."
+            />
           </div>
 
           <div className="card p-5">
             <p className="text-sm font-semibold">Hoe lang ze erover doen</p>
             <p className="mb-3 text-xs text-text-faint">gemiddeld per denkbeurt</p>
-            <Staafjes data={overzicht.agents.tijdPerAgent} eenheid=" s" leeg="Nog niets gemeten." />
+            <Staafjes
+              data={overzicht.agents.tijdPerAgent}
+              eenheid=" s"
+              kleur="var(--text-faint)"
+              leeg="Nog niets gemeten."
+            />
           </div>
+          </div>
+        </div>
 
           {/* Advertenties en campagnes hebben nog geen enkele rij in de database.
               Een grafiek daarvan zou een verloop tonen dat niet bestaat, dus
               zeggen we wat er ontbreekt en wat eraan te doen is. */}
+        <div className="grid gap-4 md:grid-cols-2">
           {!overzicht.advertenties.gekoppeld && (
             <div className="card p-5">
               <p className="text-sm font-semibold">Advertenties</p>

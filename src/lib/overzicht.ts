@@ -24,7 +24,7 @@ function laatsteZevenDagen(): { sleutel: string; dag: string }[] {
 
 export type Overzicht = {
   taken: {
-    perStatus: { label: string; waarde: number }[];
+    perStatus: { label: string; waarde: number; kleur: string }[];
     afgerondPerDag: { dag: string; waarde: number }[];
     perAgent: { label: string; waarde: number }[];
   };
@@ -37,13 +37,17 @@ export type Overzicht = {
   campagnes: { aantal: number };
 };
 
-const STATUSLABEL: Record<string, string> = {
-  inbox: "Inbox",
-  assigned: "Toegewezen",
-  in_progress: "Bezig",
-  blocked: "Vastgelopen",
-  review: "Ter controle",
-  done: "Klaar",
+// Kleur per status, met betekenis. Alle balken in dezelfde kleur maakt de
+// grootste grafiek op HQ onleesbaar: je ziet dan wel hoeveel, maar niet of dat
+// goed of slecht nieuws is. Rood voor vastgelopen, groen voor klaar — dat lees
+// je zonder de labels erbij.
+const STATUSLABEL: Record<string, { label: string; kleur: string }> = {
+  inbox: { label: "Inbox", kleur: "var(--text-faint)" },
+  assigned: { label: "Toegewezen", kleur: "var(--info)" },
+  in_progress: { label: "Bezig", kleur: "var(--warn)" },
+  blocked: { label: "Vastgelopen", kleur: "var(--danger)" },
+  review: { label: "Ter controle", kleur: "var(--accent)" },
+  done: { label: "Klaar", kleur: "var(--ok)" },
 };
 
 export async function haalOverzicht(): Promise<Overzicht> {
@@ -88,8 +92,9 @@ export async function haalOverzicht(): Promise<Overzicht> {
   return {
     taken: {
       perStatus: Object.entries(STATUSLABEL)
-        .map(([status, label]) => ({
+        .map(([status, { label, kleur }]) => ({
           label,
+          kleur,
           waarde: perStatus.find((r) => r.status === status)?._count._all ?? 0,
         }))
         .filter((r) => r.waarde > 0),

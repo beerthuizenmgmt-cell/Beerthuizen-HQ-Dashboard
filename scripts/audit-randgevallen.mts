@@ -542,6 +542,23 @@ async function main() {
     /NogNietGekoppeld/.test(grafiekBron),
   );
 
+  // Zes grafieken in dezelfde kleur lezen als één blok: je ziet wel dat er iets
+  // staat, maar niet wat.
+  const statusKleuren = new Set(cijfers.taken.perStatus.map((r) => r.kleur));
+  toets(
+    "elke taakstatus heeft een eigen kleur",
+    statusKleuren.size === cijfers.taken.perStatus.length,
+    `${statusKleuren.size} kleuren voor ${cijfers.taken.perStatus.length} statussen`,
+  );
+  toets(
+    "vastgelopen is rood en klaar is groen",
+    cijfers.taken.perStatus.every(
+      (r) =>
+        (r.label !== "Vastgelopen" || r.kleur.includes("danger")) &&
+        (r.label !== "Klaar" || r.kleur.includes("ok")),
+    ),
+  );
+
   const cockpitBron = await readFile(new URL("../src/lib/cockpit.ts", import.meta.url), "utf8");
   toets("de briefing op HQ wordt ingekort", /eersteZinnen/.test(cockpitBron));
 
