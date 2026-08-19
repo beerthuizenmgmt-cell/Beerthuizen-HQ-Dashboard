@@ -5,7 +5,7 @@ import { bouwCockpit, type Niveau } from "@/lib/cockpit";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { Staafjes, PerDag, Ring, NogNietGekoppeld } from "@/components/grafiek";
 import { Kantoor } from "@/components/kantoor";
-import { Brein } from "@/components/brein";
+import { BreinWolk } from "@/components/brein-wolk";
 import { haalOverzicht } from "@/lib/overzicht";
 import { ActivityList } from "@/components/activity-list";
 import { formatDayLong, hourInTimezone, timeAgo } from "@/lib/format";
@@ -66,17 +66,30 @@ export default async function HQPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       {/* ── Wie je bent en welke dag het is ───────────────────────────── */}
-      <header className="komt-op flex items-center justify-between gap-4">
-        <div>
+      {/* ── De denkwolk ────────────────────────────────────────────────── */}
+      {/* Negen clusters, één per agent, met je begroeting erover. Wie nu werkt
+          heeft een drukkere en fellere wolk, dus het beeld zegt ook iets. */}
+      <header className="komt-op relative -mt-2 overflow-hidden rounded-2xl border border-border bg-bg-elevated">
+        <div className="h-52 w-full sm:h-60">
+          <BreinWolk
+            agents={team.map((lid) => ({
+              naam: lid.naam,
+              kleur: lid.color ?? "var(--accent)",
+              bezig: lid.bezig,
+            }))}
+          />
+        </div>
+
+        {/* Een verloop onder de tekst, anders valt hij weg tegen een cluster dat
+            er toevallig achter drijft. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-bg-elevated to-transparent" />
+
+        <div className="absolute bottom-5 left-5 sm:bottom-6 sm:left-7">
           <h1 className="text-3xl">
             {groet()}, <span className="accent-serif">{user.name}</span>
           </h1>
           <p className="mt-1 text-sm text-text-muted">{formatDayLong(new Date())}</p>
         </div>
-
-        {/* Op een telefoon weg: daar is de breedte te kostbaar voor iets dat
-            alleen mooi is. */}
-        <Brein className="hidden h-28 w-28 shrink-0 sm:block lg:h-32 lg:w-32" />
       </header>
 
       {/* ── Je team, aan het werk ──────────────────────────────────────── */}

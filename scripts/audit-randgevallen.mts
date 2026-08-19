@@ -631,9 +631,24 @@ async function main() {
     /begin="0\.25s"/.test(kantoorBron),
   );
 
-  const breinBron = await readFile(new URL("../src/components/brein.tsx", import.meta.url), "utf8");
-  toets("het brein is verborgen voor schermlezers", /aria-hidden/.test(breinBron));
-  toets("de coderegels hebben de kleuren van het team", /var\(--info\)/.test(breinBron));
+  const wolkBron = await readFile(new URL("../src/components/brein-wolk.tsx", import.meta.url), "utf8");
+  toets("de denkwolk is verborgen voor schermlezers", /aria-hidden/.test(wolkBron));
+  toets(
+    "canvas krijgt echte kleuren, geen CSS-variabelen",
+    /getPropertyValue/.test(wolkBron),
+  );
+  toets("de wolk staat stil als beweging uit staat", /prefers-reduced-motion: reduce/.test(wolkBron));
+  toets("er wordt niet doorgetekend op een verborgen tabblad", /visibilitychange/.test(wolkBron));
+  toets("wie werkt heeft een drukkere wolk", /agent\.bezig \? 0\.3 : 0\.14/.test(wolkBron));
+  toets(
+    "het eerste beeld staat er voordat de animatie loopt",
+    /t = 1\.4;\s*teken\(\);/.test(wolkBron),
+  );
+  toets(
+    "na een formaatwijziging wordt opnieuw getekend",
+    /meet\(\);[\s\S]{0,220}teken\(\);/.test(wolkBron),
+  );
+  toets("de tekenlus wordt opgeruimd", /cancelAnimationFrame/.test(wolkBron));
 
   const stijlBron = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
   toets(
