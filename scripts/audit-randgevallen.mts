@@ -13,6 +13,7 @@ import { poolConfig, resolveDatabaseUrl } from "../src/lib/db-url";
 import { zoekBestaandeKlant, beoordeelBriefing, haalAanvraag, maakToken } from "../src/lib/portaal";
 import { assertUsableApiKey, keyProbleem } from "../src/lib/ai/provider";
 import { markeerGoedkeuringUitgevoerd } from "../src/lib/goedkeuring-afronden";
+import { TELEGRAM_MAX, isOpmaakfout, knipOp, zonderOpmaak } from "../src/lib/telegram-tekst";
 
 const db = new PrismaClient({ adapter: new PrismaPg(poolConfig(resolveDatabaseUrl()!)) });
 
@@ -303,6 +304,48 @@ async function main() {
   toets("een afgewezen verzoek wordt nooit uitgevoerd", naAfwijzen?.executedAt == null);
 
   await db.approval.deleteMany({ where: { title: { startsWith: MERK } } });
+
+  // ── Telegram: waarom berichten soms niet binnenkwamen ────────────────────
+  //
+  // De tekst komt van een agent en gaat over echte klanten. Zit er een teken in
+  // dat de Markdown-lezer van Telegram als opmaak leest, dan weigert hij het
+  // hele bericht — niet een stukje, alles. Berichten zonder zulke tekens kwamen
+  // gewoon aan; vandaar "soms".
+  console.log("\nTelegram");
+
+  toets(
+    "een opmaakklacht wordt herkend",
+    isOpmaakfout(new Error("Bad Request: can't parse entities: Can't find end of the entity")),
+  );
+  toets("een gewone storing wordt niet als opmaakfout gezien", !isOpmaakfout(new Error("Bad Gateway")));
+  toets(
+    "een geblokkeerde bot is geen opmaakfout",
+    !isOpmaakfout(new Error("Forbidden: bot was blocked by the user")),
+  );
+
+  const lastig = "Bijlage: rapport_q4_definitief.pdf — 30% * 2 op [offerte #88]";
+  toets("opmaaktekens gaan eruit bij de tweede poging", !/[*_`]/.test(zonderOpmaak(lastig)));
+  toets("de inhoud blijft staan", zonderOpmaak(lastig).includes("rapport") && zonderOpmaak(lastig).includes("offerte"));
+
+  // Te lange berichten weigert Telegram in hun geheel. Een teamsamenvatting of
+  // een contractanalyse haalt die grens makkelijk.
+  const kort = "Kort bericht.";
+  toets("een kort bericht blijft één bericht", knipOp(kort).length === 1);
+
+  const lang = Array.from({ length: 400 }, (_, i) => `Regel ${i} met wat tekst erachter.`).join("\n");
+  const stukken = knipOp(lang);
+  toets("een lang bericht wordt opgeknipt", stukken.length > 1, `${stukken.length} stukken`);
+  toets("elk stuk past binnen de limiet", stukken.every((d) => d.length <= TELEGRAM_MAX));
+  toets(
+    "er gaat niets verloren bij het knippen",
+    stukken.join("\n").replace(/\s+/g, " ") === lang.replace(/\s+/g, " "),
+  );
+
+  // Tekst zonder enige regelovergang kan niet netjes geknipt worden; dan moet
+  // hij alsnog hard doormidden in plaats van de limiet te overschrijden.
+  const eenLangeRegel = "x".repeat(TELEGRAM_MAX * 2 + 50);
+  toets("ook tekst zonder regeleindes blijft binnen de limiet",
+    knipOp(eenLangeRegel).every((d) => d.length <= TELEGRAM_MAX));
 
   // ── Opruimen ─────────────────────────────────────────────────────────────
   await db.taskUpdate.deleteMany({ where: { task: { title: { startsWith: MERK } } } });

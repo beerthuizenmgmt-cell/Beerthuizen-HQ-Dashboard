@@ -2,6 +2,7 @@ import "server-only";
 
 import { db } from "./db";
 import { decryptSecret, encryptSecret } from "./crypto";
+import { TELEGRAM_MAX, isOpmaakfout, knipOp, zonderOpmaak } from "./telegram-tekst";
 
 // De persoonlijke lijn tussen Enriqueo en de Head of Operations.
 // Het token staat versleuteld in de instellingen; alleen deze module
@@ -305,17 +306,55 @@ export async function sendTelegram(
     return { ok: false, error: "Telegram is nog niet volledig gekoppeld." };
   }
 
+  // Berichten die te lang zijn weigert Telegram in hun geheel. Een
+  // teamsamenvatting of een contractanalyse haalt die grens makkelijk.
+  const stukken = knipOp(text, TELEGRAM_MAX);
+
+  let laatsteId: number | undefined;
+  for (const stuk of stukken) {
+    const uitkomst = await stuurEenStuk(config.botToken, config.chatId, stuk);
+    if (!uitkomst.ok) return uitkomst;
+    laatsteId = uitkomst.messageId ?? laatsteId;
+  }
+
+  return { ok: true, messageId: laatsteId };
+}
+
+async function stuurEenStuk(
+  token: string,
+  chatId: string,
+  tekst: string,
+): Promise<{ ok: boolean; error?: string; messageId?: number }> {
+  const basis = { chat_id: chatId, link_preview_options: { is_disabled: true } };
+
   try {
     // Het bericht-ID onthouden we: antwoordt Enriqueo rechtstreeks op dit
     // bericht, dan weten we exact bij welke vraag zijn antwoord hoort.
-    const verstuurd = await call<{ message_id?: number }>(config.botToken, "sendMessage", {
-      chat_id: config.chatId,
-      text,
+    const verstuurd = await call<{ message_id?: number }>(token, "sendMessage", {
+      ...basis,
+      text: tekst,
       parse_mode: "Markdown",
-      link_preview_options: { is_disabled: true },
     });
     return { ok: true, messageId: verstuurd?.message_id };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Versturen mislukt." };
+    // Struikelt de Markdown-lezer over een teken in de tekst, dan weigert
+    // Telegram het hele bericht. Plat versturen is dan beter dan niet aankomen.
+    if (!isOpmaakfout(error)) {
+      return { ok: false, error: error instanceof Error ? error.message : "Versturen mislukt." };
+    }
+
+    try {
+      const verstuurd = await call<{ message_id?: number }>(token, "sendMessage", {
+        ...basis,
+        text: zonderOpmaak(tekst),
+      });
+      return { ok: true, messageId: verstuurd?.message_id };
+    } catch (tweedeKeer) {
+      return {
+        ok: false,
+        error: tweedeKeer instanceof Error ? tweedeKeer.message : "Versturen mislukt.",
+      };
+    }
   }
 }
+

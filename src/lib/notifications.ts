@@ -43,26 +43,34 @@ export async function notify(input: NotifyInput): Promise<void> {
   // een goedkeuringsverzoek werd wél vastgelegd, maar de agent kreeg een fout te
   // zien en probeerde het opnieuw. Twee keer dezelfde goedkeuring in je lijst,
   // of erger: een agent die concludeert dat vragen niet lukt.
-  try {
-    const { sendTelegram } = await import("./telegram");
-    const result = await sendTelegram(text);
-    if (result.ok) {
-      await db.notification.update({ where: { id: notification.id }, data: { pushedAt: new Date() } });
-    }
-  } catch (error) {
-    // De melding blijft staan met pushedAt leeg; zo zie je in het dashboard dat
-    // hij je telefoon niet gehaald heeft.
+  // De melding blijft staan met pushedAt leeg; zo zie je in het dashboard dat
+  // hij je telefoon niet gehaald heeft. De reden hoort in de activiteitenlijst,
+  // anders is "hij kwam niet binnen" niet te onderzoeken.
+  const misluktBij = async (reden: string) => {
     await db.activityEvent.create({
       data: {
         agentId: input.agentId ?? null,
         kind: "melding_niet_gepusht",
         level: "warn",
-        message: `Melding "${input.title}" staat in het dashboard maar kon niet naar Telegram: ${
-          error instanceof Error ? error.message : "onbekende fout"
-        }`,
+        message: `Melding "${input.title}" staat in het dashboard maar kon niet naar Telegram: ${reden}`,
         occurredAt: new Date(),
       },
     });
+  };
+
+  try {
+    const { sendTelegram } = await import("./telegram");
+    const result = await sendTelegram(text);
+    if (result.ok) {
+      await db.notification.update({ where: { id: notification.id }, data: { pushedAt: new Date() } });
+    } else {
+      // Sinds sendTelegram netjes { ok: false } teruggeeft in plaats van te
+      // gooien, kwam dit nooit meer in de catch terecht. Een mislukte melding
+      // verdween daardoor zonder spoor: je zag alleen dat er niets binnenkwam.
+      await misluktBij(result.error ?? "onbekende fout");
+    }
+  } catch (error) {
+    await misluktBij(error instanceof Error ? error.message : "onbekende fout");
   }
 }
 
