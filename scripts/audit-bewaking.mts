@@ -97,6 +97,7 @@ const STRENG = [
   ["facturen.ts", "financiële administratie"],
   ["memory.ts", "wat een agent blijvend onthoudt"],
   ["playbook.ts", "werkinstructies van een agent"],
+  ["mail.ts", "de sleutel waarmee er post namens het bureau uitgaat"],
 ];
 
 for (const [bestand, waarom] of STRENG) {

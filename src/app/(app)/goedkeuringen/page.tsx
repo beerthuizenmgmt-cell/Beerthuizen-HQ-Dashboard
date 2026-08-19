@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireOwner } from "@/lib/access";
 import { ApprovalCard } from "@/components/approval-card";
+import { MailVersturen } from "@/components/mail-versturen";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { formatDateTime, timeAgo } from "@/lib/format";
 
@@ -119,6 +120,22 @@ export default async function ApprovalsPage() {
                       Taak: {approval.linkedTask.title} ({approval.linkedTask.status})
                     </Link>
                   )}
+
+                  {/* Akkoord geven doe je tussendoor op je telefoon; een mail naar
+                      een klant is onomkeerbaar. Daarom een aparte handeling, met
+                      de ontvanger er nog een keer bij. */}
+                  {approval.kind === "email_send" &&
+                    approval.status === "approved" &&
+                    !approval.executedAt && (
+                      <MailVersturen
+                        approvalId={approval.id}
+                        ontvanger={
+                          typeof (approval.payload as { ontvanger?: unknown })?.ontvanger === "string"
+                            ? ((approval.payload as { ontvanger: string }).ontvanger)
+                            : "onbekende ontvanger"
+                        }
+                      />
+                    )}
                 </div>
               );
             })}

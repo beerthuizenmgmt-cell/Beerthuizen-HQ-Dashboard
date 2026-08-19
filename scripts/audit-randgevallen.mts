@@ -14,6 +14,7 @@ import { zoekBestaandeKlant, beoordeelBriefing, haalAanvraag, maakToken } from "
 import { assertUsableApiKey, keyProbleem } from "../src/lib/ai/provider";
 import { markeerGoedkeuringUitgevoerd } from "../src/lib/goedkeuring-afronden";
 import { TELEGRAM_MAX, isOpmaakfout, knipOp, zonderOpmaak } from "../src/lib/telegram-tekst";
+import { verstuurGoedgekeurdeMail } from "../src/lib/mail";
 
 const db = new PrismaClient({ adapter: new PrismaPg(poolConfig(resolveDatabaseUrl()!)) });
 
@@ -346,6 +347,69 @@ async function main() {
   const eenLangeRegel = "x".repeat(TELEGRAM_MAX * 2 + 50);
   toets("ook tekst zonder regeleindes blijft binnen de limiet",
     knipOp(eenLangeRegel).every((d) => d.length <= TELEGRAM_MAX));
+
+  // ── Mail gaat alleen weg met jouw akkoord ────────────────────────────────
+  //
+  // De grendels zitten in verstuurGoedgekeurdeMail, niet in de knop erboven.
+  // Anders kan een tweede tabblad, een script of een agent er alsnog een mail
+  // doorheen duwen die je niet gezien hebt.
+  console.log("\nMail versturen");
+
+  const afzenderAgent = await db.agent.findFirst({ select: { id: true } });
+  const maakMailverzoek = async (
+    status: "pending" | "approved" | "rejected",
+    payload: Record<string, string>,
+    kind = "email_send",
+    executedAt: Date | null = null,
+  ) =>
+    db.approval.create({
+      data: {
+        agentId: afzenderAgent!.id,
+        kind,
+        title: `${MERK} mailverzoek`,
+        summary: "Testverzoek.",
+        payload,
+        status,
+        executedAt,
+      },
+    });
+
+  const goedePayload = { ontvanger: "iemand@testadres.invalid", onderwerp: "Test", tekst: "Hallo." };
+
+  const nogNietBeslist = await maakMailverzoek("pending", goedePayload);
+  const a = await verstuurGoedgekeurdeMail(nogNietBeslist.id);
+  toets("een verzoek zonder akkoord wordt geweigerd", !a.ok, a.message);
+
+  const afgewezenVerzoek = await maakMailverzoek("rejected", goedePayload);
+  const b = await verstuurGoedgekeurdeMail(afgewezenVerzoek.id);
+  toets("een afgewezen verzoek wordt geweigerd", !b.ok, b.message);
+
+  const alVerstuurd = await maakMailverzoek("approved", goedePayload, "email_send", new Date());
+  const c = await verstuurGoedgekeurdeMail(alVerstuurd.id);
+  toets("een al verstuurde mail gaat niet nog een keer", !c.ok, c.message);
+
+  const geenMail = await maakMailverzoek("approved", goedePayload, "external_message");
+  const d = await verstuurGoedgekeurdeMail(geenMail.id);
+  toets("een verzoek van een ander soort wordt geweigerd", !d.ok, d.message);
+
+  const kromAdres = await maakMailverzoek("approved", { ...goedePayload, ontvanger: "geen adres" });
+  const e = await verstuurGoedgekeurdeMail(kromAdres.id);
+  toets("een onbruikbaar adres wordt geweigerd", !e.ok, e.message);
+
+  const zonderTekst = await maakMailverzoek("approved", { ...goedePayload, tekst: "" });
+  const f = await verstuurGoedgekeurdeMail(zonderTekst.id);
+  toets("een leeg bericht wordt geweigerd", !f.ok, f.message);
+
+  const bestaatNiet = await verstuurGoedgekeurdeMail("bestaat-echt-niet");
+  toets("een onbekend verzoek wordt geweigerd", !bestaatNiet.ok, bestaatNiet.message);
+
+  // Geen van deze pogingen mag een verzoek als uitgevoerd hebben achtergelaten.
+  const perOngelukUitgevoerd = await db.approval.count({
+    where: { title: { startsWith: MERK }, executedAt: { not: null }, id: { not: alVerstuurd.id } },
+  });
+  toets("geen enkele geweigerde poging is als verstuurd geboekt", perOngelukUitgevoerd === 0);
+
+  await db.approval.deleteMany({ where: { title: { startsWith: MERK } } });
 
   // ── Opruimen ─────────────────────────────────────────────────────────────
   await db.taskUpdate.deleteMany({ where: { task: { title: { startsWith: MERK } } } });

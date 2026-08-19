@@ -7,7 +7,9 @@ import { getAiStatus } from "@/lib/ai/provider";
 import { getFinanceSettings } from "@/lib/ai/cost";
 import { getCompanyContext } from "@/lib/ai/run";
 import { TelegramSettings } from "@/components/telegram-settings";
+import { MailSettings } from "@/components/mail-settings";
 import { getTelegramStatus } from "@/lib/telegram";
+import { getMailStatus } from "@/lib/mail";
 import { isRecent } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +26,7 @@ export default async function SettingsPage() {
     db.setting.findUnique({ where: { key: "alerts" } }),
   ]);
 
-  const [aiConfig, finance, companyContext, builtinAgents, activeAgents, runCount, telegram] = await Promise.all([
+  const [aiConfig, finance, companyContext, builtinAgents, activeAgents, runCount, telegram, mail] = await Promise.all([
     getAiStatus(),
     getFinanceSettings(),
     getCompanyContext(),
@@ -32,6 +34,7 @@ export default async function SettingsPage() {
     db.agent.count({ where: { adapterType: "builtin", paused: false } }),
     db.agentRun.count(),
     getTelegramStatus(),
+    getMailStatus(),
   ]);
 
 
@@ -86,9 +89,18 @@ export default async function SettingsPage() {
           : "Nog geen bot gekoppeld.",
     },
     {
-      name: "Meta Ads, web search en e-mail",
+      name: "E-mail versturen via Resend",
+      level: mail.ready ? "live" : mail.hasKey ? "wacht" : "niet",
+      detail: mail.ready
+        ? `Goedgekeurde mails gaan de deur uit vanaf ${mail.afzender}. Alleen na jouw akkoord, en precies zoals je ze hebt goedgekeurd.`
+        : mail.hasKey
+          ? "De sleutel staat er, maar er is nog geen afzenderadres op een geverifieerd domein."
+          : "Nog geen Resend-sleutel ingesteld; er kan dus niets verstuurd worden.",
+    },
+    {
+      name: "Meta Ads en web search",
       level: "niet",
-      detail: "Nog niet gebouwd. Agents kunnen dus nog niet zoeken, mailen of advertentiecijfers ophalen.",
+      detail: "Nog niet gebouwd. Agents kunnen dus nog niet zoeken of advertentiecijfers ophalen.",
     },
   ];
 
@@ -214,6 +226,24 @@ export default async function SettingsPage() {
           botUsername={telegram.botUsername}
           chatId={telegram.chatId}
           ready={telegram.ready}
+        />
+      </section>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-sm font-semibold">E-mail — wat er namens jou de deur uit gaat</h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Verzenden loopt via Resend. Een mail gaat alleen weg als jij hem hebt goedgekeurd, en
+            dan precies zoals hij in dat verzoek stond — een agent kan de tekst daarna niet meer
+            aanpassen.
+          </p>
+        </div>
+        <MailSettings
+          hasKey={mail.hasKey}
+          afzender={mail.afzender}
+          antwoordNaar={mail.antwoordNaar}
+          ready={mail.ready}
+          eigenEmail={user.email}
         />
       </section>
 
