@@ -39,7 +39,20 @@ export async function resolveMentions(body: string): Promise<{ ids: string[]; ke
   return { ids, keys };
 }
 
+/// Bericht plaatsen en meteen laten bezorgen. Voor alles wat op het antwoord
+/// wíl wachten — een agent die een collega aanspreekt, bijvoorbeeld.
 export async function postMessage(input: PostMessageInput) {
+  const message = await plaatsBericht(input);
+  await bezorgBericht(message.id);
+  return message;
+}
+
+/// Alleen vastleggen, nog niet bezorgen.
+///
+/// Zo staat jouw bericht meteen in beeld terwijl de agent nog nadenkt. Wachtte
+/// je op het hele denkwerk voordat er iets verscheen, dan keek je vijftien
+/// seconden naar een leeg scherm en wist je niet of je bericht was aangekomen.
+export async function plaatsBericht(input: PostMessageInput) {
   const channel = await db.channel.findUnique({
     where: { id: input.channelId },
     include: { agent: { select: { id: true, name: true } } },
@@ -66,7 +79,26 @@ export async function postMessage(input: PostMessageInput) {
     },
   });
 
-  if (recipients.length === 0) return message;
+  return message;
+}
+
+/// Het bericht bij de agents brengen en hun antwoord terugzetten in het kanaal.
+export async function bezorgBericht(messageId: string): Promise<void> {
+  const message = await db.message.findUnique({
+    where: { id: messageId },
+    include: { channel: true },
+  });
+  if (!message || message.delivery === "local") return;
+
+  const channel = message.channel;
+  const mentions = await resolveMentions(message.body);
+  const recipients = message.toAgentId ? [message.toAgentId] : mentions.ids;
+  if (recipients.length === 0) return;
+
+  const input = {
+    fromAgentId: message.fromAgentId,
+    body: message.body,
+  };
 
   const sender = input.fromAgentId
     ? await db.agent.findUnique({ where: { id: input.fromAgentId }, select: { name: true } })
@@ -167,8 +199,6 @@ export async function postMessage(input: PostMessageInput) {
       message: `${sender?.name ?? "Een agent"} stuurde een bericht in #${channel.key}`,
     });
   }
-
-  return message;
 }
 
 /// Zet een taak om in een opdracht die een agent kan begrijpen. Bewust

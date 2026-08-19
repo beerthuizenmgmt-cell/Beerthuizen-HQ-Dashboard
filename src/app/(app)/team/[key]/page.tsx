@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { getAdapter } from "@/lib/adapters";
 import { MessageComposer } from "@/components/message-composer";
+import { ChatVerversen, DenktNa } from "@/components/chat-verversen";
 import { formatDateTime } from "@/lib/format";
 import { AgentAvatar } from "@/components/agent-avatar";
 
@@ -52,6 +53,21 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
   ]);
 
   if (!channel) notFound();
+
+  // Zit er iemand na te denken?
+  //
+  // Afgeleid uit de berichten zelf in plaats van een extra veld: staat het
+  // laatste bericht van jou en is het naar een agent gericht en nog geen vijf
+  // minuten oud, dan is hij bezig. Daarna houden we ermee op — anders blijft er
+  // eeuwig "denkt na" staan als er onderweg iets is misgegaan.
+  const laatste = channel.messages[0];
+  const wachtOp =
+    laatste &&
+    laatste.fromType === "user" &&
+    laatste.toAgent &&
+    Date.now() - laatste.createdAt.getTime() < 5 * 60_000
+      ? laatste.toAgent.name
+      : null;
 
   const canSend = channel.agent ? getAdapter(channel.agent.adapterType).capabilities.send : true;
 
@@ -117,6 +133,8 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
           {channel.purpose && <p className="mt-0.5 text-xs text-text-muted">{channel.purpose}</p>}
         </header>
 
+        <ChatVerversen wachtend={wachtOp !== null} />
+
         <div className="flex-1 space-y-3 overflow-y-auto py-4">
           {channel.messages.length === 0 && (
             <p className="py-12 text-center text-sm text-text-faint">
@@ -160,6 +178,8 @@ export default async function ChannelPage({ params }: PageProps<"/team/[key]">) 
               </div>
             );
           })}
+
+          {wachtOp && <DenktNa naam={wachtOp} />}
         </div>
 
         <div className="border-t border-border pt-3">

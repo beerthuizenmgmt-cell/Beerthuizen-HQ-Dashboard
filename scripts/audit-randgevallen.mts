@@ -457,6 +457,15 @@ async function main() {
     "een agent die zelf al postte krijgt er geen tweede versie onder",
     /alGepost/.test(kanaalBron),
   );
+  toets(
+    "vastleggen en bezorgen zijn gescheiden, zodat je bericht meteen in beeld staat",
+    /export async function plaatsBericht/.test(kanaalBron) &&
+      /export async function bezorgBericht/.test(kanaalBron),
+  );
+
+  const actieBron = await readFile(new URL("../src/lib/actions/messages.ts", import.meta.url), "utf8");
+  toets("het denkwerk gebeurt na de bevestiging", /after\(/.test(actieBron));
+  toets("een mislukt antwoord laat een spoor na", /bericht_niet_bezorgd/.test(actieBron));
 
   // ── Opruimen ─────────────────────────────────────────────────────────────
   await db.taskUpdate.deleteMany({ where: { task: { title: { startsWith: MERK } } } });
