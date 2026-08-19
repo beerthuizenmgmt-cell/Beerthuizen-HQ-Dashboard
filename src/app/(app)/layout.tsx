@@ -8,8 +8,12 @@ import { areasFor, GROEPEN } from "@/lib/access";
 import { db } from "@/lib/db";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
-  const user = await requireUser();
-  const unread = await db.notification.count({ where: { readAt: null } });
+  // Naast elkaar in plaats van na elkaar: het aantal ongelezen meldingen hangt
+  // niet af van wie er inlogt, dus die query hoeft niet te wachten.
+  const [user, unread] = await Promise.all([
+    requireUser(),
+    db.notification.count({ where: { readAt: null } }),
+  ]);
 
   // De navigatie komt uit dezelfde lijst als de toegangscontrole, zodat er nooit
   // een link zichtbaar is die vervolgens geweigerd wordt.

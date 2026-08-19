@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
@@ -52,7 +53,13 @@ export type SessionUser = {
   role: "owner" | "member";
 };
 
-export async function getCurrentUser(): Promise<SessionUser | null> {
+/// Wie er is ingelogd.
+///
+/// Met cache() eromheen: binnen één verzoek vraagt zowel de layout als de
+/// pagina zelf naar de gebruiker, en zonder dit zijn dat twee losse queries.
+/// Op een database in dezelfde regio valt dat weg in de ruis; staat hij een
+/// oceaan verderop, dan kost elke overbodige query zo'n negentig milliseconden.
+export const getCurrentUser = cache(async function getCurrentUser(): Promise<SessionUser | null> {
   const store = await cookies();
   const token = store.get(COOKIE)?.value;
   if (!token) return null;
@@ -71,7 +78,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     // Verlopen of geknoeide cookie — behandelen als uitgelogd.
     return null;
   }
-}
+});
 
 /// Voor server components en route handlers die inloggen vereisen.
 export async function requireUser(): Promise<SessionUser> {
