@@ -43,6 +43,9 @@ export type Blok = {
 export type TeamRegel = {
   id: string;
   naam: string;
+  /// Waar hij van is. Negen namen zonder functie zeggen je niets als je niet
+  /// uit je hoofd weet wie waarover gaat.
+  rol: string;
   emoji: string | null;
   color: string | null;
   avatarUrl: string | null;
@@ -321,6 +324,7 @@ export async function bouwCockpit(): Promise<Cockpit> {
       bezig: !agent.paused && agent._count.runs > 0,
       id: agent.id,
       naam: agent.name,
+      rol: agent.role,
       emoji: agent.emoji,
       color: agent.color,
       avatarUrl: agent.avatarUrl,

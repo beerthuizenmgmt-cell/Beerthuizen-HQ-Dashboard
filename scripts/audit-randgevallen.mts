@@ -581,6 +581,15 @@ async function main() {
   );
   toets("wie op pauze staat blijft in beeld", /slaapt \? 0\.28 : 1/.test(kantoorBron));
   toets("een brandend scherm betekent echt werk", /lid\.bezig \? kleur/.test(kantoorBron));
+  toets("de gezichten hebben licht en schaduw", /hoofd-licht/.test(kantoorBron) && /hoofd-schaduw/.test(kantoorBron));
+  toets("licht en schaduw liggen niet aan dezelfde kant", /cx="34%"/.test(kantoorBron) && /cx="72%"/.test(kantoorBron));
+  toets(
+    "beide kamers hebben hun eigen verlopen",
+    /const merk = `k\$\{indeling\.breedte\}`/.test(kantoorBron),
+  );
+
+  const hqBron = await readFile(new URL("../src/app/(app)/hq/page.tsx", import.meta.url), "utf8");
+  toets("bij elke medewerker staat zijn functie", /\{lid\.rol\}/.test(hqBron));
 
   const cockpitBron = await readFile(new URL("../src/lib/cockpit.ts", import.meta.url), "utf8");
   toets("de briefing op HQ wordt ingekort", /eersteZinnen/.test(cockpitBron));

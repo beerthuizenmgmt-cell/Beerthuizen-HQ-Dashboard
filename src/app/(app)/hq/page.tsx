@@ -222,7 +222,12 @@ export default async function HQPage() {
                 agent={{ name: lid.naam, emoji: lid.emoji, color: lid.color, avatarUrl: lid.avatarUrl }}
                 size="xs"
               />
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">{lid.naam}</span>
+              {/* Naam en functie onder elkaar: negen namen zonder functie zeggen
+                  je niets als je niet uit je hoofd weet wie waarover gaat. */}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{lid.naam}</span>
+                <span className="block truncate text-xs text-text-muted">{lid.rol}</span>
+              </span>
               <span className="shrink-0 text-xs text-text-faint">{lid.stand}</span>
             </Link>
           ))}

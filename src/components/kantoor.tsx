@@ -31,7 +31,22 @@ const BREED: Indeling = { rijen: [5, 4], breedte: 1000, hoogte: 260, eersteRij: 
 /// drie, in een kamer die hoger is dan breed.
 const SMAL: Indeling = { rijen: [3, 3, 3], breedte: 400, hoogte: 330, eersteRij: 66, rijafstand: 96 };
 
-function Werkplek({ lid, x, y, schaal }: { lid: TeamRegel; x: number; y: number; schaal: number }) {
+function Werkplek({
+  lid,
+  x,
+  y,
+  schaal,
+  merk,
+}: {
+  lid: TeamRegel;
+  x: number;
+  y: number;
+  schaal: number;
+  /// De twee kamers staan allebei in de pagina — de ene verborgen. Zonder een
+  /// eigen achtervoegsel delen ze hun verloop-namen, en dan verwijst de
+  /// zichtbare kamer naar verlopen in de verborgene. Die schilderen niet.
+  merk: string;
+}) {
   const kleur = lid.color ?? "var(--accent)";
   const slaapt = lid.stand === "op pauze";
   const misgaat = lid.niveau === "rood";
@@ -45,12 +60,47 @@ function Werkplek({ lid, x, y, schaal }: { lid: TeamRegel; x: number; y: number;
 
       {/* Bureau */}
       <rect x="-36" y="26" width="72" height="7" rx="3.5" fill="var(--border)" />
+      <rect x="-36" y="26" width="72" height="7" rx="3.5" fill={`url(#bureaublad-${merk})`} />
       <rect x="-30" y="33" width="4" height="13" rx="2" fill="var(--border)" opacity="0.7" />
       <rect x="26" y="33" width="4" height="13" rx="2" fill="var(--border)" opacity="0.7" />
 
-      {/* De collega zelf: hoofd en schouders, achter zijn bureau */}
+      {/* De collega zelf.
+
+          Het licht komt van linksboven, net als de lamp in de kamer. Daarom
+          liggen de lichtvlekken linksboven en de schaduw rechtsonder — op het
+          hoofd, op de schouders, en als slagschaduw van de kin op de borst.
+
+          De hoogsels zijn wit en zwart met een lage dekking bovenop de kleur van
+          de agent, niet lichtere en donkerder varianten van die kleur zelf. Zo
+          werkt het voor elke kleur die iemand instelt, zonder dat wij per agent
+          hoeven uit te rekenen wat zijn schaduw is. */}
+
+      {/* Schouders */}
       <path d="M -17 26 Q -17 8 0 8 Q 17 8 17 26 Z" fill={kleur} opacity={lid.bezig ? 1 : 0.7} />
+      <path d="M -17 26 Q -17 8 0 8 Q 17 8 17 26 Z" fill={`url(#torso-licht-${merk})`} />
+      {/* Slagschaduw van het hoofd op de borst */}
+      <ellipse cx="0" cy="11" rx="10" ry="4" fill="#000" opacity="0.22" />
+
+      {/* Hoofd */}
       <circle cx="0" cy="0" r="9.5" fill={kleur} opacity={lid.bezig ? 1 : 0.8} />
+      <circle cx="0" cy="0" r="9.5" fill={`url(#hoofd-schaduw-${merk})`} />
+      <circle cx="0" cy="0" r="9.5" fill={`url(#hoofd-licht-${merk})`} />
+      {/* Randlicht langs de bovenkant, dat maakt de bol rond */}
+      <path
+        d="M -8.4 -4.4 A 9.5 9.5 0 0 1 8.4 -4.4"
+        fill="none"
+        stroke="#fff"
+        strokeOpacity="0.5"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+      />
+
+      {/* Ogen. Twee stipjes zijn genoeg: meer detail wordt op deze maat modder,
+          en een gezicht met te veel trekjes gaat er raar uitzien. */}
+      <ellipse cx="-3.2" cy="0.6" rx="1.15" ry="1.5" fill="#0b0b0b" opacity="0.8" />
+      <ellipse cx="3.2" cy="0.6" rx="1.15" ry="1.5" fill="#0b0b0b" opacity="0.8" />
+      <circle cx="-2.9" cy="0.1" r="0.4" fill="#fff" opacity="0.85" />
+      <circle cx="3.5" cy="0.1" r="0.4" fill="#fff" opacity="0.85" />
 
       {/* Beeldscherm ervoor. Brandt in zijn eigen kleur zodra hij echt aan het
           werk is; staat het uit, dan is het een donker vlak. */}
@@ -120,6 +170,7 @@ function Kamer({
   if (rest.length > 0) rijen[rijen.length - 1].push(...rest);
 
   const vloer = indeling.hoogte - 36;
+  const merk = `k${indeling.breedte}`;
   const laatsteRij = Math.max(1, indeling.rijen.length - 1);
 
   // Verdeeld over de breedte, zodat elke rij de kamer vult.
@@ -133,19 +184,41 @@ function Kamer({
       aria-label="Je team aan het werk"
     >
       <defs>
-        <linearGradient id={`muur-${indeling.hoogte}`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`muur-${merk}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--bg-elevated)" />
           <stop offset="100%" stopColor="var(--bg)" />
         </linearGradient>
-        <radialGradient id={`lamp-${indeling.hoogte}`} cx="50%" cy="0%" r="70%">
+        <radialGradient id={`lamp-${merk}`} cx="50%" cy="0%" r="70%">
           <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.13" />
           <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
         </radialGradient>
+
+        {/* Licht en schaduw als losse laagjes bovenop de kleur van de agent.
+            Eén keer gedefinieerd, door alle negen figuren gebruikt. */}
+        <radialGradient id={`hoofd-licht-${merk}`} cx="34%" cy="26%" r="62%">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.55" />
+          <stop offset="55%" stopColor="#fff" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={`hoofd-schaduw-${merk}`} cx="72%" cy="80%" r="70%">
+          <stop offset="0%" stopColor="#000" stopOpacity="0.45" />
+          <stop offset="60%" stopColor="#000" stopOpacity="0.12" />
+          <stop offset="100%" stopColor="#000" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id={`torso-licht-${merk}`} x1="0" y1="0" x2="0.7" y2="1">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.28" />
+          <stop offset="45%" stopColor="#fff" stopOpacity="0.04" />
+          <stop offset="100%" stopColor="#000" stopOpacity="0.3" />
+        </linearGradient>
+        <linearGradient id={`bureaublad-${merk}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#fff" stopOpacity="0.14" />
+          <stop offset="100%" stopColor="#000" stopOpacity="0.25" />
+        </linearGradient>
       </defs>
 
       {/* De kamer: muur, licht van boven, en een vloer die iets donkerder is */}
-      <rect width={indeling.breedte} height={indeling.hoogte} fill={`url(#muur-${indeling.hoogte})`} />
-      <rect width={indeling.breedte} height={indeling.hoogte} fill={`url(#lamp-${indeling.hoogte})`} />
+      <rect width={indeling.breedte} height={indeling.hoogte} fill={`url(#muur-${merk})`} />
+      <rect width={indeling.breedte} height={indeling.hoogte} fill={`url(#lamp-${merk})`} />
       <rect y={vloer} width={indeling.breedte} height="55" fill="#000" opacity="0.22" />
       <line x1="0" y1={vloer} x2={indeling.breedte} y2={vloer} stroke="var(--border)" strokeWidth="1" opacity="0.5" />
 
@@ -158,6 +231,7 @@ function Kamer({
             y={indeling.eersteRij + r * indeling.rijafstand}
             // Verder naar achteren is kleiner: dat maakt de diepte.
             schaal={(indeling.breedte < 600 ? 0.5 : 0.78) + (r / laatsteRij) * 0.22}
+            merk={merk}
           />
         )),
       )}
