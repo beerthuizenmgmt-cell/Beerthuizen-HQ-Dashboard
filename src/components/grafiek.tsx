@@ -31,18 +31,21 @@ export function Staafjes({
 
   return (
     <div className="space-y-2">
-      {data.map((d) => (
+      {data.map((d, i) => (
         <div key={d.label} className="flex items-center gap-3">
           <span className="w-24 shrink-0 truncate text-xs text-text-muted">{d.label}</span>
           {/* De grijze baan blijft zichtbaar onder de balk, zodat je ziet hoe
               groot het aandeel is en niet alleen hoe lang het balkje. */}
           <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-bg">
             <div
-              className="h-full rounded-full transition-[width]"
+              className="groeit h-full rounded-full"
               style={{
                 width: `${Math.max(3, (d.waarde / hoogste) * 100)}%`,
                 background: d.kleur ?? kleur,
                 boxShadow: `0 0 12px -4px ${d.kleur ?? kleur}`,
+                // Van boven naar beneden, met een tel ertussen: zo lees je de
+                // volgorde in plaats van dat alles tegelijk opspringt.
+                animationDelay: `${i * 70}ms`,
               }}
             />
           </div>
@@ -82,9 +85,10 @@ export function PerDag({
               cijfers kloppen. */}
           <div className="relative w-full flex-1">
             <div
-              className="absolute bottom-0 w-full rounded-md"
+              className="rijst absolute bottom-0 w-full rounded-md"
               style={{
                 height: `${Math.max(5, (d.waarde / hoogste) * 100)}%`,
+                animationDelay: `${i * 60}ms`,
                 background: kleur,
                 // Vandaag staat rechts en is nog bezig; die dimmen we niet weg.
                 opacity: d.waarde === 0 ? 0.18 : i === data.length - 1 ? 1 : 0.8,
@@ -151,10 +155,11 @@ export function Ring({
   const kier = data.length > 1 ? 1.5 : 0;
 
   let verstreken = 0;
-  const segmenten = data.map((d) => {
+  const segmenten = data.map((d, index) => {
     const lengte = (d.waarde / totaal) * omtrek;
     const segment = {
       key: d.label,
+      beurt: index,
       kleur: d.kleur ?? "var(--accent)",
       streep: `${Math.max(0, lengte - kier)} ${omtrek - Math.max(0, lengte - kier)}`,
       verschuiving: -verstreken,
@@ -180,7 +185,21 @@ export function Ring({
               strokeDasharray={seg.streep}
               strokeDashoffset={seg.verschuiving}
               strokeLinecap="butt"
-            />
+            >
+              {/* De ring tekent zichzelf, segment na segment. Van niets naar de
+                  volle lengte, zodat je de verhouding ziet ontstaan in plaats
+                  van dat er ineens een schijf staat. */}
+              <animate
+                attributeName="stroke-dasharray"
+                from={`0 ${omtrek}`}
+                to={seg.streep}
+                dur="0.9s"
+                begin={`${seg.beurt * 0.14}s`}
+                fill="freeze"
+                calcMode="spline"
+                keySplines="0.16 1 0.3 1"
+              />
+            </circle>
           ))}
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">

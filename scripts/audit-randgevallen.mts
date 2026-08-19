@@ -625,6 +625,28 @@ async function main() {
     /lid\.bezig \? 0\.72 : 0\.16/.test(kantoorBron),
   );
 
+  toets("de handen typen alleen als er gewerkt wordt", /lid\.bezig && \(\s*<animate\s+attributeName="cy"/s.test(kantoorBron));
+  toets(
+    "de twee handen bewegen om en om",
+    /begin="0\.25s"/.test(kantoorBron),
+  );
+
+  const breinBron = await readFile(new URL("../src/components/brein.tsx", import.meta.url), "utf8");
+  toets("het brein is verborgen voor schermlezers", /aria-hidden/.test(breinBron));
+  toets("de coderegels hebben de kleuren van het team", /var\(--info\)/.test(breinBron));
+
+  const stijlBron = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
+  toets(
+    "alle beweging zit achter prefers-reduced-motion",
+    /@media \(prefers-reduced-motion: no-preference\)/.test(stijlBron),
+  );
+  toets(
+    "zonder beweging staat de inhoud er gewoon",
+    // .komt-op heeft buiten de media query geen eigen opacity; valt de animatie
+    // weg, dan is het gevolg een stilstaande pagina en geen onzichtbare.
+    !/\.komt-op\s*\{[^}]*opacity/.test(stijlBron.split("@media (prefers-reduced-motion")[0]),
+  );
+
   const hqBron = await readFile(new URL("../src/app/(app)/hq/page.tsx", import.meta.url), "utf8");
   toets("bij elke medewerker staat zijn functie", /\{lid\.rol\}/.test(hqBron));
 

@@ -277,3 +277,65 @@ h3 {
   background: var(--bg);
   color: var(--text);
 }
+
+/* ============================================================
+   Beweging
+   ============================================================
+
+   HQ komt op in plaats van er ineens te staan: eerst je begroeting, dan het
+   team, dan de cijfers. Dat leidt je oog langs de pagina in de volgorde waarin
+   je hem hoort te lezen.
+
+   Alles staat achter prefers-reduced-motion. Wie beweging heeft uitgezet — en
+   dat doen mensen niet voor niks, denk aan migraine of duizeligheid — krijgt
+   dezelfde pagina zonder één animatie. Daarom zit de beweging in een media
+   query en niet andersom: gaat er iets mis met de query, dan is het resultaat
+   een stilstaande pagina en geen onbereikbare. */
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes komt-op {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .komt-op {
+    animation: komt-op 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+
+  /* Staafjes groeien vanuit hun beginpunt. Via scaleX en niet via width: de
+     eindbreedte staat als percentage in de opmaak, en die kun je niet in een
+     keyframe herhalen zonder hem twee keer te moeten onderhouden. */
+  @keyframes groeit {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+
+  .groeit {
+    transform-origin: left center;
+    animation: groeit 0.85s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+
+  @keyframes rijst {
+    from {
+      transform: scaleY(0);
+    }
+    to {
+      transform: scaleY(1);
+    }
+  }
+
+  .rijst {
+    transform-origin: bottom center;
+    animation: rijst 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+}

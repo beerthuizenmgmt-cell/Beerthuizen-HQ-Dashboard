@@ -5,6 +5,7 @@ import { bouwCockpit, type Niveau } from "@/lib/cockpit";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { Staafjes, PerDag, Ring, NogNietGekoppeld } from "@/components/grafiek";
 import { Kantoor } from "@/components/kantoor";
+import { Brein } from "@/components/brein";
 import { haalOverzicht } from "@/lib/overzicht";
 import { ActivityList } from "@/components/activity-list";
 import { formatDayLong, hourInTimezone, timeAgo } from "@/lib/format";
@@ -65,20 +66,28 @@ export default async function HQPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       {/* ── Wie je bent en welke dag het is ───────────────────────────── */}
-      <header>
-        <h1 className="text-3xl">
-          {groet()}, <span className="accent-serif">{user.name}</span>
-        </h1>
-        <p className="mt-1 text-sm text-text-muted">{formatDayLong(new Date())}</p>
+      <header className="komt-op flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl">
+            {groet()}, <span className="accent-serif">{user.name}</span>
+          </h1>
+          <p className="mt-1 text-sm text-text-muted">{formatDayLong(new Date())}</p>
+        </div>
+
+        {/* Op een telefoon weg: daar is de breedte te kostbaar voor iets dat
+            alleen mooi is. */}
+        <Brein className="hidden h-28 w-28 shrink-0 sm:block lg:h-32 lg:w-32" />
       </header>
 
       {/* ── Je team, aan het werk ──────────────────────────────────────── */}
       {/* Bovenaan, vóór de cijfers: je ziet in één blik wie er zit en wie er nu
           echt aan het werk is voordat je iets gelezen hebt. */}
-      <Kantoor team={team} />
+      <div className="komt-op" style={{ animationDelay: "80ms" }}>
+        <Kantoor team={team} />
+      </div>
 
       {/* ── Vandaag ────────────────────────────────────────────────────── */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="komt-op grid grid-cols-2 gap-3 sm:grid-cols-4" style={{ animationDelay: "160ms" }}>
         {[
           {
             label: vandaag.aandacht === 1 ? "vraagt jouw aandacht" : "vragen jouw aandacht",
@@ -114,7 +123,7 @@ export default async function HQPage() {
 
       {/* ── Wat Daan ervan vindt ───────────────────────────────────────── */}
       {briefing && (
-        <section className="card-cream p-5">
+        <section className="komt-op card-cream p-5" style={{ animationDelay: "240ms" }}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="eyebrow-rule start">Daan, vanochtend</p>
             <span className="text-xs text-text-faint">{timeAgo(briefing.wanneer)}</span>
@@ -127,7 +136,7 @@ export default async function HQPage() {
       )}
 
       {/* ── Prioriteiten ───────────────────────────────────────────────── */}
-      <section id="prioriteiten">
+      <section id="prioriteiten" className="komt-op" style={{ animationDelay: "320ms" }}>
         <h2 className="eyebrow-rule start mb-3">Dit heeft jou nodig</h2>
 
         {prioriteiten.length === 0 ? (
@@ -240,7 +249,7 @@ export default async function HQPage() {
           wel dat er iets staat, maar niet wat. Elke grafiek heeft nu een eigen
           kleur met betekenis — groen voor wat af is, rood voor wat vastloopt,
           blauw voor je agents. */}
-      <section className="space-y-5">
+      <section className="komt-op space-y-5" style={{ animationDelay: "400ms" }}>
         <h2 className="eyebrow-rule start">Hoe het loopt</h2>
 
         <div>

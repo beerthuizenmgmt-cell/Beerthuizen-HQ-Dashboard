@@ -212,9 +212,27 @@ function Werkplek({
       <path d="M -21 34 L 21 34 L 24 39 L -24 39 Z" fill={`url(#bureaublad-${merk})`} />
 
       {/* Handen op het toetsenbord. Twee vlekjes in zijn eigen kleur, net licht
-          genoeg om te lezen als handen en niet als vlekken. */}
-      <ellipse cx="-9" cy="35.5" rx="4.2" ry="2.6" fill={kleur} opacity="0.85" />
-      <ellipse cx="9" cy="35.5" rx="4.2" ry="2.6" fill={kleur} opacity="0.85" />
+          genoeg om te lezen als handen en niet als vlekken.
+
+          Werkt hij, dan bewegen ze een halve eenheid op en neer — om en om, want
+          twee handen die tegelijk wippen ziet er uit als springen en niet als
+          typen. Een halve eenheid is genoeg: meer wordt een tic. */}
+      <ellipse cx="-9" cy="35.5" rx="4.2" ry="2.6" fill={kleur} opacity="0.85">
+        {lid.bezig && (
+          <animate attributeName="cy" values="35.5;34.9;35.5" dur="0.5s" repeatCount="indefinite" />
+        )}
+      </ellipse>
+      <ellipse cx="9" cy="35.5" rx="4.2" ry="2.6" fill={kleur} opacity="0.85">
+        {lid.bezig && (
+          <animate
+            attributeName="cy"
+            values="35.5;34.9;35.5"
+            dur="0.5s"
+            begin="0.25s"
+            repeatCount="indefinite"
+          />
+        )}
+      </ellipse>
 
       {/* Het licht van het scherm op zijn gezicht en handen, als hij werkt */}
       {lid.bezig && (
