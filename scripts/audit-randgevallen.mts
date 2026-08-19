@@ -573,6 +573,15 @@ async function main() {
     /data\.length > 1 \? 1\.5 : 0/.test(grafiekVorm),
   );
 
+  const kantoorBron = await readFile(new URL("../src/components/kantoor.tsx", import.meta.url), "utf8");
+  toets("er is een aparte indeling voor smalle schermen", /const SMAL/.test(kantoorBron));
+  toets(
+    "de naam schaalt niet mee met het figuur",
+    /fontSize=\{13 \/ schaal\}/.test(kantoorBron),
+  );
+  toets("wie op pauze staat blijft in beeld", /slaapt \? 0\.28 : 1/.test(kantoorBron));
+  toets("een brandend scherm betekent echt werk", /lid\.bezig \? kleur/.test(kantoorBron));
+
   const cockpitBron = await readFile(new URL("../src/lib/cockpit.ts", import.meta.url), "utf8");
   toets("de briefing op HQ wordt ingekort", /eersteZinnen/.test(cockpitBron));
 

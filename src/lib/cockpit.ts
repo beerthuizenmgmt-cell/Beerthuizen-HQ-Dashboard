@@ -49,6 +49,9 @@ export type TeamRegel = {
   niveau: Niveau;
   /// Wat hij nú doet, in een handvol woorden.
   stand: string;
+  /// Is hij op dit moment echt aan het werk? Niet "heeft werk liggen", maar
+  /// "denkt nu na of heeft dat net gedaan". Daar brandt zijn schermpje van.
+  bezig: boolean;
 };
 
 export type Cockpit = {
@@ -115,7 +118,14 @@ export async function bouwCockpit(): Promise<Cockpit> {
       where: { adapterType: { not: "reader_ingest" } },
       orderBy: [{ isChief: "desc" }, { sortOrder: "asc" }],
       include: {
-        _count: { select: { tasks: { where: { status: { notIn: ["done", "cancelled"] } } } } },
+        _count: {
+          select: {
+            tasks: { where: { status: { notIn: ["done", "cancelled"] } } },
+            // Wie er de laatste minuten echt heeft nagedacht. Daar brandt zijn
+            // schermpje van in de kamer bovenaan HQ.
+            runs: { where: { createdAt: { gte: new Date(Date.now() - 10 * 60_000) } } },
+          },
+        },
       },
     }),
     debiteurenstand(),
@@ -308,6 +318,7 @@ export async function bouwCockpit(): Promise<Cockpit> {
     }
 
     return {
+      bezig: !agent.paused && agent._count.runs > 0,
       id: agent.id,
       naam: agent.name,
       emoji: agent.emoji,

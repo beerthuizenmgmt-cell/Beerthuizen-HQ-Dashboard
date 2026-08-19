@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { bouwCockpit, type Niveau } from "@/lib/cockpit";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { Staafjes, PerDag, Ring, NogNietGekoppeld } from "@/components/grafiek";
+import { Kantoor } from "@/components/kantoor";
 import { haalOverzicht } from "@/lib/overzicht";
 import { ActivityList } from "@/components/activity-list";
 import { formatDayLong, hourInTimezone, timeAgo } from "@/lib/format";
@@ -70,6 +71,11 @@ export default async function HQPage() {
         </h1>
         <p className="mt-1 text-sm text-text-muted">{formatDayLong(new Date())}</p>
       </header>
+
+      {/* ── Je team, aan het werk ──────────────────────────────────────── */}
+      {/* Bovenaan, vóór de cijfers: je ziet in één blik wie er zit en wie er nu
+          echt aan het werk is voordat je iets gelezen hebt. */}
+      <Kantoor team={team} />
 
       {/* ── Vandaag ────────────────────────────────────────────────────── */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
