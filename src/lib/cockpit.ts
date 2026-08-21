@@ -42,6 +42,8 @@ export type Blok = {
 
 export type TeamRegel = {
   id: string;
+  /// De sleutel, want zijn gesprekskanaal heet dm-<sleutel> en niet dm-<id>.
+  sleutel: string;
   naam: string;
   /// Waar hij van is. Negen namen zonder functie zeggen je niets als je niet
   /// uit je hoofd weet wie waarover gaat.
@@ -323,6 +325,7 @@ export async function bouwCockpit(): Promise<Cockpit> {
     return {
       bezig: !agent.paused && agent._count.runs > 0,
       id: agent.id,
+      sleutel: agent.key,
       naam: agent.name,
       rol: agent.role,
       emoji: agent.emoji,

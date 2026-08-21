@@ -339,3 +339,59 @@ h3 {
     animation: rijst 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
 }
+
+/* ============================================================
+   Sterrenveld
+   ============================================================
+
+   Een laag sterren achter het hele dashboard. Vast op zijn plek, dus hij schuift
+   niet mee met de pagina — sterren die meebewegen met je scrollen lezen als
+   vuil op je scherm in plaats van als diepte.
+
+   Getekend met radiale verlopen en niet met duizend elementjes: dit is één
+   achtergrond die de browser één keer tekent en daarna laat staan. Geen DOM,
+   geen javascript, geen kosten per beeld.
+
+   Alleen in het donker. Sterren op een lichte achtergrond worden grijze
+   stipjes, en dat is precies hoe stof op een scherm eruitziet. */
+
+/* Aan het dashboard zelf en niet aan de systeemvoorkeur: het dashboard is
+   altijd donker, ook op een Mac die in de lichte modus staat. Hing het aan
+   prefers-color-scheme, dan zag de helft van de mensen nooit een ster.
+
+   De klantpagina heeft deze klasse niet en blijft dus crème. */
+.sterrenveld {
+  position: relative;
+}
+
+.sterrenveld::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    /* Drie lagen met verschillende dichtheid en helderheid: dat geeft diepte,
+       want in een echte hemel staan de sterren ook niet allemaal even ver weg. */
+    background-image:
+      radial-gradient(1.2px 1.2px at 12% 18%, rgba(255, 255, 255, 0.5), transparent),
+      radial-gradient(1px 1px at 43% 9%, rgba(255, 255, 255, 0.35), transparent),
+      radial-gradient(1.4px 1.4px at 78% 22%, rgba(190, 215, 255, 0.45), transparent),
+      radial-gradient(1px 1px at 91% 61%, rgba(255, 255, 255, 0.3), transparent),
+      radial-gradient(1.2px 1.2px at 27% 73%, rgba(255, 225, 200, 0.4), transparent),
+      radial-gradient(1px 1px at 62% 88%, rgba(255, 255, 255, 0.28), transparent),
+      radial-gradient(1.5px 1.5px at 8% 47%, rgba(255, 255, 255, 0.32), transparent),
+      radial-gradient(1px 1px at 55% 41%, rgba(200, 220, 255, 0.25), transparent),
+      radial-gradient(1.1px 1.1px at 35% 56%, rgba(255, 255, 255, 0.22), transparent),
+      radial-gradient(1px 1px at 84% 79%, rgba(255, 255, 255, 0.3), transparent),
+      radial-gradient(1.3px 1.3px at 19% 92%, rgba(220, 235, 255, 0.28), transparent),
+      radial-gradient(1px 1px at 71% 12%, rgba(255, 255, 255, 0.26), transparent);
+    background-size: 420px 380px, 300px 340px, 520px 460px;
+    background-repeat: repeat;
+  }
+
+/* De inhoud komt boven de sterren. Zonder dit valt hij eronder en kijk je naar
+   een lege sterrenhemel. */
+.sterrenveld > * {
+  position: relative;
+  z-index: 1;
+}

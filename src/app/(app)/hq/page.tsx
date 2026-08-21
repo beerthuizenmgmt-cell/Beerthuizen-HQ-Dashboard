@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { bouwCockpit, type Niveau } from "@/lib/cockpit";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { Staafjes, PerDag, Ring, NogNietGekoppeld } from "@/components/grafiek";
-import { Kantoor } from "@/components/kantoor";
+import { BreinHQ } from "@/components/brein-hq";
 import { Brein } from "@/components/brein";
 import { haalOverzicht } from "@/lib/overzicht";
 import { ActivityList } from "@/components/activity-list";
@@ -83,7 +83,7 @@ export default async function HQPage() {
       {/* Bovenaan, vóór de cijfers: je ziet in één blik wie er zit en wie er nu
           echt aan het werk is voordat je iets gelezen hebt. */}
       <div className="komt-op" style={{ animationDelay: "80ms" }}>
-        <Kantoor team={team} />
+        <BreinHQ team={team} />
       </div>
 
       {/* ── Vandaag ────────────────────────────────────────────────────── */}

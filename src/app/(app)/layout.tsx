@@ -35,7 +35,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   const beheerLinks = zichtbaar.filter((area) => isBeheer(area.groep));
 
   return (
-    <div className="flex min-h-screen">
+    <div className="sterrenveld flex min-h-screen">
       {/* Vast aan de zijkant met een eigen schuifbalk. Zonder dit groeit de balk
           mee met de pagina en staat de onderkant — je account, je meldingen —
           buiten beeld zodra een scherm langer is dan het venster. */}

@@ -574,63 +574,50 @@ async function main() {
     /data\.length > 1 \? 1\.5 : 0/.test(grafiekVorm),
   );
 
-  const kantoorBron = await readFile(new URL("../src/components/kantoor.tsx", import.meta.url), "utf8");
-  toets("er is een aparte indeling voor smalle schermen", /const SMAL/.test(kantoorBron));
+  const breinCanvas = await readFile(new URL("../src/components/brein-canvas.tsx", import.meta.url), "utf8");
+  toets("elke agent krijgt zijn eigen wolk", /PLEKKEN/.test(breinCanvas));
   toets(
-    "de naam schaalt niet mee met het figuur",
-    /fontSize=\{13 \/ schaal\}/.test(kantoorBron),
+    "de kleur komt uit de database en niet uit een lijstje van ons",
+    /lid\.color \?\? "#6366f1"/.test(breinCanvas),
   );
-  toets("wie op pauze staat blijft in beeld", /slaapt \? 0\.28 : 1/.test(kantoorBron));
-  toets("een brandend scherm betekent echt werk", /lid\.bezig \? kleur/.test(kantoorBron));
-  toets("de gezichten hebben licht en schaduw", /hoofd-licht/.test(kantoorBron) && /hoofd-schaduw/.test(kantoorBron));
-  toets("licht en schaduw liggen niet aan dezelfde kant", /cx="34%"/.test(kantoorBron) && /cx="72%"/.test(kantoorBron));
+  toets("alleen wie echt werkt vuurt", /if \(werkt && !stil\)/.test(breinCanvas));
+  toets("wie op pauze staat blijft zichtbaar", /slaapt \? 0\.25/.test(breinCanvas));
   toets(
-    "beide kamers hebben hun eigen verlopen",
-    /const merk = `k\$\{indeling\.breedte\}`/.test(kantoorBron),
-  );
-
-  toets(
-    "in de kamer zie je hetzelfde gezicht als in de lijst",
-    /lid\.avatarUrl/.test(kantoorBron) && /lid\.emoji/.test(kantoorBron),
+    "het aantal deeltjes schaalt mee met het scherm",
+    /oppervlak \/ 900/.test(breinCanvas),
   );
   toets(
-    "een portret wordt niet weggewassen door de belichting",
-    // Geen vaste waarde: die verandert bij elke keer bijschaven. Waar het om
-    // gaat is dát de belichting zachter is zodra er een portret onder zit.
-    /lid\.avatarUrl \? 0\.\d+ : 1/.test(kantoorBron),
+    "er wordt niet doorgetekend als niemand kijkt",
+    /visibilitychange/.test(breinCanvas) && /cancelAnimationFrame/.test(breinCanvas),
   );
   toets(
-    "elk hoofd heeft zijn eigen knipmasker",
-    /hoofd-\$\{merk\}-\$\{lid\.id\}/.test(kantoorBron),
+    "wie beweging uit heeft krijgt een stilstaand brein, geen leeg vlak",
+    /prefers-reduced-motion/.test(breinCanvas) && /if \(!stil\) bezigId/.test(breinCanvas),
   );
-
-  toets("ze werken achter een laptop, geen monitor", /De laptop/.test(kantoorBron));
-  toets("er liggen handen op het toetsenbord", /Handen op het toetsenbord/.test(kantoorBron));
   toets(
-    "het hoofd staat vrij boven het scherm",
-    // Hoofd loopt tot eenheid 9 (cy -4, straal 13); het scherm begint op 18.
-    /r="13"/.test(kantoorBron) && /L -18 18 L 18 18/.test(kantoorBron),
+    "het eerste beeld staat er ook in een tabblad op de achtergrond",
+    /teken\(0\);\n\n    if \(!stil\)/.test(breinCanvas),
+  );
+  toets(
+    "elk label is een deur naar het gesprek met die agent",
+    /\/team\/dm-\$\{lid\.sleutel\}/.test(breinCanvas),
+  );
+  toets(
+    "de labels wijken op een telefoon voor de lijst",
+    /absolute hidden/.test(breinCanvas),
   );
 
-  toets("er staan regels op het scherm", /const REGELS/.test(kantoorBron));
-  toets(
-    "de regels blijven binnen het schuine scherm",
-    /clipPath=\{`url\(#scherm-/.test(kantoorBron),
-  );
-  toets(
-    "de regels lopen mee met de helling van het scherm",
-    /halveBreedte/.test(kantoorBron),
-  );
-  toets(
-    "wie niets doet heeft geen leeg scherm maar een rustig scherm",
-    /lid\.bezig \? 0\.72 : 0\.16/.test(kantoorBron),
-  );
+  const breinBlok = await readFile(new URL("../src/components/brein-hq.tsx", import.meta.url), "utf8");
+  toets("de namen staan ernaast in een leesbare lijst", /Agents/.test(breinBlok));
+  toets("het bolletje in de lijst heeft de kleur van zijn wolk", /background: kleur/.test(breinBlok));
 
-  toets("de handen typen alleen als er gewerkt wordt", /lid\.bezig && \(\s*<animate\s+attributeName="cy"/s.test(kantoorBron));
+  const stijl = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
+  toets("er ligt een sterrenveld achter het dashboard", /\.sterrenveld::before/.test(stijl));
   toets(
-    "de twee handen bewegen om en om",
-    /begin="0\.25s"/.test(kantoorBron),
+    "de sterren hangen aan het dashboard en niet aan de systeemvoorkeur",
+    !/prefers-color-scheme: dark\)\s*\{\s*\.sterrenveld/.test(stijl),
   );
+  toets("de inhoud staat bovenop de sterren", /\.sterrenveld > \*/.test(stijl));
 
   const breinBron = await readFile(new URL("../src/components/brein.tsx", import.meta.url), "utf8");
   toets("het brein is verborgen voor schermlezers", /aria-hidden/.test(breinBron));
