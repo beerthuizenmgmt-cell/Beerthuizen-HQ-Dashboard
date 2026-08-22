@@ -6,43 +6,47 @@ import type { TeamRegel } from "@/lib/cockpit";
 
 // Het brein van het bureau.
 //
-// Negen wolken van deeltjes, één per agent, elk in zijn eigen kleur. Samen
-// vormen ze één massa; los van elkaar zie je wie waar zit. Werkt een agent
-// echt — een denkbeurt in de laatste tien minuten — dan licht zijn wolk op en
-// schieten er vonken uit.
+// Negen zwermen in een ruimte, één per agent, elk in zijn eigen kleur. De hele
+// massa tuimelt langzaam om zijn as, en dát is wat het diep maakt: deeltjes
+// vooraan zijn groter en feller, deeltjes achteraan kleiner en doffer. Draait
+// er niets, dan is het een platte sticker.
 //
-// Op een canvas en niet in SVG: het gaat om een paar duizend deeltjes die dertig
-// keer per seconde bewegen. Evenveel SVG-elementen zou de browser laten kruipen,
+// Vuurt een agent — een denkbeurt in de laatste tien minuten — dan licht zijn
+// zwerm op en schieten er vonken uit.
+//
+// Op een canvas en niet in SVG: het gaat om duizenden deeltjes die dertig keer
+// per seconde bewegen. Evenveel SVG-elementen zou de browser laten kruipen,
 // want die moet er dan ook nog een DOM-boom van bijhouden.
 //
 // De labels staan er wél als gewone HTML overheen. Tekst op een canvas wordt
 // wazig op een scherm met hoge resolutie, en zo kun je erop klikken: elk label
 // is een deur naar het gesprek met die agent.
 
-/// Waar de wolken staan, in een vlak van 0 tot 1. Met de hand uitgezet in de
-/// vorm van een brein — breder dan hoog, iets voller aan de bovenkant. Een
-/// cirkel van negen punten op gelijke afstand ziet eruit als een bloem.
+/// Waar de zwermen zweven, in een kubus van -1 tot 1. Met de hand uitgezet in de
+/// vorm van een brein: breder dan hoog, voller aan de bovenkant. Negen punten op
+/// gelijke afstand van elkaar ziet eruit als een bloem, niet als hersenen.
 const PLEKKEN = [
-  { x: 0.5, y: 0.47, r: 0.3 },
-  { x: 0.67, y: 0.33, r: 0.25 },
-  { x: 0.33, y: 0.34, r: 0.25 },
-  { x: 0.76, y: 0.53, r: 0.24 },
-  { x: 0.24, y: 0.54, r: 0.24 },
-  { x: 0.62, y: 0.69, r: 0.24 },
-  { x: 0.38, y: 0.7, r: 0.24 },
-  { x: 0.5, y: 0.24, r: 0.21 },
-  { x: 0.5, y: 0.79, r: 0.21 },
+  { x: 0.0, y: -0.05, z: 0.0, r: 0.62 },
+  { x: 0.52, y: -0.42, z: 0.18, r: 0.5 },
+  { x: -0.52, y: -0.4, z: -0.16, r: 0.5 },
+  { x: 0.74, y: 0.12, z: -0.24, r: 0.46 },
+  { x: -0.74, y: 0.14, z: 0.22, r: 0.46 },
+  { x: 0.44, y: 0.56, z: 0.26, r: 0.46 },
+  { x: -0.46, y: 0.55, z: -0.2, r: 0.46 },
+  { x: 0.04, y: -0.7, z: -0.3, r: 0.4 },
+  { x: -0.02, y: 0.74, z: 0.28, r: 0.4 },
 ];
 
 type Deeltje = {
-  wolk: number;
-  /// Positie binnen de wolk, in poolcoördinaten zodat draaien goedkoop is.
-  hoek: number;
-  afstand: number;
-  snelheid: number;
+  zwerm: number;
+  /// Plek binnen de zwerm, in de kubus. Vast; de hele wolk draait, niet het
+  /// deeltje in zichzelf.
+  x: number;
+  y: number;
+  z: number;
   grootte: number;
   helderheid: number;
-  /// Eigen ritme, zodat niet alle deeltjes tegelijk pulseren.
+  /// Eigen ritme, zodat niet alles tegelijk ademt.
   fase: number;
 };
 
@@ -70,29 +74,35 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
     let hoogte = 0;
     let deeltjes: Deeltje[] = [];
 
-    // Eén keer een zacht lichtpuntje tekenen en dat daarna duizenden keren
-    // stempelen. Een cirkel per deeltje berekenen kost per beeld het veelvoud;
-    // een vierkantje is goedkoop maar ziet er als een blokje uit, en dat is
-    // precies wat je in een deeltjeswolk niet wilt.
+    // Eén keer een lichtpuntje tekenen en dat daarna duizenden keren stempelen.
+    // Een cirkel per deeltje berekenen kost per beeld het veelvoud; een
+    // vierkantje is goedkoop maar ziet eruit als een blokje. Het verloop is kort
+    // gehouden: in de video zijn het scherpe puntjes met een klein halootje, geen
+    // wattenbolletjes.
     const stippen = new Map<string, HTMLCanvasElement>();
 
-    function stip(kleur: string): HTMLCanvasElement {
-      const bestaand = stippen.get(kleur);
+    function stip(r: number, g: number, b: number): HTMLCanvasElement {
+      const sleutel = `${r},${g},${b}`;
+      const bestaand = stippen.get(sleutel);
       if (bestaand) return bestaand;
 
-      const maat = 16;
+      const maat = 12;
       const doek = document.createElement("canvas");
       doek.width = maat;
       doek.height = maat;
       const dctx = doek.getContext("2d")!;
       const verloop = dctx.createRadialGradient(maat / 2, maat / 2, 0, maat / 2, maat / 2, maat / 2);
-      verloop.addColorStop(0, kleur);
-      verloop.addColorStop(0.4, kleur.replace(/[\d.]+\)$/, "0.55)"));
-      verloop.addColorStop(1, kleur.replace(/[\d.]+\)$/, "0)"));
+      // Bijna de hele stip is vol; alleen de buitenste rand dooft uit. Met een
+      // lange uitloop bestaat een klein stipje vooral uit halo en blijft er van
+      // het licht zelf niets over — dan oogt de hele zwerm dof.
+      verloop.addColorStop(0, `rgba(${r},${g},${b},1)`);
+      verloop.addColorStop(0.55, `rgba(${r},${g},${b},1)`);
+      verloop.addColorStop(0.78, `rgba(${r},${g},${b},0.45)`);
+      verloop.addColorStop(1, `rgba(${r},${g},${b},0)`);
       dctx.fillStyle = verloop;
       dctx.fillRect(0, 0, maat, maat);
 
-      stippen.set(kleur, doek);
+      stippen.set(sleutel, doek);
       return doek;
     }
 
@@ -101,24 +111,25 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
     /// toch niet.
     function bouwDeeltjes() {
       const oppervlak = breedte * hoogte;
-      const perWolk = Math.round(Math.min(520, Math.max(140, oppervlak / 900)));
+      const perZwerm = Math.round(Math.min(1100, Math.max(220, oppervlak / 380)));
       const nieuw: Deeltje[] = [];
 
       for (let w = 0; w < PLEKKEN.length; w += 1) {
-        for (let i = 0; i < perWolk; i += 1) {
-          // Wortel van een toevalsgetal: zo liggen de deeltjes gelijkmatig over
-          // het vlak in plaats van opgehoopt in het midden. Daarna nog een keer
-          // machtsverheffen om de kern juist wél voller te maken, zoals in een
-          // echte wolk.
-          const afstand = Math.pow(Math.random(), 0.65);
+        for (let i = 0; i < perZwerm; i += 1) {
+          // Gelijkmatig over een bol, en daarna naar de kern getrokken zodat het
+          // midden voller is dan de rand — zoals in een echte zwerm.
+          const u = Math.random() * 2 - 1;
+          const hoek = Math.random() * Math.PI * 2;
+          const straal = Math.pow(Math.random(), 0.55);
+          const vlak = Math.sqrt(1 - u * u);
+
           nieuw.push({
-            wolk: w,
-            hoek: Math.random() * Math.PI * 2,
-            afstand,
-            // Verder naar buiten draait langzamer; dat geeft de wolk diepte.
-            snelheid: (0.00022 + Math.random() * 0.0004) * (1 - afstand * 0.55),
-            grootte: 1 + Math.random() * 1.8,
-            helderheid: 0.4 + Math.random() * 0.6,
+            zwerm: w,
+            x: Math.cos(hoek) * vlak * straal,
+            y: u * straal,
+            z: Math.sin(hoek) * vlak * straal,
+            grootte: 0.7 + Math.random() * 1.1,
+            helderheid: 0.55 + Math.random() * 0.45,
             fase: Math.random() * Math.PI * 2,
           });
         }
@@ -143,35 +154,31 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
     let bezigId = 0;
     let draait = true;
 
-    function teken(verstreken: number) {
+    function teken() {
       const leden = teamRef.current;
       ctx!.clearRect(0, 0, breedte, hoogte);
 
+      const midX = breedte / 2;
+      const midY = hoogte / 2;
       // De kortste kant bepaalt de schaal, zodat het brein niet uitrekt op een
       // breed scherm.
-      const schaal = Math.min(breedte, hoogte);
+      //
+      // De uiterste zwerm ligt op 0,74 van het midden en is zelf 0,46 breed, dus
+      // de massa reikt tot ongeveer 1,2. Met het perspectief erbij komt dat op
+      // 0,39 van de kortste kant — een bol die ruim binnen het paneel past in
+      // plaats van er aan alle kanten uit te lopen.
+      const schaal = Math.min(breedte, hoogte) * 0.62;
 
-      // De kern. In het midden lopen alle wolken in elkaar over en dat wordt
-      // wit — zoals licht dat van alle kanten samenkomt. Zonder deze laag blijft
-      // het midden even donker als de rand en valt het brein uit elkaar in negen
-      // losse zwermen.
-      const hoeveelWerkt = leden.filter((l) => l.bezig).length;
-      const kernKracht = 0.1 + Math.min(hoeveelWerkt, 4) * 0.05 + Math.sin(tijd * 1.1) * 0.02;
+      // De hele massa draait om zijn as, met een lichte knik zodat je er van
+      // opzij op kijkt in plaats van er recht tegenaan.
+      const draaiing = tijd * 0.16;
+      const cosD = Math.cos(draaiing);
+      const sinD = Math.sin(draaiing);
+      const kanteling = Math.sin(tijd * 0.11) * 0.16;
+      const cosK = Math.cos(kanteling);
+      const sinK = Math.sin(kanteling);
+
       ctx!.globalCompositeOperation = "lighter";
-      const kern = ctx!.createRadialGradient(
-        breedte / 2,
-        hoogte * 0.5,
-        0,
-        breedte / 2,
-        hoogte * 0.5,
-        schaal * 0.34,
-      );
-      kern.addColorStop(0, `rgba(220,235,255,${kernKracht})`);
-      kern.addColorStop(0.5, `rgba(180,205,255,${kernKracht * 0.35})`);
-      kern.addColorStop(1, "rgba(160,190,255,0)");
-      ctx!.fillStyle = kern;
-      ctx!.fillRect(0, 0, breedte, hoogte);
-      ctx!.globalCompositeOperation = "source-over";
 
       for (let w = 0; w < PLEKKEN.length; w += 1) {
         const lid = leden[w];
@@ -179,91 +186,98 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
 
         const plek = PLEKKEN[w];
         const [r, g, b] = hexNaarRgb(lid.color ?? "#6366f1");
-        const middenX = plek.x * breedte;
-        const middenY = plek.y * hoogte;
-        const straal = plek.r * schaal;
-
         const slaapt = lid.stand === "op pauze";
         const werkt = lid.bezig;
 
         // Wie werkt gloeit op en pulseert; wie op pauze staat is er nog wel,
-        // maar gedempt. Een wolk die helemaal verdwijnt leest als "weg".
-        const puls = werkt ? 0.75 + Math.sin(tijd * 2.2) * 0.25 : 1;
-        const kracht = (slaapt ? 0.25 : werkt ? 1 : 0.78) * puls;
+        // maar gedempt. Een zwerm die helemaal verdwijnt leest als "weg".
+        const puls = werkt ? 0.8 + Math.sin(tijd * 2.4) * 0.2 : 1;
+        const kracht = (slaapt ? 0.35 : werkt ? 1.6 : 1.15) * puls;
 
-        ctx!.globalCompositeOperation = "lighter";
-
-        // Een zachte gloed onder de deeltjes. Zonder dit is het een zwerm
-        // losse stipjes; hiermee wordt het een massa waar licht uit komt.
-        const gloed = ctx!.createRadialGradient(middenX, middenY, 0, middenX, middenY, straal);
-        gloed.addColorStop(0, `rgba(${r},${g},${b},${0.16 * kracht})`);
-        gloed.addColorStop(0.55, `rgba(${r},${g},${b},${0.05 * kracht})`);
-        gloed.addColorStop(1, `rgba(${r},${g},${b},0)`);
-        ctx!.fillStyle = gloed;
-        ctx!.fillRect(middenX - straal, middenY - straal, straal * 2, straal * 2);
+        const gewoon = stip(r, g, b);
+        // De kern verzadigt naar wit, zoals licht dat van alle kanten samenkomt.
+        const heet = stip(
+          Math.round(r + (255 - r) * 0.75),
+          Math.round(g + (255 - g) * 0.75),
+          Math.round(b + (255 - b) * 0.75),
+        );
 
         for (const d of deeltjes) {
-          if (d.wolk !== w) continue;
-          d.hoek += d.snelheid * verstreken;
+          if (d.zwerm !== w) continue;
 
-          // Zachte ademhaling: de wolk zet uit en krimpt weer.
-          const adem = 1 + Math.sin(tijd * 0.6 + d.fase) * 0.035;
-          const x = middenX + Math.cos(d.hoek) * d.afstand * straal * adem;
-          const y = middenY + Math.sin(d.hoek) * d.afstand * straal * adem * 0.92;
+          // Zachte ademhaling van de zwerm.
+          const adem = 1 + Math.sin(tijd * 0.7 + d.fase) * 0.05;
 
-          // Naar de rand toe doven ze uit, anders krijgt de wolk een harde rand.
-          const rand = 1 - d.afstand * 0.5;
-          const alfa = Math.min(1, d.helderheid * rand * kracht);
+          let px = plek.x + d.x * plek.r * adem;
+          let py = plek.y + d.y * plek.r * adem;
+          let pz = plek.z + d.z * plek.r * adem;
 
-          // Dicht bij het hart van de wolk verzadigt het licht naar wit. Dat is
-          // wat je in de video ziet: gekleurd aan de rand, gloeiend in de kern.
-          const heet = Math.max(0, 1 - d.afstand * 2.6);
-          const mr = Math.round(r + (255 - r) * heet * 0.7);
-          const mg = Math.round(g + (255 - g) * heet * 0.7);
-          const mb = Math.round(b + (255 - b) * heet * 0.7);
+          // Draaien om de verticale as, dan kantelen om de horizontale.
+          const rx = px * cosD - pz * sinD;
+          const rz = px * sinD + pz * cosD;
+          const ry = py * cosK - rz * sinK;
+          const dz = py * sinK + rz * cosK;
 
-          // Op kleur afronden zodat er een handvol stempels ontstaat in plaats
-          // van een nieuwe voor elk deeltje.
-          const sleutel = `rgba(${mr & ~7},${mg & ~7},${mb & ~7},1)`;
-          const maat = d.grootte * 3.2;
+          px = rx;
+          py = ry;
+          pz = dz;
+
+          // Perspectief: wat verder weg ligt, wordt kleiner en doffer. Dit is
+          // wat de zwerm ruimtelijk maakt in plaats van een platte sticker.
+          const diepte = 1 / (1.9 + pz);
+          const x = midX + px * schaal * diepte;
+          const y = midY + py * schaal * diepte;
+
+          const maat = d.grootte * diepte * 4.6;
+          if (maat < 0.25) continue;
+
+          const alfa = Math.min(1, d.helderheid * kracht * (0.45 + diepte * 1.3));
+          if (alfa < 0.02) continue;
+
+          // Dicht bij het hart van de zwerm gloeit het wit uit.
+          const kernNabij = Math.abs(d.x) + Math.abs(d.y) + Math.abs(d.z) < 0.55;
+
           ctx!.globalAlpha = alfa;
-          ctx!.drawImage(stip(sleutel), x - maat / 2, y - maat / 2, maat, maat);
+          ctx!.drawImage(kernNabij ? heet : gewoon, x - maat / 2, y - maat / 2, maat, maat);
         }
 
-        // Vonken: alleen bij wie echt aan het werk is. Ze schieten vanuit de
-        // kern naar buiten en doven onderweg uit.
+        // Vonken: alleen bij wie echt aan het werk is. Ze schieten vanuit de kern
+        // naar buiten en doven onderweg uit.
         if (werkt && !stil) {
-          for (let i = 0; i < 5; i += 1) {
-            const hoek = tijd * 0.7 + (i / 5) * Math.PI * 2 + w;
-            const lengte = straal * (1.15 + Math.sin(tijd * 1.6 + i) * 0.45);
-            const eindX = middenX + Math.cos(hoek) * lengte;
-            const eindY = middenY + Math.sin(hoek) * lengte;
+          const kx = midX + (plek.x * cosD - plek.z * sinD) * schaal * 0.53;
+          const ky = midY + plek.y * schaal * 0.53;
 
-            const verloop = ctx!.createLinearGradient(middenX, middenY, eindX, eindY);
-            verloop.addColorStop(0, `rgba(${r},${g},${b},0.55)`);
+          ctx!.globalAlpha = 1;
+          for (let i = 0; i < 6; i += 1) {
+            const hoek = tijd * 0.9 + (i / 6) * Math.PI * 2 + w;
+            const lengte = schaal * (0.22 + Math.sin(tijd * 1.9 + i) * 0.12);
+            const eindX = kx + Math.cos(hoek) * lengte;
+            const eindY = ky + Math.sin(hoek) * lengte;
+
+            const verloop = ctx!.createLinearGradient(kx, ky, eindX, eindY);
+            verloop.addColorStop(0, `rgba(${r},${g},${b},0.7)`);
             verloop.addColorStop(1, `rgba(${r},${g},${b},0)`);
             ctx!.strokeStyle = verloop;
-            ctx!.lineWidth = 1;
+            ctx!.lineWidth = 1.2;
             ctx!.beginPath();
-            ctx!.moveTo(middenX, middenY);
+            ctx!.moveTo(kx, ky);
             ctx!.lineTo(eindX, eindY);
             ctx!.stroke();
           }
         }
-
-        ctx!.globalAlpha = 1;
-        ctx!.globalCompositeOperation = "source-over";
       }
+
+      ctx!.globalAlpha = 1;
+      ctx!.globalCompositeOperation = "source-over";
     }
 
     let vorige = performance.now();
 
     function lus(nu: number) {
       if (!draait) return;
-      const verstreken = Math.min(nu - vorige, 50);
+      tijd += Math.min(nu - vorige, 50) / 1000;
       vorige = nu;
-      tijd += verstreken / 1000;
-      teken(verstreken);
+      teken();
       bezigId = requestAnimationFrame(lus);
     }
 
@@ -274,7 +288,7 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
     // zonder dit laadt HQ daar als een leeg zwart vlak en zie je bij terugkomst
     // pas iets. En wie beweging heeft uitgezet krijgt hiermee het stilstaande
     // brein: het hoort er te staan, het hoeft alleen niet te bewegen.
-    teken(0);
+    teken();
 
     if (!stil) bezigId = requestAnimationFrame(lus);
 
@@ -296,7 +310,7 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
 
     const waarnemer = new ResizeObserver(() => {
       meten();
-      if (stil) teken(0);
+      teken();
     });
     waarnemer.observe(canvas);
     document.addEventListener("visibilitychange", bijZichtbaarheid);
@@ -314,7 +328,12 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full" aria-hidden />
 
       {/* De labels. Als HTML en niet op het canvas: scherper op een goed scherm,
-          en zo kun je doorklikken naar het gesprek met die agent. */}
+          en zo kun je doorklikken naar het gesprek met die agent.
+
+          Op een telefoon weg. Negen kaders met twee regels tekst passen niet in
+          een vlak van driehonderd bij driehonderd: ze schuiven over elkaar heen
+          en dan lees je geen enkele naam meer. Daar is het brein het beeld en de
+          lijst eronder de leesbare versie. */}
       {team.slice(0, PLEKKEN.length).map((lid, i) => {
         const plek = PLEKKEN[i];
         const kleur = lid.color ?? "#6366f1";
@@ -322,16 +341,15 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
           <Link
             key={lid.id}
             href={`/team/dm-${lid.sleutel}`}
-            // Op een telefoon weg. Negen kaders met twee regels tekst passen niet
-            // in een vlak van driehonderd bij driehonderd: ze schuiven over
-            // elkaar heen en dan lees je geen enkele naam meer. Daar is het brein
-            // het beeld en de lijst eronder de leesbare versie.
             className="absolute hidden -translate-x-1/2 -translate-y-1/2 rounded border px-1.5 py-0.5 font-mono text-[9px] leading-tight tracking-wider whitespace-nowrap uppercase backdrop-blur-[2px] transition-transform hover:scale-110 sm:block sm:text-[10px]"
             style={{
-              left: `${plek.x * 100}%`,
-              top: `${plek.y * 100}%`,
+              // Vaste plek, afgeleid van waar de zwerm hoort te zweven. De
+              // zwerm zelf draait; het label niet, want een naam die met de
+              // massa meedraait is niet te lezen en niet aan te klikken.
+              left: `${50 + plek.x * 34}%`,
+              top: `${50 + plek.y * 34}%`,
               borderColor: `${kleur}88`,
-              background: "rgba(0,0,0,0.55)",
+              background: "rgba(0,0,0,0.6)",
               color: kleur,
               opacity: lid.stand === "op pauze" ? 0.45 : 1,
             }}

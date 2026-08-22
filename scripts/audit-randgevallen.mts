@@ -581,10 +581,10 @@ async function main() {
     /lid\.color \?\? "#6366f1"/.test(breinCanvas),
   );
   toets("alleen wie echt werkt vuurt", /if \(werkt && !stil\)/.test(breinCanvas));
-  toets("wie op pauze staat blijft zichtbaar", /slaapt \? 0\.25/.test(breinCanvas));
+  toets("wie op pauze staat blijft zichtbaar", /slaapt \? 0\.\d+ :/.test(breinCanvas));
   toets(
     "het aantal deeltjes schaalt mee met het scherm",
-    /oppervlak \/ 900/.test(breinCanvas),
+    /oppervlak \/ \d+/.test(breinCanvas) && /Math\.min\(\d+, Math\.max\(/.test(breinCanvas),
   );
   toets(
     "er wordt niet doorgetekend als niemand kijkt",
@@ -596,7 +596,15 @@ async function main() {
   );
   toets(
     "het eerste beeld staat er ook in een tabblad op de achtergrond",
-    /teken\(0\);\n\n    if \(!stil\)/.test(breinCanvas),
+    /teken\(\);\n\n    if \(!stil\) bezigId/.test(breinCanvas),
+  );
+
+  // De diepte is wat het ruimtelijk maakt in plaats van een platte sticker.
+  toets("de massa draait om zijn as", /const draaiing = tijd \* /.test(breinCanvas));
+  toets("er zit perspectief op", /const diepte = 1 \/ \(1\.9 \+ pz\)/.test(breinCanvas));
+  toets(
+    "wat verder weg ligt wordt kleiner én doffer",
+    /d\.grootte \* diepte/.test(breinCanvas) && /diepte \* 1\.3/.test(breinCanvas),
   );
   toets(
     "elk label is een deur naar het gesprek met die agent",
