@@ -37,6 +37,17 @@ const PLEKKEN = [
   { x: -0.02, y: 0.74, z: 0.28, r: 0.4 },
 ];
 
+/// Waar de tentakels vandaan komen en heen kronkelen.
+///
+/// Vast uitgezet en niet toevallig: een tentakel die bij elke ronde ergens
+/// anders vandaan groeit hoort niet bij een zwerm meer. Elk getal is een hoek in
+/// radialen, een lengte en een tempo.
+const TENTAKELS = [
+  { hoek: -0.4, lengte: 1.5, bocht: 0.55, tempo: 0.55 },
+  { hoek: 1.9, lengte: 1.25, bocht: -0.7, tempo: 0.42 },
+  { hoek: 3.7, lengte: 1.6, bocht: 0.4, tempo: 0.68 },
+];
+
 type Deeltje = {
   zwerm: number;
   /// Plek binnen de zwerm, in de kubus. Vast; de hele wolk draait, niet het
@@ -249,6 +260,76 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
 
           ctx!.globalAlpha = alfa;
           ctx!.drawImage(kernNabij ? heet : gewoon, x - maat / 2, y - maat / 2, maat, maat);
+        }
+
+        // Tentakels.
+        //
+        // Slierten die uit de zwerm groeien met een lichtpuls die eroverheen
+        // loopt — een signaal dat wegloopt van waar het vandaan komt, in de
+        // kleur van die agent. Ze kronkelen doordat het controlepunt van de
+        // bocht meebeweegt op zijn eigen ritme.
+        //
+        // Bij wie werkt lopen er drie pulsen tegelijk en zijn ze fel; bij wie
+        // rust ééntje en gedempt. Helemaal weglaten zou de zwerm losknippen van
+        // de rest.
+        if (!stil || werkt) {
+          const kx = midX + (plek.x * cosD - plek.z * sinD) * schaal * adem * 0.53;
+          const ky = midY + plek.y * schaal * adem * 0.53;
+
+          for (const t of TENTAKELS) {
+            const zwaai = Math.sin(tijd * t.tempo + w) * t.bocht;
+            const hoek = t.hoek + w * 0.7 + zwaai * 0.35;
+            const lang = schaal * 0.42 * t.lengte * adem;
+
+            const eindX = kx + Math.cos(hoek) * lang;
+            const eindY = ky + Math.sin(hoek) * lang;
+            // Het controlepunt staat opzij van de lijn; hoe verder opzij, hoe
+            // sterker de kronkel.
+            const stuurX = kx + Math.cos(hoek + zwaai) * lang * 0.6;
+            const stuurY = ky + Math.sin(hoek + zwaai) * lang * 0.6;
+
+            // De sliert zelf, vaag.
+            ctx!.strokeStyle = `rgba(${r},${g},${b},${werkt ? 0.3 : 0.14})`;
+            ctx!.lineWidth = 1;
+            ctx!.beginPath();
+            ctx!.moveTo(kx, ky);
+            ctx!.quadraticCurveTo(stuurX, stuurY, eindX, eindY);
+            ctx!.stroke();
+
+            // De pulsen die eroverheen lopen. Een punt op een kwadratische bocht
+            // op tijd u, met een staartje erachteraan.
+            const pulsen = werkt ? 3 : 1;
+            for (let i = 0; i < pulsen; i += 1) {
+              const u = ((tijd * (werkt ? 0.55 : 0.28) + i / pulsen + w * 0.13) % 1);
+              const punt = (v: number, a: number, c: number, e: number) =>
+                (1 - v) * (1 - v) * a + 2 * (1 - v) * v * c + v * v * e;
+
+              const px2 = punt(u, kx, stuurX, eindX);
+              const py2 = punt(u, ky, stuurY, eindY);
+              const staartU = Math.max(0, u - 0.12);
+              const sx = punt(staartU, kx, stuurX, eindX);
+              const sy = punt(staartU, ky, stuurY, eindY);
+
+              // Dooft uit naar het uiteinde: het signaal raakt op onderweg.
+              const kracht2 = (1 - u) * (werkt ? 1 : 0.45);
+
+              const streep = ctx!.createLinearGradient(sx, sy, px2, py2);
+              streep.addColorStop(0, `rgba(${r},${g},${b},0)`);
+              streep.addColorStop(1, `rgba(${r},${g},${b},${0.85 * kracht2})`);
+              ctx!.strokeStyle = streep;
+              ctx!.lineWidth = 1.8;
+              ctx!.beginPath();
+              ctx!.moveTo(sx, sy);
+              ctx!.lineTo(px2, py2);
+              ctx!.stroke();
+
+              // Het kopje van de puls, wit uitgegloeid.
+              ctx!.globalAlpha = 0.9 * kracht2;
+              const kop = 5;
+              ctx!.drawImage(heet, px2 - kop / 2, py2 - kop / 2, kop, kop);
+              ctx!.globalAlpha = 1;
+            }
+          }
         }
 
         // Vonken: alleen bij wie echt aan het werk is. Ze schieten vanuit de kern

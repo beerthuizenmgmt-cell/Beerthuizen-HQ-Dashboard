@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { TeamRegel } from "@/lib/cockpit";
 import { BreinCanvas } from "./brein-canvas";
+import { BreinCodestroom } from "./brein-codestroom";
 
 // Het brein bovenaan HQ, met de bezetting ernaast.
 //
@@ -30,7 +31,13 @@ export function BreinHQ({ team }: { team: TeamRegel[] }) {
         <div className="relative min-h-[380px] flex-1 sm:min-h-[480px] lg:min-h-[580px]">
           <BreinCanvas team={team} />
 
-          <div className="pointer-events-none absolute top-4 left-5">
+          {/* De kop is tegelijk de deur naar het volledige scherm. Zonder deze
+              link is die pagina onvindbaar: hij staat bewust niet in het menu. */}
+          <Link
+            href="/brein"
+            className="group absolute top-4 left-5 transition-opacity hover:opacity-80"
+            title="Toon het brein op volledig scherm"
+          >
             <p className="font-mono text-[10px] tracking-[0.2em] text-white/40 uppercase">
               Beerthuizen · brein
             </p>
@@ -38,8 +45,11 @@ export function BreinHQ({ team }: { team: TeamRegel[] }) {
               {actief > 0
                 ? `${actief} van de ${team.length} ${actief === 1 ? "vuurt" : "vuren"} nu`
                 : `${team.length} agents · in rust`}
+              <span className="ml-2 text-white/30 transition-colors group-hover:text-white/70">
+                volledig scherm →
+              </span>
             </p>
-          </div>
+          </Link>
         </div>
 
         {/* De bezetting */}
@@ -93,6 +103,9 @@ export function BreinHQ({ team }: { team: TeamRegel[] }) {
           </ul>
         </aside>
       </div>
+
+      {/* Onder het brein, over de volle breedte. */}
+      <BreinCodestroom team={team} />
     </section>
   );
 }

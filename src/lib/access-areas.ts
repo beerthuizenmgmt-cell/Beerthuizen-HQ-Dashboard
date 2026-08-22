@@ -52,6 +52,9 @@ export function isBeheer(groep?: Groep): boolean {
 
 export const AREAS: Area[] = [
   { path: "/hq", label: "HQ", icon: "◆" },
+  // Het brein op volledig scherm. Staat niet in het menu: je komt er vanaf HQ,
+  // en het is geen werkscherm maar een blik op wat er draait.
+  { path: "/brein", label: "Brein", icon: "◉", buitenMenu: true },
   { path: "/overleg", label: "Overleg", icon: "☀", groep: "werk" },
   { path: "/agenda", label: "Agenda", icon: "▦", groep: "werk" },
   { path: "/taken", label: "Taken", icon: "☑", groep: "werk" },

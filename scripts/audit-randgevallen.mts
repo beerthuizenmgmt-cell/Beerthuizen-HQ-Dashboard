@@ -662,7 +662,38 @@ async function main() {
   toets("waar je bent krijgt een streepje licht, geen hokje", /\.menu-item\[data-actief="ja"\]::before/.test(css));
   toets("de zijbalk loopt over in de pagina", /\.zijbalk \{[^}]*linear-gradient\(90deg/s.test(css));
 
+  toets("er groeien tentakels uit de zwermen", /const TENTAKELS/.test(breinCanvas));
+  toets(
+    "er lopen pulsen overheen in de kleur van hun zwerm",
+    /createLinearGradient\(sx, sy, px2, py2\)/.test(breinCanvas),
+  );
+  toets("een puls dooft uit naar het uiteinde", /const kracht2 = \(1 - u\)/.test(breinCanvas));
+
+  const stroom = await readFile(new URL("../src/components/brein-codestroom.tsx", import.meta.url), "utf8");
+  toets("de coderegels gaan over echte agents", /lid\.sleutel/.test(stroom) && /lid\.stand/.test(stroom));
+  toets("er wordt niets verzonnen dat technisch oogt", !/Math\.random/.test(stroom));
+  toets("de stroom staat stil als niemand kijkt", /visibilityState === "visible"/.test(stroom));
+  toets(
+    "de stroom staat onder het brein, niet eroverheen",
+    !/absolute/.test(stroom),
+  );
+  toets(
+    "wie beweging uit heeft krijgt een momentopname",
+    /prefers-reduced-motion/.test(stroom),
+  );
+
+  const breinPagina = await readFile(new URL("../src/app/brein/page.tsx", import.meta.url), "utf8");
+  toets("de breinpagina vereist dat je ingelogd bent", /requireUser\(\)/.test(breinPagina));
+  toets("het logo is de weg terug", /href="\/hq"/.test(breinPagina));
+  toets(
+    "de pagina staat buiten de app-schil",
+    // Als vlak over de zijbalk heen zou die er nog staan: onzichtbaar, maar
+    // wel bereikbaar met de tabtoets.
+    !breinPagina.includes("fixed inset-0 z-50"),
+  );
+
   const breinKader = await readFile(new URL("../src/components/brein-hq.tsx", import.meta.url), "utf8");
+  toets("er is een weg naar het volledige scherm", /href="\/brein"/.test(breinKader));
   toets(
     "er zit geen kader om het brein",
     !/border border-border/.test(breinKader) && !/bg-\[#05060a\]/.test(breinKader),
