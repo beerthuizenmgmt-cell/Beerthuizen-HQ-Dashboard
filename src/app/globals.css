@@ -17,6 +17,8 @@
   /* Waar een kaart van gemaakt is: licht dat van boven valt in plaats van een
      lijn eromheen. */
   --border-zacht: #ffffff0f;
+  --zijbalk-links: #16161a;
+  --zijbalk-rechts: #0d0d0d;
   --verdiept-vlak: #0f0f0f;
   --verdiept-schaduw: #000000cc;
   --kaart-boven: #1d1d1d;
@@ -221,6 +223,59 @@ h3 {
       inset 0 -1px 0 var(--kaart-glans);
   }
 
+  /* De zijbalk.
+
+     Was een dicht blok in een aparte kleur met een rand ernaast — een paneel dat
+     tegen de pagina aan geplakt zat. Nu een vlak dat naar rechts wegvalt, zodat
+     het overloopt in het dashboard in plaats van ernaast te staan. De sterren
+     schemeren er doorheen.
+
+     Waar je nu bent krijgt geen gevuld blokje maar een streepje licht aan de
+     linkerkant, in het accent, met een gloed eromheen. Dat leest als "hier sta
+     je" zonder dat er een hokje omheen komt. */
+  .zijbalk {
+    background: linear-gradient(90deg, var(--zijbalk-links), var(--zijbalk-rechts));
+  }
+
+  .menu-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    border-radius: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    transition:
+      color 0.15s,
+      background-color 0.15s;
+  }
+
+  .menu-item:hover {
+    color: var(--text);
+    background: #ffffff08;
+  }
+
+  .menu-item[data-actief="ja"] {
+    color: var(--text);
+    font-weight: 600;
+    background: linear-gradient(90deg, var(--accent-soft), transparent 78%);
+  }
+
+  /* Het streepje licht. Iets korter dan de regel zelf, met ruimte boven en
+     onder — een balk van rand tot rand zou weer een hokje zijn. */
+  .menu-item[data-actief="ja"]::before {
+    content: "";
+    position: absolute;
+    top: 20%;
+    bottom: 20%;
+    left: 0;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+    box-shadow: 0 0 8px 1px var(--accent);
+  }
+
   .card {
     background: linear-gradient(180deg, var(--kaart-boven), var(--kaart-onder));
     border-radius: 1.25rem;
@@ -413,6 +468,8 @@ h3 {
   /* Op een licht vlak komt het licht ook van boven, maar dan subtieler: een
      zwaar verloop zou hier vuil ogen in plaats van verheven. */
   --border-zacht: #0d0d0d12;
+  --zijbalk-links: #ffffff;
+  --zijbalk-rechts: #f5f0e8;
   --verdiept-vlak: #efeae1;
   --verdiept-schaduw: #0d0d0d1f;
   --kaart-boven: #ffffff;
@@ -523,13 +580,24 @@ h3 {
    De klantpagina heeft deze klasse niet en blijft dus crème. */
 .sterrenveld {
   position: relative;
+  /* Een eigen stapelcontext, zodat de sterrenlaag hieronder met z-index -1
+     achter de inhoud valt maar niet achter de achtergrond van de pagina.
+
+     Dit verving een regel die `position: relative` op elk direct kind zette om
+     ze boven de sterren te tillen. Die overschreef de `sticky` van de zijbalk,
+     en die scrolde daardoor gewoon mee naar boven weg. */
+  isolation: isolate;
 }
 
 .sterrenveld::before {
     content: "";
     position: fixed;
     inset: 0;
-    z-index: 0;
+    /* Achter de inhoud. Op nul zou deze laag juist vóór de tekst schilderen,
+       want een geplaatst element wint van gewone inhoud. Dat viel niet op omdat
+       de sterren zo vaag zijn, maar het klopt niet. De stapelcontext hierboven
+       zorgt dat -1 hem niet achter de paginakleur duwt. */
+    z-index: -1;
     pointer-events: none;
     /* Drie lagen met verschillende dichtheid en helderheid: dat geeft diepte,
        want in een echte hemel staan de sterren ook niet allemaal even ver weg. */
@@ -550,12 +618,7 @@ h3 {
     background-repeat: repeat;
   }
 
-/* De inhoud komt boven de sterren. Zonder dit valt hij eronder en kijk je naar
-   een lege sterrenhemel. */
-.sterrenveld > * {
-  position: relative;
-  z-index: 1;
-}
+
 
 /* ============================================================
    Vallende sterren
@@ -574,7 +637,7 @@ h3 {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 0;
+  z-index: -1;
   width: 2px;
   height: 2px;
   border-radius: 50%;

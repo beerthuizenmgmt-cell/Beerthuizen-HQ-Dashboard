@@ -650,6 +650,17 @@ async function main() {
 
   const alleTsx = await readFile(new URL("../src/app/(app)/layout.tsx", import.meta.url), "utf8");
   toets("de zijbalk heeft geen getrokken rand meer", !/border-r border-border/.test(alleTsx));
+  toets("de zijbalk blijft staan bij scrollen", /sticky top-0/.test(alleTsx));
+  toets(
+    "de sterrenlaag tilt geen kinderen op",
+    // Deze regel zette position: relative op elk direct kind en overschreef
+    // daarmee de sticky van de zijbalk. Hij mag niet terugkomen.
+    !/\.sterrenveld > \*/.test(css),
+  );
+  toets("de sterren liggen achter de inhoud", /\.sterrenveld::before \{[^}]*z-index: -1/s.test(css));
+  toets("de sterrenlaag heeft een eigen stapelcontext", /isolation: isolate/.test(css));
+  toets("waar je bent krijgt een streepje licht, geen hokje", /\.menu-item\[data-actief="ja"\]::before/.test(css));
+  toets("de zijbalk loopt over in de pagina", /\.zijbalk \{[^}]*linear-gradient\(90deg/s.test(css));
 
   const breinKader = await readFile(new URL("../src/components/brein-hq.tsx", import.meta.url), "utf8");
   toets(
@@ -679,7 +690,6 @@ async function main() {
     "de sterren hangen aan het dashboard en niet aan de systeemvoorkeur",
     !/prefers-color-scheme: dark\)\s*\{\s*\.sterrenveld/.test(stijl),
   );
-  toets("de inhoud staat bovenop de sterren", /\.sterrenveld > \*/.test(stijl));
 
   // Vallende sterren horen zeldzaam te zijn: iets wat elke twee seconden
   // gebeurt is geen vallende ster maar een knipperlicht.

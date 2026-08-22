@@ -49,9 +49,8 @@ export function BeheerMenu({ links }: { links: NavLink[] }) {
         onClick={() => setOpen((aan) => !aan)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-          ergensActief || open ? "bg-surface-hover text-text" : "text-text-muted hover:bg-surface-hover"
-        }`}
+        className="menu-item w-full"
+        data-actief={ergensActief || open ? "ja" : "nee"}
       >
         <span className={`w-4 shrink-0 text-center ${open ? "rotate-90 transition-transform" : "transition-transform"}`}>
           ⚙
@@ -77,9 +76,8 @@ export function BeheerMenu({ links }: { links: NavLink[] }) {
               href={link.path}
               role="menuitem"
               onClick={() => setOpen(false)}
-              className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
-                actief(link.path) ? "bg-accent-soft text-accent" : "text-text-muted hover:bg-surface-hover"
-              }`}
+              className="menu-item rounded-none"
+              data-actief={actief(link.path) ? "ja" : "nee"}
             >
               <span className="w-4 shrink-0 text-center text-text-faint">{link.icon}</span>
               <span className="min-w-0 flex-1 truncate">{link.label}</span>

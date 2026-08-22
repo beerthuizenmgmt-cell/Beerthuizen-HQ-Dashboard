@@ -77,13 +77,10 @@ export function SidebarNav({
         <Link
           key={link.path}
           href={link.path}
-          className={`flex items-center gap-2.5 rounded px-3 py-2 text-sm transition-colors ${
-            isActief(link.path)
-              ? "bg-surface font-semibold text-text"
-              : "text-text-muted hover:bg-surface-hover hover:text-text"
-          }`}
+          className="menu-item"
+          data-actief={isActief(link.path) ? "ja" : "nee"}
         >
-          <span className="w-4 text-center text-xs text-text-faint">{link.icon}</span>
+          <span className="w-4 text-center text-xs opacity-60">{link.icon}</span>
           <span className="flex-1">{link.label}</span>
         </Link>
       ))}
@@ -102,11 +99,18 @@ export function SidebarNav({
               type="button"
               onClick={() => wissel(groep.key)}
               aria-expanded={isOpen}
-              className="flex w-full items-center gap-2.5 rounded px-3 py-1.5 text-left text-xs font-semibold tracking-wide text-text-faint uppercase transition-colors hover:text-text-muted"
+              className="flex w-full items-center gap-2.5 rounded px-3 py-1.5 text-left font-mono text-[10px] tracking-[0.18em] text-text-faint uppercase transition-colors hover:text-text-muted"
             >
               <span className="w-4 text-center">{groep.icon}</span>
               <span className="flex-1">{groep.label}</span>
-              <span className="text-[10px] text-text-faint">{isOpen ? "−" : "+"}</span>
+              {/* Een driehoekje dat kantelt in plaats van een plus die in een min
+                  verandert: je ziet de richting, en het springt niet van vorm. */}
+              <span
+                className="text-[8px] transition-transform duration-200"
+                style={{ transform: isOpen ? "rotate(90deg)" : "none" }}
+              >
+                ▶
+              </span>
             </button>
 
             {isOpen && (
@@ -115,13 +119,10 @@ export function SidebarNav({
                   <Link
                     key={link.path}
                     href={link.path}
-                    className={`flex items-center gap-2.5 rounded py-1.5 pr-3 pl-6 text-sm transition-colors ${
-                      isActief(link.path)
-                        ? "bg-surface font-semibold text-text"
-                        : "text-text-muted hover:bg-surface-hover hover:text-text"
-                    }`}
+                    className="menu-item py-1.5 pr-3 pl-6"
+                    data-actief={isActief(link.path) ? "ja" : "nee"}
                   >
-                    <span className="w-4 text-center text-xs text-text-faint">{link.icon}</span>
+                    <span className="w-4 text-center text-xs opacity-60">{link.icon}</span>
                     <span className="flex-1">{link.label}</span>
                     {link.path === BADGE_PATH && unread > 0 && (
                       <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white">
@@ -161,16 +162,17 @@ export function OnderaanNav({ links, unread }: { links: NavLink[]; unread: numbe
           <Link
             key={link.path}
             href={link.path}
-            className={`flex items-center gap-2.5 rounded px-3 py-2 text-sm transition-colors ${
-              actief
-                ? "bg-surface font-semibold text-text"
-                : "text-text-muted hover:bg-surface-hover hover:text-text"
-            }`}
+            className="menu-item"
+            data-actief={actief ? "ja" : "nee"}
           >
-            <span className="w-4 text-center text-xs text-text-faint">{link.icon}</span>
+            <span className="w-4 text-center text-xs opacity-60">{link.icon}</span>
             <span className="flex-1">{link.label}</span>
+            {/* De badge gloeit, zoals alles wat aandacht vraagt in dit dashboard. */}
             {link.path === BADGE_PATH && unread > 0 && (
-              <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white">
+              <span
+                className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white"
+                style={{ boxShadow: "0 0 10px -1px var(--accent)" }}
+              >
                 {unread > 9 ? "9+" : unread}
               </span>
             )}

@@ -47,7 +47,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       {/* Vast aan de zijkant met een eigen schuifbalk. Zonder dit groeit de balk
           mee met de pagina en staat de onderkant — je account, je meldingen —
           buiten beeld zodra een scherm langer is dan het venster. */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto rand-rechts bg-bg-elevated md:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto zijbalk md:flex">
         <div className="px-5 py-6">
           <Logo />
         </div>
