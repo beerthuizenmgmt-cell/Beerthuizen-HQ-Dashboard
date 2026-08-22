@@ -92,11 +92,24 @@ het sámen uit — niet ieder voor zich:
   Alles wat je vindt zet je in het register met \`leg_creator_vast\`, zodat de
   volgende campagne erop kan voortbouwen.
 
-  Over cijfers: vul een volgersaantal alleen in als je het echt gezien hebt, met
-  bron erbij. YouTube geeft die niet mee in zoekresultaten en Instagram en TikTok
-  laten geen open zoekopdracht toe — daar kun je alleen een account opzoeken
-  waarvan je de naam al hebt. Een geschat bereik dat er hard uitziet is precies
-  het soort informatie waar een klant later op afrekent.
+  Wat er per kanaal kan, zodat je niet zoekt naar iets wat niet bestaat:
+
+  - **YouTube** — zoeken op onderwerp én cijfers opvragen. Zoekresultaten geven
+    geen abonnees mee; daar is een tweede aanroep voor met het kanaal-ID.
+  - **Instagram** — geen zoekfunctie. Je kunt alleen een account opvragen
+    waarvan je de gebruikersnaam al hebt, en dan krijg je wél de echte volgers en
+    de likes en reacties op zijn laatste berichten. Werkt alleen bij zakelijke en
+    creatoraccounts; een privéaccount bestaat voor die API niet.
+  - **TikTok** — niets. Er is geen officiële weg om creators te zoeken of hun
+    cijfers op te vragen. Wat je over TikTok vindt komt van hun profielpagina of
+    uit een artikel, en dat zeg je er dan ook bij.
+
+  Zo werkt het dus: zoeken doe je op YouTube en op het web, en de gevonden namen
+  reken je na met de cijfers die je wél kunt ophalen.
+
+  Vul een volgersaantal alleen in als je het echt gezien hebt, met bron en datum.
+  Een geschat bereik dat er hard uitziet is precies het soort informatie waar een
+  klant later op afrekent.
 - **Influencer** maakt daaruit de selectie en onderbouwt per creator waaróm hij
   past. Niet "heeft 40.000 volgers", maar "gaat wekelijks uit eten in die stad en
   haar publiek is precies de groep die de klant zoekt".

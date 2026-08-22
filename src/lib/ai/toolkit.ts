@@ -296,6 +296,9 @@ const youtubeZoeken: ToolCatalogEntry = {
     },
   ],
   implemented: true,
+  // Twee handelingen op één koppeling: zoeken, en de cijfers van een kanaal
+  // opvragen. Zoekresultaten geven geen abonnees mee — daar is een tweede
+  // aanroep voor nodig, en zonder die stap staat er een naam zonder bereik.
   definition: () => ({
     name: "zoek_op_youtube",
     description:
@@ -311,14 +314,23 @@ const youtubeZoeken: ToolCatalogEntry = {
         },
         regio: { type: "string", description: "Landcode, standaard NL" },
         aantal: { type: "number", description: "Hoeveel resultaten, standaard 10, hoogstens 25" },
+        kanaalId: {
+          type: "string",
+          description:
+            "Vul dit in plaats van een vraag in om de cijfers van één kanaal op te halen: abonnees, views en aantal video's.",
+        },
       },
-      required: ["vraag"],
+      required: [],
     },
   }),
   async run(config, args) {
-    const vraag = typeof args.vraag === "string" ? args.vraag.trim() : "";
-    if (!vraag) return { ok: false, message: "vraag is verplicht" };
     if (!config.apiKey) return { ok: false, message: "Er is nog geen YouTube-sleutel ingesteld." };
+
+    const kanaalId = typeof args.kanaalId === "string" ? args.kanaalId.trim() : "";
+    if (kanaalId) return await youtubeKanaal(config.apiKey, kanaalId);
+
+    const vraag = typeof args.vraag === "string" ? args.vraag.trim() : "";
+    if (!vraag) return { ok: false, message: "geef een vraag om te zoeken, of een kanaalId om cijfers op te halen" };
 
     const soort = args.soort === "video" ? "video" : "channel";
     const aantal = Math.min(Math.max(Number(args.aantal) || 10, 1), 25);
@@ -395,6 +407,172 @@ const youtubeZoeken: ToolCatalogEntry = {
       };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : "Zoeken mislukt." };
+    }
+  },
+};
+
+/// De cijfers van één YouTube-kanaal. Apart van het zoeken, want de zoek-API
+/// geeft ze niet mee en een naam zonder bereik zegt niets bij een selectie.
+async function youtubeKanaal(apiKey: string, kanaalId: string) {
+  try {
+    const url = new URL("https://www.googleapis.com/youtube/v3/channels");
+    url.searchParams.set("part", "snippet,statistics");
+    url.searchParams.set("id", kanaalId);
+    url.searchParams.set("key", apiKey);
+
+    const response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+    if (!response.ok) return { ok: false, message: `YouTube gaf ${response.status} terug.` };
+
+    const body = (await response.json()) as {
+      items?: {
+        snippet?: { title?: string; description?: string; country?: string; publishedAt?: string };
+        statistics?: { subscriberCount?: string; viewCount?: string; videoCount?: string };
+      }[];
+    };
+
+    const kanaal = body.items?.[0];
+    if (!kanaal) return { ok: true, message: `Geen kanaal gevonden met ID ${kanaalId}.` };
+
+    const s = kanaal.snippet ?? {};
+    const st = kanaal.statistics ?? {};
+    const abonnees = Number(st.subscriberCount ?? 0);
+    const views = Number(st.viewCount ?? 0);
+    const videos = Number(st.videoCount ?? 0);
+
+    return {
+      ok: true,
+      message: [
+        `${s.title ?? kanaalId}`,
+        `abonnees: ${abonnees.toLocaleString("nl-NL")}`,
+        `video's: ${videos.toLocaleString("nl-NL")} · totaal ${views.toLocaleString("nl-NL")} views`,
+        // Gemiddelde views per video zegt meer over wat een campagne oplevert
+        // dan het abonneeaantal: een oud kanaal kan veel abonnees hebben die
+        // allang niet meer kijken.
+        videos > 0
+          ? `gemiddeld ${Math.round(views / videos).toLocaleString("nl-NL")} views per video, over alles wat er staat`
+          : "",
+        s.country ? `land: ${s.country}` : "",
+        ``,
+        `Gemeten op ${new Date().toISOString().slice(0, 10)}. Zet dit met bron in het register.`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Opzoeken mislukt." };
+  }
+}
+
+const instagramProfiel: ToolCatalogEntry = {
+  key: "instagram",
+  name: "Instagram-profiel opzoeken",
+  category: "onderzoek",
+  description:
+    "Haal de echte cijfers van een openbaar Instagram-zakelijk of creatoraccount op: volgers, aantal berichten en de recente posts met likes en reacties. Let op: Instagram kent géén zoekfunctie in hun API — je kunt alleen een account opvragen waarvan je de gebruikersnaam al hebt. Zoeken doe je dus elders, en de cijfers haal je hier.",
+  suggestedFor: ["influencer", "research", "social", "analytics"],
+  fields: [
+    {
+      name: "accessToken",
+      label: "Access token",
+      type: "password",
+      required: true,
+      secret: true,
+    },
+    {
+      name: "igUserId",
+      label: "Jouw Instagram-account-ID",
+      type: "text",
+      required: true,
+      placeholder: "17841400000000000",
+    },
+  ],
+  implemented: true,
+  definition: () => ({
+    name: "instagram_profiel",
+    description:
+      "Zoek de cijfers van een Instagram-account op via zijn gebruikersnaam: volgers, aantal berichten en de laatste posts met likes en reacties. Gebruik dit om een creator die je gevonden hebt te controleren voordat je hem voorstelt — en om engagement zelf uit te rekenen in plaats van te schatten.",
+    parameters: {
+      type: "object",
+      properties: {
+        gebruikersnaam: { type: "string", description: "De handle zonder @" },
+      },
+      required: ["gebruikersnaam"],
+    },
+  }),
+  async run(config, args) {
+    const naam =
+      typeof args.gebruikersnaam === "string" ? args.gebruikersnaam.trim().replace(/^@/, "") : "";
+    if (!naam) return { ok: false, message: "gebruikersnaam is verplicht" };
+    if (!config.accessToken || !config.igUserId) {
+      return { ok: false, message: "Instagram is nog niet volledig ingesteld: token en account-ID zijn allebei nodig." };
+    }
+
+    try {
+      const velden =
+        `business_discovery.username(${naam}){username,followers_count,media_count,` +
+        `media.limit(12){like_count,comments_count,timestamp,caption}}`;
+
+      const url = new URL(`https://graph.facebook.com/v21.0/${config.igUserId}`);
+      url.searchParams.set("fields", velden);
+      url.searchParams.set("access_token", config.accessToken);
+
+      const response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+      const body = (await response.json()) as {
+        error?: { message?: string; code?: number };
+        business_discovery?: {
+          username?: string;
+          followers_count?: number;
+          media_count?: number;
+          media?: { data?: { like_count?: number; comments_count?: number; timestamp?: string }[] };
+        };
+      };
+
+      if (body.error) {
+        // Business Discovery werkt alleen op zakelijke en creatoraccounts. Een
+        // privéaccount of een persoonlijk account bestaat voor deze API niet, en
+        // dat is iets anders dan een verkeerd token.
+        const tekst = body.error.message ?? "onbekende fout";
+        if (/does not exist|cannot be found|not a business/i.test(tekst)) {
+          return {
+            ok: true,
+            message: `@${naam} is niet op te vragen. Dat betekent meestal dat het geen zakelijk of creatoraccount is, of dat het privé staat — niet dat het account niet bestaat.`,
+          };
+        }
+        return { ok: false, message: `Instagram gaf een fout: ${tekst}` };
+      }
+
+      const p = body.business_discovery;
+      if (!p) return { ok: true, message: `Geen gegevens gevonden voor @${naam}.` };
+
+      const posts = p.media?.data ?? [];
+      const volgers = p.followers_count ?? 0;
+
+      // Engagement zelf uitrekenen over wat we echt zien, in plaats van een
+      // percentage overnemen dat iemand anders heeft bedacht.
+      const interacties = posts.reduce(
+        (n, m) => n + (m.like_count ?? 0) + (m.comments_count ?? 0),
+        0,
+      );
+      const gemiddeld = posts.length ? Math.round(interacties / posts.length) : 0;
+      const engagement = volgers > 0 && posts.length ? ((gemiddeld / volgers) * 100).toFixed(2) : null;
+
+      return {
+        ok: true,
+        message: [
+          `@${p.username ?? naam}`,
+          `volgers: ${volgers.toLocaleString("nl-NL")}`,
+          `berichten: ${p.media_count ?? "onbekend"}`,
+          posts.length
+            ? `laatste ${posts.length} berichten: gemiddeld ${gemiddeld.toLocaleString("nl-NL")} interacties` +
+              (engagement ? ` — dat is ${engagement}% van zijn volgers` : "")
+            : "geen recente berichten zichtbaar",
+          ``,
+          `Gemeten op ${new Date().toISOString().slice(0, 10)}. Zet dit met bron in het register,`,
+          `want over een halfjaar is dit een ander getal.`,
+        ].join("\n"),
+      };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : "Opzoeken mislukt." };
     }
   },
 };
@@ -489,6 +667,7 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
   webFetch,
   webSearch,
   youtubeZoeken,
+  instagramProfiel,
   customWebhook,
 
   planned(
@@ -550,14 +729,7 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
     ["research"],
     [{ name: "sources", label: "Adressen, één per regel", type: "text", required: true }],
   ),
-  planned(
-    "instagram",
-    "Instagram",
-    "data",
-    "Bereik, views en engagement van creators en eigen kanalen ophalen.",
-    ["social", "influencer", "analytics"],
-    [{ name: "accessToken", label: "Access token", type: "password", required: true, secret: true }],
-  ),
+  instagramProfiel,
   planned(
     "email",
     "E-mail",

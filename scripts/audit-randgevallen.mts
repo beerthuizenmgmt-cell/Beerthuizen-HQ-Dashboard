@@ -866,11 +866,32 @@ async function main() {
       creatorBron.length > 0,
   );
 
+  const ig = TOOL_CATALOG.find((t) => t.key === "instagram");
+  toets("Instagram-profiel opzoeken is gebouwd", Boolean(ig?.implemented));
+  toets(
+    "zonder token en account-ID gebeurt er niets",
+    !(await ig!.run!({ accessToken: "x" }, { gebruikersnaam: "test" })).ok,
+  );
+  toets(
+    "de omschrijving zegt dat Instagram geen zoekfunctie heeft",
+    /géén zoekfunctie/.test(ig!.description),
+  );
+  toets(
+    "engagement wordt zelf uitgerekend, niet overgenomen",
+    /gemiddeld \/ volgers/.test(
+      await readFile(new URL("../src/lib/ai/toolkit.ts", import.meta.url), "utf8"),
+    ),
+  );
+
   const zoekweg = await readFile(new URL("../src/lib/ai/profiles.ts", import.meta.url), "utf8");
+  toets(
+    "er staat per kanaal wat er kan en wat niet",
+    /TikTok\*\* — niets/.test(zoekweg) && /Instagram\*\* — geen zoekfunctie/.test(zoekweg),
+  );
   toets("eerst het eigen register, dan pas naar buiten", /eerst .*zoek_creators/s.test(zoekweg));
   toets(
     "er staat waarom Instagram en TikTok niet doorzocht kunnen worden",
-    /geen open zoekopdracht toe/.test(zoekweg),
+    /geen zoekfunctie/.test(zoekweg) && /geen officiële weg/.test(zoekweg),
   );
 
   // ── De briefing ophalen ──────────────────────────────────────────────────
