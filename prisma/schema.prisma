@@ -1364,6 +1364,43 @@ model Project {
   contracten Contract[]
 
   voorstellen Voorstel[]
+
+  briefing BriefingAntwoord[]
+}
+
+/// Wat Enriqueo heeft aangeleverd voor een campagne.
+///
+/// Eén rij per veld uit BRIEFINGVELDEN. Hiervoor bedacht elke agent zelf wat hij
+/// miste en verdween het antwoord in een gesprek; nu staat het bij de campagne
+/// en kan iedereen het teruglezen zonder het opnieuw te vragen.
+model BriefingAntwoord {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  /// De sleutel uit BRIEFINGVELDEN. Bewust geen enum: die lijst is beleid dat
+  /// verandert, en een migratie per nieuw briefingveld is een rem op iets wat
+  /// juist makkelijk aan te passen moet zijn.
+  veld String
+
+  /// Wat Enriqueo antwoordde. Leeg zolang de vraag openstaat.
+  antwoord String?
+
+  /// Wanneer Daan het vroeg en wanneer het antwoord kwam. Het verschil vertelt
+  /// waar een campagne op blijft liggen.
+  gevraagdOp   DateTime?
+  beantwoordOp DateTime?
+
+  /// De Telegram-vraag waar dit antwoord bij hoort, zodat een antwoord op zijn
+  /// eigen vraag belandt en niet op de oudste die toevallig nog openstaat.
+  threadId String?         @unique
+  thread   TelegramThread? @relation(fields: [threadId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, veld])
+  @@index([projectId])
 }
 
 /// Een openstaande vraag van een agent aan Enriqueo via Telegram.
@@ -1374,6 +1411,10 @@ model Project {
 /// het meteen op de juiste plek verwerken.
 model TelegramThread {
   id      String @id @default(cuid())
+
+  /// Gevuld als deze vraag over één briefingveld gaat.
+  briefingAntwoord BriefingAntwoord?
+
   agentId String
   agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 

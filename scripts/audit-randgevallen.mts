@@ -19,6 +19,7 @@ import { webhookGeheimKlopt } from "../src/lib/telegram";
 import { KANALEN, kanaal, kanaalkeuzeAlsPrompt } from "../src/lib/kanalen";
 import { haalOverzicht } from "../src/lib/overzicht";
 import { TOOL_CATALOG } from "../src/lib/ai/toolkit";
+import { BRIEFINGVELDEN } from "../src/lib/ai/briefing";
 
 const db = new PrismaClient({ adapter: new PrismaPg(poolConfig(resolveDatabaseUrl()!)) });
 
@@ -827,6 +828,82 @@ async function main() {
   toets(
     "een proefdraai telt wat er zou activeren, niet wat er activeerde",
     /outcome\.zouActiveren/.test(monitorBron),
+  );
+
+  // ── De briefing ophalen ──────────────────────────────────────────────────
+  //
+  // Enriqueo levert informatie aan, het team maakt er werk van. Dat valt of
+  // staat ermee dat hij één vraag tegelijk krijgt van één agent, en dat een
+  // antwoord bij de campagne belandt in plaats van in een gesprek.
+  console.log("\nBriefing");
+
+  toets("er staat vast wat een campagne nodig heeft", BRIEFINGVELDEN.length >= 10);
+  toets(
+    "elk veld zegt waarom het nodig is",
+    BRIEFINGVELDEN.every((v) => v.waarom.length > 30),
+  );
+  toets(
+    "elk veld weet wie erdoor geblokkeerd wordt",
+    BRIEFINGVELDEN.every((v) => v.blokkeert.length > 0),
+  );
+  toets(
+    "regio en vergoeding staan erin",
+    // Bij alles waar een creator fysiek langs moet zijn dit de twee velden
+    // waar de selectie op valt of staat.
+    BRIEFINGVELDEN.some((v) => v.sleutel === "regio") &&
+      BRIEFINGVELDEN.some((v) => v.sleutel === "vergoeding"),
+  );
+  toets(
+    "er is een kern die onmisbaar is en een rest die dat niet is",
+    BRIEFINGVELDEN.some((v) => v.hard) && BRIEFINGVELDEN.some((v) => !v.hard),
+  );
+
+  const proef = await db.project.create({ data: { name: `${MERK} briefing`, status: "nieuw" } });
+
+  await db.briefingAntwoord.create({
+    data: { projectId: proef.id, veld: "regio", antwoord: "Amsterdam en omstreken", beantwoordOp: new Date() },
+  });
+  const opnieuw = await db.briefingAntwoord.findUnique({
+    where: { projectId_veld: { projectId: proef.id, veld: "regio" } },
+  });
+  toets("een antwoord staat bij de campagne", opnieuw?.antwoord === "Amsterdam en omstreken");
+
+  // Twee keer hetzelfde veld mag niet: dan staan er twee antwoorden op één vraag
+  // en weet niemand welke geldt.
+  let dubbel = false;
+  try {
+    await db.briefingAntwoord.create({ data: { projectId: proef.id, veld: "regio", antwoord: "anders" } });
+    dubbel = true;
+  } catch {
+    dubbel = false;
+  }
+  toets("hetzelfde veld kan niet twee antwoorden hebben", !dubbel);
+
+  await db.briefingAntwoord.deleteMany({ where: { projectId: proef.id } });
+  await db.project.delete({ where: { id: proef.id } });
+
+  const briefingGereedschap = await readFile(new URL("../src/lib/ai/tools.ts", import.meta.url), "utf8");
+  toets("een al beantwoord veld wordt niet opnieuw gevraagd", /Dat weet je al/.test(briefingGereedschap));
+  toets(
+    "een openstaande vraag wordt niet herhaald",
+    /al gevraagd en er is nog geen antwoord/.test(briefingGereedschap),
+  );
+
+  const telegramBrief = await readFile(new URL("../src/lib/telegram.ts", import.meta.url), "utf8");
+  toets(
+    "een antwoord via Telegram landt op zijn eigen veld",
+    /briefingAntwoord\.updateMany/.test(telegramBrief) && /threadId: draad\.id/.test(telegramBrief),
+  );
+
+  const kaderBrief = await readFile(new URL("../src/lib/ai/profiles.ts", import.meta.url), "utf8");
+  toets(
+    "alleen de Head of Operations vraagt het",
+    /alleen de Head of Operations/i.test(kaderBrief),
+  );
+  toets("één vraag tegelijk", /Eén per keer/.test(kaderBrief));
+  toets(
+    "het team werkt het daarna samen uit",
+    /Wat er daarna gebeurt/.test(kaderBrief) && /De onderbouwing ís het voorstel/.test(kaderBrief),
   );
 
   // ── Zelf uitzoeken in plaats van vragen ──────────────────────────────────

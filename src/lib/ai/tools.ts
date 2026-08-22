@@ -2,6 +2,7 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import { kanaalkeuzeAlsPrompt } from "@/lib/kanalen";
+import { BRIEFINGVELDEN, briefingVeld } from "./briefing";
 import { markeerGoedkeuringUitgevoerd } from "@/lib/goedkeuring-afronden";
 import { notify } from "@/lib/notifications";
 import { logActivity } from "@/lib/agents";
@@ -158,6 +159,59 @@ export const AGENT_TOOLS: ToolDefinition[] = [
 /// Alleen de Head of Operations kan collega's aan het werk zetten; zo blijft de
 /// aansturing op één plek en wordt het geen wirwar van agents die elkaar
 /// opdrachten geven.
+/// Het ophalen van een briefing. Alleen voor de Head of Operations: negen agents
+/// die allemaal zelf vragen gaan stellen is precies waar dit vanaf moet.
+export const BRIEFING_TOOLS: ToolDefinition[] = [
+  {
+    name: "briefing_stand",
+    description:
+      "Kijk wat er voor een campagne al bekend is en wat er nog ontbreekt. Doe dit altijd voordat je Enriqueo iets vraagt: wat er al staat hoef je niet opnieuw te vragen.",
+    parameters: {
+      type: "object",
+      properties: {
+        campagne: { type: "string", description: "Naam van de campagne of het project" },
+      },
+      required: ["campagne"],
+    },
+  },
+  {
+    name: "vraag_briefing",
+    description:
+      "Stel Enriqueo één ontbrekende briefingvraag via Telegram. Eén veld per keer — een rij vragen tegelijk krijgt geen antwoord. Het antwoord komt vanzelf bij de campagne terecht.",
+    parameters: {
+      type: "object",
+      properties: {
+        campagne: { type: "string", description: "Naam van de campagne of het project" },
+        veld: {
+          type: "string",
+          description:
+            "De sleutel van het veld dat je vraagt, precies zoals in de briefinglijst",
+        },
+        toelichting: {
+          type: "string",
+          description:
+            "Optioneel: waarom je het nu nodig hebt, of wat je al weet. Kort, één zin.",
+        },
+      },
+      required: ["campagne", "veld"],
+    },
+  },
+  {
+    name: "leg_briefing_vast",
+    description:
+      "Leg een briefingantwoord vast dat je langs een andere weg hebt gekregen — uit een gesprek, een mail of het klantportaal. Gebruik dit niet om zelf iets in te vullen wat je niet weet.",
+    parameters: {
+      type: "object",
+      properties: {
+        campagne: { type: "string" },
+        veld: { type: "string" },
+        antwoord: { type: "string" },
+      },
+      required: ["campagne", "veld", "antwoord"],
+    },
+  },
+];
+
 export const CHIEF_TOOLS: ToolDefinition[] = [
   {
     name: "bericht_enriqueo",
@@ -468,6 +522,12 @@ export async function runTool(
         return await readInvoices(args);
       case "bericht_enriqueo":
         return await messageFounder(args, context);
+      case "briefing_stand":
+        return await briefingStand(args);
+      case "vraag_briefing":
+        return await vraagBriefing(args, context);
+      case "leg_briefing_vast":
+        return await legBriefingVast(args);
       default:
         return { ok: false, message: `Onbekend gereedschap: ${name}` };
     }
@@ -1252,4 +1312,183 @@ async function checkProposal(args: Record<string, unknown>, context: ToolContext
     ok: true,
     message: `Gecontroleerd en klaargezet. Enriqueo heeft een melding met jouw samenvatting.`,
   };
+}
+
+// ============================================================
+// De briefing ophalen
+// ============================================================
+//
+// Eén plek waar staat wat een campagne nodig heeft, één agent die het vraagt, en
+// het antwoord komt bij de campagne te staan in plaats van in een gesprek te
+// verdwijnen. Zo hoeft Enriqueo alleen informatie aan te leveren en kan het team
+// daarna door zonder nog iets te hoeven vragen.
+
+/// Een campagne opzoeken op naam. Agents werken met namen, niet met ID's.
+async function vindCampagne(naam: string) {
+  const exact = await db.project.findFirst({
+    where: { name: { equals: naam, mode: "insensitive" } },
+    include: { client: { select: { name: true } } },
+  });
+  if (exact) return exact;
+
+  return db.project.findFirst({
+    where: { name: { contains: naam, mode: "insensitive" } },
+    orderBy: { createdAt: "desc" },
+    include: { client: { select: { name: true } } },
+  });
+}
+
+async function briefingStand(args: Record<string, unknown>): Promise<ToolResult> {
+  const naam = text(args.campagne);
+  if (!naam) return { ok: false, message: "campagne is verplicht" };
+
+  const project = await vindCampagne(naam);
+  if (!project) {
+    return { ok: false, message: `Ik vind geen campagne die "${naam}" heet.` };
+  }
+
+  const rijen = await db.briefingAntwoord.findMany({ where: { projectId: project.id } });
+  const perVeld = new Map(rijen.map((r) => [r.veld, r]));
+
+  const beantwoord: string[] = [];
+  const openstaand: string[] = [];
+  const gevraagd: string[] = [];
+
+  for (const veld of BRIEFINGVELDEN) {
+    const rij = perVeld.get(veld.sleutel);
+    if (rij?.antwoord) {
+      beantwoord.push(`- ${veld.sleutel}: ${rij.antwoord}`);
+    } else if (rij?.gevraagdOp) {
+      gevraagd.push(`- ${veld.sleutel}${veld.hard ? " (onmisbaar)" : ""} — gevraagd, nog geen antwoord`);
+    } else {
+      openstaand.push(`- ${veld.sleutel}${veld.hard ? " (onmisbaar)" : ""}: ${veld.vraag}`);
+    }
+  }
+
+  const hardOpen = BRIEFINGVELDEN.filter(
+    (v) => v.hard && !perVeld.get(v.sleutel)?.antwoord,
+  ).length;
+
+  return {
+    ok: true,
+    message: [
+      `Briefing voor ${project.name}${project.client ? ` (${project.client.name})` : ""}:`,
+      ``,
+      beantwoord.length ? `Bekend:\n${beantwoord.join("\n")}` : "Er is nog niets bekend.",
+      gevraagd.length ? `\nAl gevraagd, wacht op antwoord:\n${gevraagd.join("\n")}` : "",
+      openstaand.length ? `\nNog niet gevraagd:\n${openstaand.join("\n")}` : "",
+      ``,
+      hardOpen === 0
+        ? "Alle onmisbare velden zijn binnen — het team kan aan de slag."
+        : `Er ontbreken nog ${hardOpen} onmisbare veld(en); zonder die kan het team niet verantwoord beginnen.`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}
+
+async function vraagBriefing(
+  args: Record<string, unknown>,
+  context: ToolContext,
+): Promise<ToolResult> {
+  const naam = text(args.campagne);
+  const sleutel = text(args.veld);
+  if (!naam || !sleutel) return { ok: false, message: "campagne en veld zijn verplicht" };
+
+  const veld = briefingVeld(sleutel);
+  if (!veld) {
+    return {
+      ok: false,
+      message: `"${sleutel}" staat niet in de briefinglijst. Kies er een uit: ${BRIEFINGVELDEN.map((v) => v.sleutel).join(", ")}.`,
+    };
+  }
+
+  const project = await vindCampagne(naam);
+  if (!project) return { ok: false, message: `Ik vind geen campagne die "${naam}" heet.` };
+
+  const bestaand = await db.briefingAntwoord.findUnique({
+    where: { projectId_veld: { projectId: project.id, veld: sleutel } },
+  });
+
+  // Twee keer hetzelfde vragen is precies waar Enriqueo vanaf wil.
+  if (bestaand?.antwoord) {
+    return {
+      ok: false,
+      message: `Dat weet je al: ${veld.sleutel} is "${bestaand.antwoord}". Vraag iets anders of ga aan de slag.`,
+    };
+  }
+  if (bestaand?.gevraagdOp && !bestaand.antwoord) {
+    const uren = Math.round((Date.now() - bestaand.gevraagdOp.getTime()) / 3600_000);
+    return {
+      ok: false,
+      message: `Je hebt dit ${uren} uur geleden al gevraagd en er is nog geen antwoord. Vraag ondertussen een ander veld of wacht af — niet opnieuw sturen.`,
+    };
+  }
+
+  const toelichting = text(args.toelichting);
+  const bericht = [
+    `*${project.name}*`,
+    ``,
+    veld.vraag,
+    toelichting ? `\n${toelichting}` : "",
+    `\n_${veld.waarom}_`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  // Laat laden, net als elders: telegram.ts leest bij het laden de instellingen
+  // uit en dat hoeft niet zodra iemand dit bestand aanraakt.
+  const { sendTelegram } = await import("@/lib/telegram");
+  const verstuurd = await sendTelegram(bericht);
+  if (!verstuurd.ok) {
+    return { ok: false, message: `Vraag kon niet verstuurd worden: ${verstuurd.error}` };
+  }
+
+  const draad = await db.telegramThread.create({
+    data: {
+      agentId: context.agentId,
+      level: "vraag",
+      question: veld.vraag,
+      projectId: project.id,
+      telegramMessageId: verstuurd.messageId ?? null,
+    },
+  });
+
+  await db.briefingAntwoord.upsert({
+    where: { projectId_veld: { projectId: project.id, veld: sleutel } },
+    update: { gevraagdOp: new Date(), threadId: draad.id },
+    create: { projectId: project.id, veld: sleutel, gevraagdOp: new Date(), threadId: draad.id },
+  });
+
+  return {
+    ok: true,
+    message: `Gevraagd via Telegram: ${veld.vraag} Het antwoord komt vanzelf bij ${project.name} te staan.`,
+  };
+}
+
+async function legBriefingVast(args: Record<string, unknown>): Promise<ToolResult> {
+  const naam = text(args.campagne);
+  const sleutel = text(args.veld);
+  const antwoord = text(args.antwoord);
+  if (!naam || !sleutel || !antwoord) {
+    return { ok: false, message: "campagne, veld en antwoord zijn verplicht" };
+  }
+
+  if (!briefingVeld(sleutel)) {
+    return {
+      ok: false,
+      message: `"${sleutel}" staat niet in de briefinglijst. Kies er een uit: ${BRIEFINGVELDEN.map((v) => v.sleutel).join(", ")}.`,
+    };
+  }
+
+  const project = await vindCampagne(naam);
+  if (!project) return { ok: false, message: `Ik vind geen campagne die "${naam}" heet.` };
+
+  await db.briefingAntwoord.upsert({
+    where: { projectId_veld: { projectId: project.id, veld: sleutel } },
+    update: { antwoord, beantwoordOp: new Date() },
+    create: { projectId: project.id, veld: sleutel, antwoord, beantwoordOp: new Date() },
+  });
+
+  return { ok: true, message: `Vastgelegd bij ${project.name}: ${sleutel}.` };
 }

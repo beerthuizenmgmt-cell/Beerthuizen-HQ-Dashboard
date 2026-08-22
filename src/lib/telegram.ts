@@ -235,14 +235,38 @@ export async function handleIncoming(
       where: { id: draad.id },
       data: { answer: text, answeredAt: new Date() },
     });
+
+    // Ging deze vraag over een briefingveld, dan hoort het antwoord meteen bij
+    // de campagne te staan. Anders moet de Head het handmatig overtikken, en
+    // dan is de kans groot dat een volgende agent het opnieuw komt vragen —
+    // precies wat deze hele weg moet voorkomen.
+    await db.briefingAntwoord.updateMany({
+      where: { threadId: draad.id, antwoord: null },
+      data: { antwoord: text, beantwoordOp: new Date() },
+    });
   }
 
   // Met context erbij weet hij dat "4.000" een budget is voor een bepaalde
   // klant, en niet een los getal.
+  // Ging het over een briefingveld? Dan is het al vastgelegd en hoeft de Head
+  // dat niet nog eens te doen — hij moet juist verder met de volgende vraag.
+  const briefingRij = draad
+    ? await db.briefingAntwoord.findFirst({
+        where: { threadId: draad.id },
+        include: { project: { select: { name: true } } },
+      })
+    : null;
+
   const context = draad
     ? [
         ``,
         `Dit is een antwoord op jouw vraag: "${draad.question}"`,
+        briefingRij
+          ? `Dit was het briefingveld "${briefingRij.veld}" van ${briefingRij.project.name}. ` +
+            `Het antwoord is al bij de campagne vastgelegd; dat hoef je niet nog eens te doen. ` +
+            `Kijk met briefing_stand wat er nog ontbreekt en vraag het volgende veld, of zet het ` +
+            `werk uit als alles binnen is.`
+          : "",
         draad.client ? `Het gaat over klant ${draad.client.name}.` : "",
         draad.project ? `Het gaat over project ${draad.project.name} (${draad.projectId}).` : "",
         draad.task ? `Het gaat over taak "${draad.task.title}" (${draad.taskId}).` : "",
