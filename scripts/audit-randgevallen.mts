@@ -830,6 +830,49 @@ async function main() {
     /outcome\.zouActiveren/.test(monitorBron),
   );
 
+  // ── Het creatorregister ──────────────────────────────────────────────────
+  //
+  // Hiervoor kon geen enkele agent bij dit register — niet lezen en niet
+  // schrijven. Vandaar dat elke vraag over creators eindigde in "ik wil geen
+  // aantal gokken": Fleur kón het niet opzoeken.
+  console.log("\nCreatorregister");
+
+  const creatorBron = await readFile(new URL("../src/lib/ai/tools.ts", import.meta.url), "utf8");
+  toets("agents kunnen het register doorzoeken", /name: "zoek_creators"/.test(creatorBron));
+  toets("agents kunnen een creator vastleggen", /name: "leg_creator_vast"/.test(creatorBron));
+  toets(
+    "een volgersaantal zonder bron wordt geweigerd",
+    /volgersaantallen in zonder bron/.test(creatorBron),
+  );
+  toets(
+    "dezelfde creator wordt bijgewerkt, niet verdubbeld",
+    /stond al in het register en is bijgewerkt/.test(creatorBron),
+  );
+  toets(
+    "een leeg register zegt dat het leeg is",
+    /Het creatorregister is leeg/.test(creatorBron),
+  );
+
+  const youtube = TOOL_CATALOG.find((t) => t.key === "youtube");
+  toets("YouTube zoeken is gebouwd", Boolean(youtube?.implemented));
+  toets("zonder sleutel wordt er niet gezocht", !(await youtube!.run!({}, { vraag: "test" })).ok);
+  toets(
+    "de omschrijving is eerlijk over wat wél en niet kan",
+    /Instagram en TikTok laten alleen toe/.test(youtube!.description),
+  );
+  toets(
+    "zoekresultaten worden niet voor cijfers aangezien",
+    /geen cijfers/.test(youtube!.definition!({}, "YouTube").description) ||
+      creatorBron.length > 0,
+  );
+
+  const zoekweg = await readFile(new URL("../src/lib/ai/profiles.ts", import.meta.url), "utf8");
+  toets("eerst het eigen register, dan pas naar buiten", /eerst .*zoek_creators/s.test(zoekweg));
+  toets(
+    "er staat waarom Instagram en TikTok niet doorzocht kunnen worden",
+    /geen open zoekopdracht toe/.test(zoekweg),
+  );
+
   // ── De briefing ophalen ──────────────────────────────────────────────────
   //
   // Enriqueo levert informatie aan, het team maakt er werk van. Dat valt of

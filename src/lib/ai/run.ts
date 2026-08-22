@@ -11,6 +11,7 @@ import {
   FINANCE_TOOLS,
   RESEARCH_TOOLS,
   BRIEFING_TOOLS,
+  CREATOR_TOOLS,
   VOORSTEL_CHIEF_TOOLS,
   VOORSTEL_TOOLS,
   runTool,
@@ -216,6 +217,9 @@ export async function runAgent(options: {
           // Contracten uitpluizen hoort daar ook bij — het is tekstonderzoek,
           // geen juridisch advies, en dat onderscheid staat in de tool zelf.
           ...(agent.key === "research" ? [...RESEARCH_TOOLS, ...CONTRACT_TOOLS] : []),
+          // Het creatorregister: wie aan een selectie werkt moet erbij kunnen.
+          // De Head bewaakt het geheel en heeft het dus ook nodig.
+          ...(["influencer", "research", "social", "chief"].includes(agent.key) ? CREATOR_TOOLS : []),
           ...ownTools.map((tool) => tool.definition),
         ];
 

@@ -278,6 +278,127 @@ const webSearch: ToolCatalogEntry = {
   },
 };
 
+const youtubeZoeken: ToolCatalogEntry = {
+  key: "youtube",
+  name: "YouTube zoeken",
+  category: "onderzoek",
+  description:
+    "Zoek creators en video's op YouTube: op onderwerp, op regio, op taal. Dit is het enige sociale netwerk met een open zoekfunctie — Instagram en TikTok laten alleen toe dat je een account opzoekt waarvan je de naam al weet.",
+  suggestedFor: ["research", "influencer", "social"],
+  fields: [
+    {
+      name: "apiKey",
+      label: "YouTube Data API-sleutel",
+      type: "password",
+      required: true,
+      secret: true,
+      placeholder: "AIza...",
+    },
+  ],
+  implemented: true,
+  definition: () => ({
+    name: "zoek_op_youtube",
+    description:
+      "Zoek kanalen of video's op YouTube. Geeft naam, kanaal-ID, omschrijving en datum terug. Gebruik dit om creators te vinden die over een onderwerp maken; leg wat je vindt daarna vast met leg_creator_vast.",
+    parameters: {
+      type: "object",
+      properties: {
+        vraag: { type: "string", description: "Waar je op zoekt, bijvoorbeeld: restaurants Amsterdam" },
+        soort: {
+          type: "string",
+          enum: ["kanaal", "video"],
+          description: "Zoek je makers (kanaal) of losse video's? Standaard kanaal.",
+        },
+        regio: { type: "string", description: "Landcode, standaard NL" },
+        aantal: { type: "number", description: "Hoeveel resultaten, standaard 10, hoogstens 25" },
+      },
+      required: ["vraag"],
+    },
+  }),
+  async run(config, args) {
+    const vraag = typeof args.vraag === "string" ? args.vraag.trim() : "";
+    if (!vraag) return { ok: false, message: "vraag is verplicht" };
+    if (!config.apiKey) return { ok: false, message: "Er is nog geen YouTube-sleutel ingesteld." };
+
+    const soort = args.soort === "video" ? "video" : "channel";
+    const aantal = Math.min(Math.max(Number(args.aantal) || 10, 1), 25);
+    const regio = (typeof args.regio === "string" && args.regio.trim()) || "NL";
+
+    try {
+      const url = new URL("https://www.googleapis.com/youtube/v3/search");
+      url.searchParams.set("part", "snippet");
+      url.searchParams.set("q", vraag);
+      url.searchParams.set("type", soort);
+      url.searchParams.set("maxResults", String(aantal));
+      url.searchParams.set("regionCode", regio);
+      url.searchParams.set("relevanceLanguage", "nl");
+      url.searchParams.set("key", config.apiKey);
+
+      const response = await fetch(url, { signal: AbortSignal.timeout(20_000) });
+
+      if (response.status === 403) {
+        // 403 is bij Google zowel "sleutel deugt niet" als "quotum op". Het
+        // verschil staat in de tekst, en dat scheelt een halfuur zoeken.
+        const tekst = await response.text();
+        const opgebruikt = /quota/i.test(tekst);
+        return {
+          ok: false,
+          message: opgebruikt
+            ? "Het dagquotum van YouTube is op. Morgen weer, of vraag een hoger quotum aan bij Google."
+            : "De YouTube-sleutel werd geweigerd. Controleer hem bij Tools, en of de YouTube Data API aanstaat in je Google-project.",
+        };
+      }
+      if (!response.ok) return { ok: false, message: `YouTube gaf ${response.status} terug.` };
+
+      const body = (await response.json()) as {
+        items?: {
+          id?: { channelId?: string; videoId?: string };
+          snippet?: {
+            title?: string;
+            channelTitle?: string;
+            description?: string;
+            publishedAt?: string;
+          };
+        }[];
+      };
+
+      const treffers = body.items ?? [];
+      if (treffers.length === 0) {
+        return { ok: true, message: `Niets gevonden op YouTube voor "${vraag}".` };
+      }
+
+      const regels = treffers.map((t, i) => {
+        const s = t.snippet ?? {};
+        const id = t.id?.channelId ?? t.id?.videoId ?? "";
+        const adres = t.id?.channelId
+          ? `https://www.youtube.com/channel/${t.id.channelId}`
+          : `https://www.youtube.com/watch?v=${t.id?.videoId ?? ""}`;
+        return [
+          `${i + 1}. ${s.title ?? "zonder titel"}${s.channelTitle && s.channelTitle !== s.title ? ` — ${s.channelTitle}` : ""}`,
+          `   ${adres}`,
+          s.description ? `   ${s.description.slice(0, 160)}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n") + (id ? "" : "");
+      });
+
+      return {
+        ok: true,
+        message: [
+          `YouTube, ${soort === "channel" ? "kanalen" : "video's"} voor "${vraag}":`,
+          ``,
+          ...regels,
+          ``,
+          `Dit zijn zoekresultaten, geen cijfers. Volgersaantallen staan hier niet bij —`,
+          `vul die alleen in als je ze echt gezien hebt, met bron.`,
+        ].join("\n"),
+      };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : "Zoeken mislukt." };
+    }
+  },
+};
+
 const customWebhook: ToolCatalogEntry = {
   key: "custom_webhook",
   name: "Eigen webhook",
@@ -367,6 +488,7 @@ function planned(
 export const TOOL_CATALOG: ToolCatalogEntry[] = [
   webFetch,
   webSearch,
+  youtubeZoeken,
   customWebhook,
 
   planned(
@@ -533,9 +655,10 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
       { name: "accountId", label: "Account-ID", type: "text", required: false },
     ],
   ),
+  youtubeZoeken,
   planned(
-    "youtube",
-    "YouTube",
+    "youtube_analytics",
+    "YouTube Analytics",
     "data",
     "Kijkcijfers, kijktijd en engagement van video's.",
     ["analytics", "social", "influencer"],

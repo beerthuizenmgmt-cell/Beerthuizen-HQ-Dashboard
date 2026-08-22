@@ -159,6 +159,57 @@ export const AGENT_TOOLS: ToolDefinition[] = [
 /// Alleen de Head of Operations kan collega's aan het werk zetten; zo blijft de
 /// aansturing op één plek en wordt het geen wirwar van agents die elkaar
 /// opdrachten geven.
+/// Het creatorregister. Voor iedereen die aan een selectie werkt.
+///
+/// Hiervoor kon geen enkele agent bij dit register — niet lezen en niet
+/// schrijven. Fleur kon dus wel een selectie voorbereiden maar er geen naam in
+/// zetten, en Stefano kon onderzoeken maar niets vastleggen. Vandaar dat elke
+/// vraag over creators eindigde in "ik wil geen aantal gokken".
+export const CREATOR_TOOLS: ToolDefinition[] = [
+  {
+    name: "zoek_creators",
+    description:
+      "Zoek in het creatorregister van het bureau. Doe dit altijd vóórdat je gaat zoeken op internet: wie we al kennen hoeven we niet opnieuw uit te zoeken, en van hen weten we vaak al wat ze rekenen en hoe het eerder ging.",
+    parameters: {
+      type: "object",
+      properties: {
+        niche: { type: "string", description: "Waar hij over gaat: food, fitness, lifestyle" },
+        regio: { type: "string", description: "Land of stad" },
+        kanaal: { type: "string", enum: ["instagram", "tiktok", "youtube"] },
+        minVolgers: { type: "number" },
+        maxVolgers: { type: "number" },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "leg_creator_vast",
+    description:
+      "Zet een creator in het register die je gevonden hebt. Vul alleen in wat je echt weet en zeg er met bron bij waar de cijfers vandaan komen — een verzonnen volgersaantal maakt de hele selectie waardeloos.",
+    parameters: {
+      type: "object",
+      properties: {
+        naam: { type: "string" },
+        instagram: { type: "string", description: "Handle zonder @" },
+        tiktok: { type: "string", description: "Handle zonder @" },
+        youtube: { type: "string", description: "Kanaalnaam of handle" },
+        niche: { type: "array", items: { type: "string" }, description: "Bijvoorbeeld: food, uit eten" },
+        doelgroep: { type: "string" },
+        land: { type: "string" },
+        volgersInstagram: { type: "number" },
+        volgersTiktok: { type: "number" },
+        volgersYoutube: { type: "number" },
+        cijfersBron: {
+          type: "string",
+          description: "Waar de cijfers vandaan komen. Verplicht zodra je een aantal invult.",
+        },
+        notities: { type: "string", description: "Wat je opviel en waarom hij interessant is" },
+      },
+      required: ["naam"],
+    },
+  },
+];
+
 /// Het ophalen van een briefing. Alleen voor de Head of Operations: negen agents
 /// die allemaal zelf vragen gaan stellen is precies waar dit vanaf moet.
 export const BRIEFING_TOOLS: ToolDefinition[] = [
@@ -522,6 +573,10 @@ export async function runTool(
         return await readInvoices(args);
       case "bericht_enriqueo":
         return await messageFounder(args, context);
+      case "zoek_creators":
+        return await zoekCreators(args);
+      case "leg_creator_vast":
+        return await legCreatorVast(args);
       case "briefing_stand":
         return await briefingStand(args);
       case "vraag_briefing":
@@ -1491,4 +1546,130 @@ async function legBriefingVast(args: Record<string, unknown>): Promise<ToolResul
   });
 
   return { ok: true, message: `Vastgelegd bij ${project.name}: ${sleutel}.` };
+}
+
+// ============================================================
+// Het creatorregister
+// ============================================================
+
+async function zoekCreators(args: Record<string, unknown>): Promise<ToolResult> {
+  const niche = text(args.niche);
+  const regio = text(args.regio);
+  const kanaal = text(args.kanaal);
+  const min = Number(args.minVolgers) || undefined;
+  const max = Number(args.maxVolgers) || undefined;
+
+  const volgersVeld =
+    kanaal === "tiktok" ? "volgersTiktok" : kanaal === "youtube" ? "volgersYoutube" : "volgersInstagram";
+
+  const treffers = await db.creator.findMany({
+    where: {
+      ...(niche ? { niche: { hasSome: [niche.toLowerCase()] } } : {}),
+      ...(regio ? { land: { contains: regio, mode: "insensitive" } } : {}),
+      ...(kanaal ? { [kanaal]: { not: null } } : {}),
+      ...(min || max
+        ? { [volgersVeld]: { ...(min ? { gte: min } : {}), ...(max ? { lte: max } : {}) } }
+        : {}),
+    },
+    orderBy: [{ beoordeling: "desc" }, { name: "asc" }],
+    take: 25,
+  });
+
+  if (treffers.length === 0) {
+    const totaal = await db.creator.count();
+    return {
+      ok: true,
+      message:
+        totaal === 0
+          ? "Het creatorregister is leeg. Er is dus nog niemand vastgelegd — ga zoeken en leg vast wat je vindt met leg_creator_vast."
+          : `Geen van de ${totaal} creators in het register voldoet hieraan. Zoek buiten het register en leg vast wat je vindt.`,
+    };
+  }
+
+  const regels = treffers.map((c) => {
+    const kanalen = [
+      c.instagram ? `IG @${c.instagram}${c.volgersInstagram ? ` (${c.volgersInstagram})` : ""}` : "",
+      c.tiktok ? `TikTok @${c.tiktok}${c.volgersTiktok ? ` (${c.volgersTiktok})` : ""}` : "",
+      c.youtube ? `YouTube ${c.youtube}${c.volgersYoutube ? ` (${c.volgersYoutube})` : ""}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    return [
+      `- ${c.name}${c.land ? ` — ${c.land}` : ""}${c.status !== "kandidaat" ? ` [${c.status}]` : ""}`,
+      kanalen ? `  ${kanalen}` : "",
+      c.niche.length ? `  over: ${c.niche.join(", ")}` : "",
+      c.prijsindicatieEur ? `  richtprijs: €${c.prijsindicatieEur}` : "",
+      // Wanneer de cijfers gemeten zijn hoort erbij: een volgersaantal van een
+      // jaar oud is een ander getal dan een van vorige week.
+      c.cijfersBron ? `  cijfers: ${c.cijfersBron}${c.cijfersOp ? ` (${c.cijfersOp.toISOString().slice(0, 10)})` : ""}` : "",
+      c.notities ? `  ${c.notities}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  });
+
+  return { ok: true, message: `${treffers.length} creator(s) in het register:\n\n${regels.join("\n")}` };
+}
+
+async function legCreatorVast(args: Record<string, unknown>): Promise<ToolResult> {
+  const naam = text(args.naam);
+  if (!naam) return { ok: false, message: "naam is verplicht" };
+
+  const getal = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+  };
+
+  const volgersInstagram = getal(args.volgersInstagram);
+  const volgersTiktok = getal(args.volgersTiktok);
+  const volgersYoutube = getal(args.volgersYoutube);
+  const bron = text(args.cijfersBron);
+
+  // Een getal zonder herkomst is precies het soort informatie waar dit bureau
+  // niet op wil draaien: het ziet er hard uit en niemand kan het nakijken.
+  if ((volgersInstagram || volgersTiktok || volgersYoutube) && !bron) {
+    return {
+      ok: false,
+      message:
+        "Je vult volgersaantallen in zonder bron. Zeg erbij waar je ze vandaan hebt, of laat ze weg — een getal dat niemand kan nakijken is erger dan geen getal.",
+    };
+  }
+
+  const handle = (v: unknown) => text(v).replace(/^@/, "") || null;
+  const nicheRuw = Array.isArray(args.niche) ? (args.niche as unknown[]) : [];
+  const niche = nicheRuw.map((n) => String(n).toLowerCase().trim()).filter(Boolean);
+
+  const bestaand = await db.creator.findFirst({
+    where: { name: { equals: naam, mode: "insensitive" } },
+  });
+
+  const gegevens = {
+    name: naam,
+    instagram: handle(args.instagram),
+    tiktok: handle(args.tiktok),
+    youtube: handle(args.youtube),
+    ...(niche.length ? { niche } : {}),
+    doelgroep: text(args.doelgroep) || null,
+    land: text(args.land) || null,
+    volgersInstagram,
+    volgersTiktok,
+    volgersYoutube,
+    cijfersBron: bron || null,
+    cijfersOp: bron ? new Date() : null,
+    notities: text(args.notities) || null,
+  };
+
+  if (bestaand) {
+    // Bijwerken en niet verdubbelen: twee rijen voor dezelfde persoon maakt elke
+    // selectie onbetrouwbaar. Lege velden laten staan wat er al was.
+    const bij = Object.fromEntries(
+      Object.entries(gegevens).filter(([, v]) => v !== null && v !== undefined),
+    );
+    await db.creator.update({ where: { id: bestaand.id }, data: bij });
+    return { ok: true, message: `${naam} stond al in het register en is bijgewerkt.` };
+  }
+
+  await db.creator.create({ data: gegevens });
+  return { ok: true, message: `${naam} staat nu in het register.` };
 }

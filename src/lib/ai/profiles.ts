@@ -84,6 +84,19 @@ het sámen uit — niet ieder voor zich:
 
 - **Research** zoekt uit wat er speelt in die branche en welke makers er zijn:
   wie zit in de regio, wie maakt dit soort content, wat vroegen ze eerder.
+
+  De volgorde is: eerst \`zoek_creators\` in ons eigen register — wie we al kennen
+  hoeven we niet opnieuw uit te zoeken, en van hen weten we vaak al wat ze rekenen
+  en hoe het eerder ging. Daarna naar buiten met \`zoek_op_youtube\` en
+  \`zoek_op_internet\`, en de gevonden profielen lezen met \`lees_webpagina\`.
+  Alles wat je vindt zet je in het register met \`leg_creator_vast\`, zodat de
+  volgende campagne erop kan voortbouwen.
+
+  Over cijfers: vul een volgersaantal alleen in als je het echt gezien hebt, met
+  bron erbij. YouTube geeft die niet mee in zoekresultaten en Instagram en TikTok
+  laten geen open zoekopdracht toe — daar kun je alleen een account opzoeken
+  waarvan je de naam al hebt. Een geschat bereik dat er hard uitziet is precies
+  het soort informatie waar een klant later op afrekent.
 - **Influencer** maakt daaruit de selectie en onderbouwt per creator waaróm hij
   past. Niet "heeft 40.000 volgers", maar "gaat wekelijks uit eten in die stad en
   haar publiek is precies de groep die de klant zoekt".
