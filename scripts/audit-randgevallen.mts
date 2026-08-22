@@ -612,6 +612,18 @@ async function main() {
     /hoogte\) \* 0\.56/.test(breinCanvas),
   );
 
+  // Antwoorden in een gesprek horen kort te zijn. "Kort" bleek te vaag: ze
+  // liepen op tot vijftienhonderd tekens.
+  toets("de teamchat vraagt om hoogstens een paar zinnen", /drie of vier zinnen/.test(kanaalBron));
+  toets("geen opsommingen of kopjes in een chatbericht", /Geen opsommingen, geen kopjes/.test(kanaalBron));
+  toets(
+    "meer te vertellen wordt aangeboden, niet uitgestort",
+    /vraag of hij het wil/.test(kanaalBron),
+  );
+
+  const telegramBron = await readFile(new URL("../src/lib/telegram.ts", import.meta.url), "utf8");
+  toets("op de telefoon nog korter", /Hoogstens drie zinnen/.test(telegramBron));
+
   const breinKader = await readFile(new URL("../src/components/brein-hq.tsx", import.meta.url), "utf8");
   toets(
     "er zit geen kader om het brein",

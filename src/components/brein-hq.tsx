@@ -22,9 +22,11 @@ export function BreinHQ({ team }: { team: TeamRegel[] }) {
     <section className="relative">
       <div className="flex flex-col lg:flex-row">
         {/* Het brein */}
-        {/* Groter dan het eerst was. Het is het eerste wat je ziet en het moet
-            iets voorstellen; op vierhonderd pixels hoog werd het een strookje
-            tussen de kopregel en de cijfers. */}
+        {/* Fors groter. Het is het eerste wat je ziet en het moet iets
+            voorstellen.
+
+            Deze maat is waar het bleef: groter werd het niet mooier, alleen
+            groter. */}
         <div className="relative min-h-[380px] flex-1 sm:min-h-[480px] lg:min-h-[580px]">
           <BreinCanvas team={team} />
 
@@ -41,7 +43,9 @@ export function BreinHQ({ team }: { team: TeamRegel[] }) {
         </div>
 
         {/* De bezetting */}
-        <aside className="border-t border-white/5 p-4 lg:w-60 lg:shrink-0 lg:border-t-0 lg:border-l">
+        {/* Geen scheidslijn. Een streep dwars door het beeld sneed de zwermen
+            af van de namen die erbij horen, terwijl het één ding is. */}
+        <aside className="p-4 lg:w-60 lg:shrink-0 lg:self-center">
           <p className="mb-3 font-mono text-[10px] tracking-[0.2em] text-white/40 uppercase">
             Agents
           </p>

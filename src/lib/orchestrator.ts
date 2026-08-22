@@ -152,10 +152,21 @@ export async function bezorgBericht(messageId: string): Promise<void> {
   const hier = kanaal(channel.key);
   const kanaalUitleg = hier ? ` Je zit in #${hier.key}: ${hier.wanneer} ${hier.nietHier}` : "";
 
+  // "Kort" bleek te vaag: de antwoorden waren gemiddeld vijfhonderd tekens en
+  // liepen op tot vijftienhonderd. Dat leest niet als een collega maar als een
+  // rapport, en op een telefoon scrol je erdoorheen.
+  //
+  // Daarom een harde maat en geen opmaak. En vooral: heb je meer, bied het dan
+  // aan in plaats van het uit te storten. Dat maakt er een gesprek van — hij
+  // vraagt door als hij het wil.
   const toon = [
     `Antwoord als collega in het gesprek, niet als systeem dat een opdracht afhandelt.`,
-    `Kort en gewoon Nederlands. Reageer op wat er staat, stel gerust een wedervraag,`,
-    `en zeg wat je gaat doen als je iets oppakt. Weet je iets niet, zeg dat — verzin niets.`,
+    `Hoogstens drie of vier zinnen. Geen opsommingen, geen kopjes, geen vetgedrukte woorden:`,
+    `dit is een chatbericht, geen rapport.`,
+    `Heb je meer te vertellen, zeg dan in één zin wat er nog ligt en vraag of hij het wil —`,
+    `bijvoorbeeld "er zijn nog drie andere knelpunten, zal ik die op een rij zetten?".`,
+    `Reageer op wat er staat, stel gerust een wedervraag, en zeg wat je gaat doen als je`,
+    `iets oppakt. Weet je iets niet, zeg dat — verzin niets.`,
     kanaalUitleg,
   ].join(" ");
 
