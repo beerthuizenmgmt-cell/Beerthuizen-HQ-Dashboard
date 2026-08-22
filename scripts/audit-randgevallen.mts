@@ -689,6 +689,13 @@ async function main() {
   toets("het logo is de weg terug", /href="\/hq"/.test(breinPagina));
   toets("linksboven staat het volledige merk", /<Logo \/>/.test(breinPagina));
   toets("de agents staan er rechts bij", /<aside/.test(breinPagina) && /Agents/.test(breinPagina));
+  toets(
+    "het brein staat midden op het scherm",
+    // Als eigen kolom naast de lijst is het brein wel gecentreerd in de ruimte
+    // die overblijft, maar die is smaller dan het scherm — dan zit het honderd
+    // pixels links van het midden. De lijst ligt er nu overheen.
+    /absolute top-1\/2 right-0/.test(breinPagina),
+  );
   toets("de coderegels zijn er groter", /groot\b/.test(breinPagina));
   toets(
     "het brein is er groter dan op HQ",

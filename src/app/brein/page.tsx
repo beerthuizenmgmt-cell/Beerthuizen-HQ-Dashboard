@@ -27,20 +27,22 @@ export default async function BreinPage() {
 
   return (
     <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#05060a]">
-      <div className="flex min-h-0 flex-1">
-        {/* Het brein krijgt alle ruimte die overblijft. De hoogte is hier de
-            krappe kant, dus de kolom rechts kost hem niets. */}
-        <div className="relative min-h-0 min-w-0 flex-1">
-          {/* 0,60 en niet hoger: nagerekend loopt de massa bij 0,62 met de
-              ademhaling erbij twee pixels buiten de onderkant, en dan knip je de
-              onderste zwerm af. */}
-          <BreinCanvas team={team} schaalFactor={0.6} />
-        </div>
+      {/* Het brein vult de volle breedte en de lijst ligt eroverheen.
+
+          Stond de lijst als eigen kolom ernaast, dan is het brein wel netjes
+          gecentreerd in de ruimte die overblijft — maar die ruimte is smaller
+          dan het scherm, dus zat het honderdachtentwintig pixels links van het
+          midden. En dat is wat je ziet. */}
+      <div className="relative min-h-0 flex-1">
+        {/* 0,60 en niet hoger: nagerekend loopt de massa bij 0,62 met de
+            ademhaling erbij twee pixels buiten de onderkant, en dan knip je de
+            onderste zwerm af. */}
+        <BreinCanvas team={team} schaalFactor={0.6} />
 
         {/* Wie er in het brein zit. Een naam die over een zwerm heen ligt lees
             je in één oogopslag niet terug; deze lijst is de leesbare versie van
             hetzelfde beeld. */}
-        <aside className="hidden w-56 shrink-0 self-center p-6 lg:block xl:w-64">
+        <aside className="absolute top-1/2 right-0 hidden w-56 -translate-y-1/2 p-6 lg:block xl:w-64">
           <p className="mb-4 font-mono text-[10px] tracking-[0.22em] text-white/35 uppercase">
             Agents
           </p>
