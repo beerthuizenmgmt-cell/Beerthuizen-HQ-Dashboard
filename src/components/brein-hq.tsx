@@ -22,7 +22,10 @@ export function BreinHQ({ team }: { team: TeamRegel[] }) {
     <section className="relative">
       <div className="flex flex-col lg:flex-row">
         {/* Het brein */}
-        <div className="relative min-h-[300px] flex-1 sm:min-h-[380px] lg:min-h-[440px]">
+        {/* Groter dan het eerst was. Het is het eerste wat je ziet en het moet
+            iets voorstellen; op vierhonderd pixels hoog werd het een strookje
+            tussen de kopregel en de cijfers. */}
+        <div className="relative min-h-[380px] flex-1 sm:min-h-[480px] lg:min-h-[580px]">
           <BreinCanvas team={team} />
 
           <div className="pointer-events-none absolute top-4 left-5">

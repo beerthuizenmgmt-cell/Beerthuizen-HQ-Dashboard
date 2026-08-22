@@ -5,7 +5,6 @@ import { bouwCockpit, type Niveau } from "@/lib/cockpit";
 import { AgentAvatar } from "@/components/agent-avatar";
 import { Staafjes, PerDag, Ring, NogNietGekoppeld } from "@/components/grafiek";
 import { BreinHQ } from "@/components/brein-hq";
-import { Brein } from "@/components/brein";
 import { haalOverzicht } from "@/lib/overzicht";
 import { ActivityList } from "@/components/activity-list";
 import { formatDayLong, hourInTimezone, timeAgo } from "@/lib/format";
@@ -66,17 +65,11 @@ export default async function HQPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       {/* ── Wie je bent en welke dag het is ───────────────────────────── */}
-      <header className="komt-op flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl">
-            {groet()}, <span className="accent-serif">{user.name}</span>
-          </h1>
-          <p className="mt-1 text-sm text-text-muted">{formatDayLong(new Date())}</p>
-        </div>
-
-        {/* Op een telefoon weg: daar is de breedte te kostbaar voor iets dat
-            alleen mooi is. */}
-        <Brein className="hidden h-28 w-28 shrink-0 sm:block lg:h-32 lg:w-32" />
+      <header className="komt-op">
+        <h1 className="text-3xl">
+          {groet()}, <span className="accent-serif">{user.name}</span>
+        </h1>
+        <p className="mt-1 text-sm text-text-muted">{formatDayLong(new Date())}</p>
       </header>
 
       {/* ── Je team, aan het werk ──────────────────────────────────────── */}

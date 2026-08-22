@@ -642,9 +642,6 @@ async function main() {
   );
   toets("de inhoud staat bovenop de sterren", /\.sterrenveld > \*/.test(stijl));
 
-  const breinBron = await readFile(new URL("../src/components/brein.tsx", import.meta.url), "utf8");
-  toets("het brein is verborgen voor schermlezers", /aria-hidden/.test(breinBron));
-  toets("de coderegels hebben de kleuren van het team", /var\(--info\)/.test(breinBron));
 
   const stijlBron = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
   toets(
