@@ -276,17 +276,23 @@ export function BreinCanvas({
 
         // Tentakels.
         //
-        // Slierten die uit de zwerm groeien met een lichtpuls die eroverheen
-        // loopt — een signaal dat wegloopt van waar het vandaan komt, in de
-        // kleur van die agent. Ze kronkelen doordat het controlepunt van de
-        // bocht meebeweegt op zijn eigen ritme.
+        // Slierten die uit de zwerm groeien met stroom die eroverheen loopt — in
+        // de kleur van de agent waar het vandaan komt.
         //
-        // Bij wie werkt lopen er drie pulsen tegelijk en zijn ze fel; bij wie
-        // rust ééntje en gedempt. Helemaal weglaten zou de zwerm losknippen van
-        // de rest.
+        // Ze zijn opgebouwd uit losse stukjes en niet als één vloeiende bocht.
+        // Dat is wat het stroom laat lijken: elk knikpunt krijgt een kleine
+        // uitwijking haaks op de lijn die met de tijd meebeweegt, sterker naar
+        // het uiteinde toe zoals bij een zweep. Een gladde curve leest als een
+        // touwtje, niet als een vonk.
+        //
+        // En in drie lagen over elkaar: een brede zachte gloed, een kern, en de
+        // puls die eroverheen loopt. Eén lijn van één pixel is een streepje;
+        // deze stapeling maakt er licht van.
         if (!stil || werkt) {
           const kx = midX + (plek.x * cosD - plek.z * sinD) * schaal * adem * 0.53;
           const ky = midY + plek.y * schaal * adem * 0.53;
+
+          const STAPPEN = 18;
 
           for (const t of TENTAKELS) {
             const zwaai = Math.sin(tijd * t.tempo + w) * t.bocht;
@@ -295,50 +301,82 @@ export function BreinCanvas({
 
             const eindX = kx + Math.cos(hoek) * lang;
             const eindY = ky + Math.sin(hoek) * lang;
-            // Het controlepunt staat opzij van de lijn; hoe verder opzij, hoe
-            // sterker de kronkel.
             const stuurX = kx + Math.cos(hoek + zwaai) * lang * 0.6;
             const stuurY = ky + Math.sin(hoek + zwaai) * lang * 0.6;
 
-            // De sliert zelf, vaag.
-            ctx!.strokeStyle = `rgba(${r},${g},${b},${werkt ? 0.3 : 0.14})`;
-            ctx!.lineWidth = 1;
-            ctx!.beginPath();
-            ctx!.moveTo(kx, ky);
-            ctx!.quadraticCurveTo(stuurX, stuurY, eindX, eindY);
-            ctx!.stroke();
+            // De hele sliert uitrekenen: punt voor punt over de bocht, met de
+            // uitwijking erbovenop.
+            const punten: { x: number; y: number }[] = [];
+            for (let i = 0; i <= STAPPEN; i += 1) {
+              const u = i / STAPPEN;
+              const bx = (1 - u) * (1 - u) * kx + 2 * (1 - u) * u * stuurX + u * u * eindX;
+              const by = (1 - u) * (1 - u) * ky + 2 * (1 - u) * u * stuurY + u * u * eindY;
 
-            // De pulsen die eroverheen lopen. Een punt op een kwadratische bocht
-            // op tijd u, met een staartje erachteraan.
+              // Haaks op de richting van de sliert.
+              const dx = eindX - kx;
+              const dy = eindY - ky;
+              const len = Math.hypot(dx, dy) || 1;
+              const nx = -dy / len;
+              const ny = dx / len;
+
+              // Twee golven over elkaar, zodat het knettert in plaats van
+              // netjes te slingeren. Aan de aanhechting nul, naar het uiteinde
+              // toe steeds meer.
+              const kracht3 = u * u * (werkt ? 1 : 0.5);
+              const kronkel =
+                (Math.sin(tijd * 5.5 + i * 0.9 + w) * 3.2 +
+                  Math.sin(tijd * 9.1 + i * 2.1 + w * 2) * 1.6) *
+                kracht3;
+
+              punten.push({ x: bx + nx * kronkel, y: by + ny * kronkel });
+            }
+
+            const tekenPad = (van: number, tot: number) => {
+              ctx!.beginPath();
+              ctx!.moveTo(punten[van].x, punten[van].y);
+              for (let i = van + 1; i <= tot; i += 1) ctx!.lineTo(punten[i].x, punten[i].y);
+              ctx!.stroke();
+            };
+
+            ctx!.lineCap = "round";
+            ctx!.lineJoin = "round";
+
+            // Laag 1: de gloed eromheen.
+            ctx!.strokeStyle = `rgba(${r},${g},${b},${werkt ? 0.16 : 0.07})`;
+            ctx!.lineWidth = 6;
+            tekenPad(0, STAPPEN);
+
+            // Laag 2: de kern van de sliert.
+            ctx!.strokeStyle = `rgba(${r},${g},${b},${werkt ? 0.5 : 0.22})`;
+            ctx!.lineWidth = 2;
+            tekenPad(0, STAPPEN);
+
+            // Laag 3: de stroom die eroverheen loopt.
             const pulsen = werkt ? 3 : 1;
             for (let i = 0; i < pulsen; i += 1) {
-              const u = ((tijd * (werkt ? 0.55 : 0.28) + i / pulsen + w * 0.13) % 1);
-              const punt = (v: number, a: number, c: number, e: number) =>
-                (1 - v) * (1 - v) * a + 2 * (1 - v) * v * c + v * v * e;
+              const u = (tijd * (werkt ? 0.55 : 0.28) + i / pulsen + w * 0.13) % 1;
+              const kop = Math.round(u * STAPPEN);
+              const staart = Math.max(0, kop - 4);
+              if (kop <= staart) continue;
 
-              const px2 = punt(u, kx, stuurX, eindX);
-              const py2 = punt(u, ky, stuurY, eindY);
-              const staartU = Math.max(0, u - 0.12);
-              const sx = punt(staartU, kx, stuurX, eindX);
-              const sy = punt(staartU, ky, stuurY, eindY);
+              // Dooft uit naar het uiteinde: het signaal raakt onderweg op.
+              const kracht2 = (1 - u) * (werkt ? 1 : 0.5);
 
-              // Dooft uit naar het uiteinde: het signaal raakt op onderweg.
-              const kracht2 = (1 - u) * (werkt ? 1 : 0.45);
+              // De gloed van de puls, breed en zacht.
+              ctx!.strokeStyle = `rgba(${r},${g},${b},${0.45 * kracht2})`;
+              ctx!.lineWidth = 9;
+              tekenPad(staart, kop);
 
-              const streep = ctx!.createLinearGradient(sx, sy, px2, py2);
-              streep.addColorStop(0, `rgba(${r},${g},${b},0)`);
-              streep.addColorStop(1, `rgba(${r},${g},${b},${0.85 * kracht2})`);
-              ctx!.strokeStyle = streep;
-              ctx!.lineWidth = 1.8;
-              ctx!.beginPath();
-              ctx!.moveTo(sx, sy);
-              ctx!.lineTo(px2, py2);
-              ctx!.stroke();
+              // De kern, wit uitgegloeid — daar zit de stroom zelf.
+              ctx!.strokeStyle = `rgba(255,255,255,${0.75 * kracht2})`;
+              ctx!.lineWidth = 2.4;
+              tekenPad(staart, kop);
 
-              // Het kopje van de puls, wit uitgegloeid.
-              ctx!.globalAlpha = 0.9 * kracht2;
-              const kop = 5;
-              ctx!.drawImage(heet, px2 - kop / 2, py2 - kop / 2, kop, kop);
+              // Het kopje.
+              const punt = punten[kop];
+              ctx!.globalAlpha = 0.95 * kracht2;
+              const maatKop = 9;
+              ctx!.drawImage(heet, punt.x - maatKop / 2, punt.y - maatKop / 2, maatKop, maatKop);
               ctx!.globalAlpha = 1;
             }
           }

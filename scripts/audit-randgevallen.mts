@@ -666,9 +666,22 @@ async function main() {
 
   toets("er groeien tentakels uit de zwermen", /const TENTAKELS/.test(breinCanvas));
   toets(
-    "er lopen pulsen overheen in de kleur van hun zwerm",
-    /createLinearGradient\(sx, sy, px2, py2\)/.test(breinCanvas),
+    "de slierten zijn opgebouwd uit stukjes, niet als gladde bocht",
+    /const STAPPEN = \d+/.test(breinCanvas) && /punten\.push/.test(breinCanvas),
   );
+  toets(
+    "ze knetteren met twee golven over elkaar",
+    (breinCanvas.match(/Math\.sin\(tijd \* \d+\.\d+ \+ i \* /g) ?? []).length >= 2,
+  );
+  toets(
+    "de uitwijking is nul bij de aanhechting en groeit naar het uiteinde",
+    /const kracht3 = u \* u/.test(breinCanvas),
+  );
+  toets(
+    "ze zijn in lagen getekend: gloed, kern en puls",
+    /Laag 1/.test(breinCanvas) && /Laag 2/.test(breinCanvas) && /Laag 3/.test(breinCanvas),
+  );
+  toets("de stroom zelf is wit uitgegloeid", /rgba\(255,255,255,\$\{0\.75 \* kracht2\}\)/.test(breinCanvas));
   toets("een puls dooft uit naar het uiteinde", /const kracht2 = \(1 - u\)/.test(breinCanvas));
 
   const stroom = await readFile(new URL("../src/components/brein-codestroom.tsx", import.meta.url), "utf8");
