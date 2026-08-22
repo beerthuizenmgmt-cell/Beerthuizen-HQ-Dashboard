@@ -68,10 +68,23 @@ function hexNaarRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-export function BreinCanvas({ team }: { team: TeamRegel[] }) {
+export function BreinCanvas({
+  team,
+  schaalFactor = 0.56,
+}: {
+  team: TeamRegel[];
+  /// Hoe groot de massa is ten opzichte van de kortste kant van het vlak.
+  ///
+  /// Op HQ 0,56: daar deelt het brein de ruimte met de rest van de pagina en is
+  /// er marge nodig voor het uitzetten van de ademhaling. Op het volledige
+  /// scherm mag hij groter, want daar is niets anders.
+  schaalFactor?: number;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const teamRef = useRef(team);
   teamRef.current = team;
+  const schaalFactorRef = useRef(schaalFactor);
+  schaalFactorRef.current = schaalFactor;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -178,10 +191,9 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
       // de massa reikt tot ongeveer 1,2. Met het perspectief erbij komt dat op
       // 0,39 van de kortste kant — een bol die ruim binnen het paneel past in
       // plaats van er aan alle kanten uit te lopen.
-      // 0,56 en niet 0,62: de ademhaling laat de massa tot elf procent uitzetten,
-      // en bij de grotere maat liep de bovenste en onderste zwerm dan net buiten
-      // het paneel. Deze marge is precies die uitzetting.
-      const schaal = Math.min(breedte, hoogte) * 0.56;
+      // De ademhaling laat de massa tot elf procent uitzetten; die marge zit in
+      // de factor verwerkt.
+      const schaal = Math.min(breedte, hoogte) * schaalFactorRef.current;
 
       // De hele massa draait om zijn as, met een lichte knik zodat je er van
       // opzij op kijkt in plaats van er recht tegenaan.
@@ -437,8 +449,8 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
               // Vaste plek, afgeleid van waar de zwerm hoort te zweven. De
               // zwerm zelf draait; het label niet, want een naam die met de
               // massa meedraait is niet te lezen en niet aan te klikken.
-              left: `${50 + plek.x * 34}%`,
-              top: `${50 + plek.y * 34}%`,
+              left: `${50 + plek.x * 34 * (schaalFactor / 0.56)}%`,
+              top: `${50 + plek.y * 34 * (schaalFactor / 0.56)}%`,
               borderColor: `${kleur}88`,
               background: "rgba(0,0,0,0.6)",
               color: kleur,

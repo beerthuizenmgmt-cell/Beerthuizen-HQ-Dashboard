@@ -25,7 +25,15 @@ function regelVoor(lid: TeamRegel, tik: number): string {
   return `${sleutel} ${staat}  vuur ${vuur}  ${lid.stand}`;
 }
 
-export function BreinCodestroom({ team }: { team: TeamRegel[] }) {
+export function BreinCodestroom({
+  team,
+  groot = false,
+}: {
+  team: TeamRegel[];
+  /// Op het volledige scherm mag de strook groter: daar sta je verder van af en
+  /// is er ruimte zat.
+  groot?: boolean;
+}) {
   const [tik, setTik] = useState(0);
 
   useEffect(() => {
@@ -50,8 +58,10 @@ export function BreinCodestroom({ team }: { team: TeamRegel[] }) {
   // Een eigen strook onder het brein, niet eroverheen. Over de zwermen heen
   // botsen de regels met de deeltjes en lees je geen van beide goed.
   return (
-    <div className="pointer-events-none px-5 pb-3" aria-hidden>
-      <div className="space-y-0.5 font-mono text-[10px] leading-tight">
+    <div className={`pointer-events-none ${groot ? "px-8 pb-6" : "px-5 pb-3"}`} aria-hidden>
+      <div
+        className={`font-mono leading-tight ${groot ? "space-y-1.5 text-sm sm:text-base" : "space-y-0.5 text-[10px]"}`}
+      >
         {zichtbaar.map((lid, i) => (
           <p
             key={`${lid.id}-${i}`}

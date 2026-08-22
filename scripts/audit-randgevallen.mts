@@ -609,7 +609,9 @@ async function main() {
   );
   toets(
     "de schaal laat ruimte voor het uitzetten",
-    /hoogte\) \* 0\.56/.test(breinCanvas),
+    // De ademhaling zet de massa tot elf procent uit; die marge zit in de
+    // factor. Op HQ 0,56, op het volledige scherm 0,60 — allebei nagerekend.
+    /schaalFactor = 0\.56/.test(breinCanvas) && /schaalFactorRef\.current/.test(breinCanvas),
   );
 
   // Antwoorden in een gesprek horen kort te zijn. "Kort" bleek te vaag: ze
@@ -685,6 +687,13 @@ async function main() {
   const breinPagina = await readFile(new URL("../src/app/brein/page.tsx", import.meta.url), "utf8");
   toets("de breinpagina vereist dat je ingelogd bent", /requireUser\(\)/.test(breinPagina));
   toets("het logo is de weg terug", /href="\/hq"/.test(breinPagina));
+  toets("linksboven staat het volledige merk", /<Logo \/>/.test(breinPagina));
+  toets("de agents staan er rechts bij", /<aside/.test(breinPagina) && /Agents/.test(breinPagina));
+  toets("de coderegels zijn er groter", /groot\b/.test(breinPagina));
+  toets(
+    "het brein is er groter dan op HQ",
+    /schaalFactor=\{0\.6\}/.test(breinPagina),
+  );
   toets(
     "de pagina staat buiten de app-schil",
     // Als vlak over de zijbalk heen zou die er nog staan: onzichtbaar, maar
