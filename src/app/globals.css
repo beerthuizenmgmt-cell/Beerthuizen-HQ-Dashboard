@@ -14,6 +14,17 @@
   --border: #2a2a2a;
   --border-strong: #3a3a3a;
 
+  /* Waar een kaart van gemaakt is: licht dat van boven valt in plaats van een
+     lijn eromheen. */
+  --border-zacht: #ffffff0f;
+  --verdiept-vlak: #0f0f0f;
+  --verdiept-schaduw: #000000cc;
+  --kaart-boven: #1d1d1d;
+  --kaart-onder: #161616;
+  --kaart-glans: #ffffff12;
+  --kaart-schaduw-kort: #00000066;
+  --kaart-schaduw-lang: #000000b3;
+
   /* Tekst in warm crème in plaats van koel grijs — dat is wat de site doet */
   --text: #f5f0e8;
   --text-muted: #f5f0e8b3;
@@ -80,11 +91,143 @@ h3 {
 }
 
 @layer components {
-  /* Vlakken rond, knoppen strak — die combinatie komt van de site */
+  /* Vlakken rond, knoppen strak — die combinatie komt van de site.
+
+     Geen getekende rand meer. Een lijntje rondom hokt een kaart op; wat je wilt
+     is een vlak dat licht vangt. Daarom een verloop van iets lichter bovenaan
+     naar donkerder onderin, een haarlijn licht op de bovenrand alsof daar een
+     lichtbron op valt, en een zachte schaduw eronder die hem van de achtergrond
+     tilt. Je ziet nog steeds waar de kaart begint en eindigt, alleen niet omdat
+     er een streep omheen staat.
+
+     De waarden staan als tokens hieronder, zodat de crèmekleurige klantpagina
+     dezelfde vorm krijgt met haar eigen licht — daar valt het van boven op een
+     licht vlak en hoort de schaduw zachter te zijn. */
+  /* Een rand die geen streep is.
+
+     Overal waar nu een lijn stond — de zijbalk, de kop op een telefoon, de
+     scheiding boven je account — hoort een overgang te staan: licht dat aan de
+     ene kant ophoudt. Een gradiëntlijn die naar de uiteinden toe wegvalt leest
+     als een vouw in het oppervlak in plaats van als een getrokken streep.
+
+     Als klasse en niet als losse utility, want hij komt op tientallen plekken
+     terug en moet overal hetzelfde zijn. */
+  .rand-rechts,
+  .rand-links,
+  .rand-boven,
+  .rand-onder {
+    position: relative;
+  }
+
+  .rand-rechts::after,
+  .rand-links::after,
+  .rand-boven::after,
+  .rand-onder::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .rand-rechts::after,
+  .rand-links::after {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(
+      180deg,
+      transparent,
+      var(--border) 12%,
+      var(--border) 88%,
+      transparent
+    );
+  }
+
+  .rand-rechts::after {
+    right: 0;
+  }
+  .rand-links::after {
+    left: 0;
+  }
+
+  .rand-boven::after,
+  .rand-onder::after {
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--border) 12%,
+      var(--border) 88%,
+      transparent
+    );
+  }
+
+  .rand-boven::after {
+    top: 0;
+  }
+  .rand-onder::after {
+    bottom: 0;
+  }
+
+  /* Scheidingen binnen een lijst.
+
+     `divide-y divide-border` trekt een streep van rand tot rand tussen elke
+     regel — veertig plekken in het dashboard waar een lijst daardoor als een
+     tabel oogt. Dit laat de lijn aan beide uiteinden wegvallen, zodat hij de
+     regels scheidt zonder ze op te delen in hokjes. */
+  .lijst > * + * {
+    position: relative;
+  }
+
+  .lijst > * + *::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--border) 8%,
+      var(--border) 92%,
+      transparent
+    );
+  }
+
+  /* Voor een echte tabel.
+     
+     De truc hierboven werkt niet op rijen: een `tr` is geen gewoon blok, dus een
+     absoluut geplaatste lijn erin spant niet over de kolommen. En in een tabel
+     is een streep tussen de regels ook niet verkeerd — daar zoek je langs een
+     rij. Alleen zachter dan de standaardrand. */
+  .lijst-tabel > tr + tr > * {
+    border-top: 1px solid var(--border-zacht);
+  }
+
+  /* Het omgekeerde van een kaart: iets dat in het oppervlak ligt in plaats van
+     erop. Codeblokken, uitklapvlakken, een voorbeeld dat je laat zien.
+
+     Dezelfde lichtlogica, andere kant op: donkerder dan zijn omgeving, met de
+     schaduw bovenin in plaats van eronder. Dat leest als een uitsparing en
+     vraagt geen lijn eromheen. */
+  .verdiept {
+    background: var(--verdiept-vlak);
+    border-radius: 0.75rem;
+    box-shadow:
+      inset 0 1px 3px var(--verdiept-schaduw),
+      inset 0 -1px 0 var(--kaart-glans);
+  }
+
   .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: linear-gradient(180deg, var(--kaart-boven), var(--kaart-onder));
     border-radius: 1.25rem;
+    box-shadow:
+      inset 0 1px 0 var(--kaart-glans),
+      0 1px 2px var(--kaart-schaduw-kort),
+      0 10px 30px -14px var(--kaart-schaduw-lang);
   }
 
   .btn {
@@ -136,22 +279,29 @@ h3 {
     background: color-mix(in srgb, var(--danger) 12%, transparent);
   }
 
+  /* Een invoerveld is iets waar je iets ín zet, dus het ligt verdiept — net als
+     de codeblokken. Geen rand eromheen: de uitsparing zelf laat al zien waar je
+     kunt typen. Bij aanklikken gloeit de rand op in het accent, want dán moet
+     hij juist wél opvallen. */
   .input {
     width: 100%;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-strong);
-    border-radius: 0.375rem;
+    background: var(--verdiept-vlak);
+    border: none;
+    border-radius: 0.5rem;
     padding: 0.6rem 0.8rem;
     font-size: 0.875rem;
     color: var(--text);
     outline: none;
-    transition:
-      border-color 0.15s,
-      box-shadow 0.15s;
+    box-shadow:
+      inset 0 1px 3px var(--verdiept-schaduw),
+      inset 0 -1px 0 var(--kaart-glans);
+    transition: box-shadow 0.15s;
   }
   .input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow:
+      inset 0 1px 3px var(--verdiept-schaduw),
+      0 0 0 1px var(--accent),
+      0 0 14px -2px var(--accent-soft);
   }
   .input::placeholder {
     color: var(--text-faint);
@@ -259,6 +409,17 @@ h3 {
   --surface-hover: #faf7f2;
   --border: #0d0d0d1a;
   --border-strong: #0d0d0d33;
+
+  /* Op een licht vlak komt het licht ook van boven, maar dan subtieler: een
+     zwaar verloop zou hier vuil ogen in plaats van verheven. */
+  --border-zacht: #0d0d0d12;
+  --verdiept-vlak: #efeae1;
+  --verdiept-schaduw: #0d0d0d1f;
+  --kaart-boven: #ffffff;
+  --kaart-onder: #fdfbf7;
+  --kaart-glans: #ffffff;
+  --kaart-schaduw-kort: #0d0d0d14;
+  --kaart-schaduw-lang: #0d0d0d26;
 
   --text: #0d0d0d;
   --text-muted: #0d0d0db3;

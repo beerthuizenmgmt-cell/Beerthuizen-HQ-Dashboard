@@ -90,7 +90,7 @@ export default async function KlantenPagina() {
             </p>
           </div>
         ) : (
-          <div className="card divide-y divide-border">
+          <div className="card lijst">
             {klanten.map((klant) => (
               <div key={klant.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div className="min-w-0">

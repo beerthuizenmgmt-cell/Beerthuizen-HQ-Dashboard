@@ -44,7 +44,7 @@ export function InboundSetup({
         </button>
       ) : (
         <>
-          <pre className="overflow-x-auto rounded-lg border border-border bg-bg p-3 font-mono text-xs leading-relaxed text-text-muted">
+          <pre className="overflow-x-auto verdiept p-3 font-mono text-xs leading-relaxed text-text-muted">
 {`POST ${replyUrl}
 Authorization: Bearer ${shown}
 {"taskId": "...", "status": "done", "message": "..."}`}
@@ -55,7 +55,7 @@ Authorization: Bearer ${shown}
               <p className="mb-1.5 text-xs text-text-muted">
                 Wil je dat antwoorden uit Telegram hier binnenkomen? Registreer de webhook één keer:
               </p>
-              <pre className="overflow-x-auto rounded-lg border border-border bg-bg p-3 font-mono text-xs leading-relaxed text-text-muted">
+              <pre className="overflow-x-auto verdiept p-3 font-mono text-xs leading-relaxed text-text-muted">
 {`curl "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \\
   -d "url=${webhookUrl}" \\
   -d "secret_token=${shown}"`}

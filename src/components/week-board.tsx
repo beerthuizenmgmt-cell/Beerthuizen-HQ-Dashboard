@@ -175,7 +175,7 @@ function TaskChip({
       draggable
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`block cursor-grab rounded-lg border border-border bg-bg-elevated px-2 py-1.5 transition-colors hover:bg-surface-hover active:cursor-grabbing ${
+      className={`card block cursor-grab rounded-lg px-2 py-1.5 transition-colors hover:brightness-125 active:cursor-grabbing ${
         compact ? "max-w-64" : ""
       } ${task.done ? "opacity-50" : ""}`}
     >

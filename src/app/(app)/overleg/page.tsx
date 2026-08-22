@@ -160,7 +160,7 @@ export default async function StandupPage() {
           {waiting.length > 0 && (
             <section>
               <h2 className="eyebrow-rule start mb-2">Nog niet gereageerd</h2>
-              <div className="card divide-y divide-border">
+              <div className="card lijst">
                 {waiting.map((entry) => (
                   <div key={entry.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                     <AgentAvatar agent={entry.agent} size="xs" />

@@ -22,7 +22,7 @@ export function InstanceManager({ instances, appUrl }: { instances: InstanceRow[
   return (
     <div className="space-y-4">
       {instances.length > 0 && (
-        <div className="card divide-y divide-border">
+        <div className="card lijst">
           {instances.map((instance) => {
             const alive = instance.alive;
             return (
@@ -59,7 +59,7 @@ export function InstanceManager({ instances, appUrl }: { instances: InstanceRow[
           <p className="mt-1 text-xs text-text-muted">
             Bewaar de sleutel nu — hij is hierna niet meer op te vragen. Start de reader zo:
           </p>
-          <pre className="mt-3 overflow-x-auto rounded-lg border border-border bg-bg p-3 font-mono text-xs leading-relaxed text-text-muted">
+          <pre className="mt-3 overflow-x-auto verdiept p-3 font-mono text-xs leading-relaxed text-text-muted">
 {`cd ~/.elara-reader/elara-reader
 ELARA_URL=${appUrl} \\
 ELARA_INSTANCE_ID=${state.created.publicId} \\

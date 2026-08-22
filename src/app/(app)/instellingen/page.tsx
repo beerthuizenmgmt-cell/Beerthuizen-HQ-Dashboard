@@ -181,7 +181,7 @@ export default async function SettingsPage() {
 
       <section className="space-y-3">
         <h2 className="text-sm font-semibold">Meldingen</h2>
-        <div className="card divide-y divide-border text-sm">
+        <div className="card lijst text-sm">
           {[
             { label: "In het dashboard", value: alertsValue.inApp !== false },
             { label: "Via Telegram", value: alertsValue.telegram !== false },

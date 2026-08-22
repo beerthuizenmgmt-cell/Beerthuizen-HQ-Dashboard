@@ -93,7 +93,7 @@ export default async function ToolsPage() {
         return (
           <section key={categorie}>
             <h2 className="eyebrow mb-3">{CATEGORIE_LABELS[categorie]}</h2>
-            <div className="card divide-y divide-border">
+            <div className="card lijst">
               {groep.map((rij) => (
                 <ToolRow
                   key={rij.toolKey}

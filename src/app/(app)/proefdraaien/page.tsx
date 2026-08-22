@@ -66,7 +66,7 @@ export default async function TestRunPage() {
       {recent.length > 0 && (
         <section>
           <h2 className="mb-2 text-sm font-semibold">Eerdere proeven</h2>
-          <div className="card divide-y divide-border">
+          <div className="card lijst">
             {recent.map((run) => (
               <div key={run.id} className="px-4 py-3">
                 <div className="flex items-center gap-2 text-xs text-text-faint">

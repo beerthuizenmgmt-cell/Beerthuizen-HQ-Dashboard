@@ -122,7 +122,7 @@ export default async function KennisPage() {
                     </div>
 
                     {entry.advice && (
-                      <div className="rounded-lg border border-border bg-bg-elevated p-3">
+                      <div className="verdiept p-3">
                         <p className="eyebrow mb-1">Advies</p>
                         <p className="whitespace-pre-wrap">{entry.advice}</p>
                       </div>

@@ -86,7 +86,7 @@ export default async function CallPage() {
         <aside className="space-y-4">
           <section>
             <h2 className="mb-2 text-sm font-semibold">De planning van vandaag</h2>
-            <div className="card divide-y divide-border">
+            <div className="card lijst">
               {planning.length === 0 && (
                 <p className="px-4 py-6 text-center text-xs text-text-faint">
                   Nog niemand heeft doorgegeven wat hij vandaag oppakt.
@@ -108,7 +108,7 @@ export default async function CallPage() {
 
           <section>
             <h2 className="mb-2 text-sm font-semibold">Al beantwoord</h2>
-            <div className="card divide-y divide-border">
+            <div className="card lijst">
               {meeting.questions.filter((q) => q.answeredAt).length === 0 && (
                 <p className="px-4 py-6 text-center text-xs text-text-faint">Nog niets.</p>
               )}

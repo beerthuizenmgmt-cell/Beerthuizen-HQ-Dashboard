@@ -127,7 +127,7 @@ export default async function KlantPortalPagina({ params }: PageProps<"/klant/[t
         {facturen.length > 0 && (
           <section className="mt-10">
             <h2 className="eyebrow-rule start mb-3">Facturen</h2>
-            <div className="card divide-y divide-border">
+            <div className="card lijst">
               {facturen.map((factuur) => (
                 <div key={factuur.nummer} className="flex flex-wrap items-center gap-3 p-4">
                   <div className="min-w-0 flex-1">

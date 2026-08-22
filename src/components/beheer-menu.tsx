@@ -65,7 +65,11 @@ export function BeheerMenu({ links }: { links: NavLink[] }) {
         // beneden zou het buiten beeld vallen.
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-50 mb-1 w-56 overflow-hidden rounded-xl border border-border bg-bg-elevated py-1 shadow-lg"
+          // Een uitklapmenu zweeft boven de pagina, dus het heeft een eigen
+          // rand nodig om zich van de inhoud eronder los te maken. Wel de
+          // kaartvorm, met een zwaardere schaduw omdat hij verder van het vlak
+          // af staat dan een gewone kaart.
+          className="card absolute bottom-full left-0 z-50 mb-1 w-56 overflow-hidden py-1 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.85)]"
         >
           {links.map((link) => (
             <Link

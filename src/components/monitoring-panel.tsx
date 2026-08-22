@@ -104,7 +104,7 @@ export function MonitoringPanel({
       </div>
 
       {outcomes && (
-        <div className="card divide-y divide-border">
+        <div className="card lijst">
           <div className="px-4 py-2.5 text-xs font-semibold tracking-wide text-text-muted uppercase">
             {wasProef ? (
               <>

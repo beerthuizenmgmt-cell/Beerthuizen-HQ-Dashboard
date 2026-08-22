@@ -39,7 +39,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       {/* Vast aan de zijkant met een eigen schuifbalk. Zonder dit groeit de balk
           mee met de pagina en staat de onderkant — je account, je meldingen —
           buiten beeld zodra een scherm langer is dan het venster. */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto border-r border-border bg-bg-elevated md:flex">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto rand-rechts bg-bg-elevated md:flex">
         <div className="px-5 py-6">
           <Logo />
         </div>
@@ -52,7 +52,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           <BeheerMenu links={beheerLinks} />
         </div>
 
-        <div className="border-t border-border p-4">
+        <div className="rand-boven p-4">
           <p className="truncate text-sm font-semibold">{user.name}</p>
           <p className="truncate text-xs text-text-faint">{user.email}</p>
           <p className="eyebrow mt-1">{user.role === "owner" ? "Eigenaar" : "Teamlid"}</p>
@@ -67,7 +67,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Op een telefoon alleen het merk bovenaan; navigeren doe je onderaan,
             waar je duim is. */}
-        <header className="flex items-center gap-3 border-b border-border px-4 py-3 md:hidden">
+        <header className="flex items-center gap-3 rand-onder px-4 py-3 md:hidden">
           <Link href="/hq">
             <LogoMark />
           </Link>

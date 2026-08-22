@@ -89,7 +89,7 @@ export default async function OpbouwPage() {
               <th className="px-4 py-3 font-medium">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-border">
+          <tbody className="lijst-tabel">
             {rijen.map((rij) => (
               <tr key={rij.agent.id}>
                 <td className="px-4 py-3">

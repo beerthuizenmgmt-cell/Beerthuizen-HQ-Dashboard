@@ -53,7 +53,7 @@ export function AgentMemoryPanel({
           afspraken vast — en jij kunt hem alvast iets meegeven.
         </p>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="lijst">
           {memories.map((memory) => (
             <li key={memory.id} className="py-3">
               <div className="flex flex-wrap items-baseline gap-2">

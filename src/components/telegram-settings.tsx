@@ -149,7 +149,7 @@ export function TelegramSettings({
               Stuurde je de bot iets, dan bleef het liggen. Met de webhook duwt
               Telegram elk bericht meteen door en is het een gesprek in plaats van
               een postbus die je zelf moet legen. */}
-          <div className="rounded-xl border border-border bg-bg p-4">
+          <div className="verdiept p-4">
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className="h-1.5 w-1.5 rounded-full"

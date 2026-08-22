@@ -62,7 +62,7 @@ export default async function ReportsPage() {
 
       <section>
         <h2 className="eyebrow-rule start mb-3">Inzichten van de agents</h2>
-        <div className="card divide-y divide-border">
+        <div className="card lijst">
           {insights.length === 0 && (
             <p className="px-4 py-8 text-center text-sm text-text-faint">
               Nog geen inzichten. Die ontstaan zodra een agent iets opmerkt dat de moeite waard is.
@@ -94,7 +94,7 @@ export default async function ReportsPage() {
 
       <section>
         <h2 className="eyebrow-rule start mb-3">Eerdere overleggen</h2>
-        <div className="card divide-y divide-border">
+        <div className="card lijst">
           {meetings.length === 0 && (
             <p className="px-4 py-8 text-center text-sm text-text-faint">
               Nog geen samenvattingen van overleggen.

@@ -189,7 +189,7 @@ export default async function AgentSettingsPage({ params }: PageProps<"/agents/[
 
       <section>
         <h2 className="mb-3 text-sm font-semibold">Activiteit</h2>
-        <div className="card divide-y divide-border">
+        <div className="card lijst">
           <ActivityList
             events={agent.activityEvents}
             emptyMessage={`Nog niets binnengekomen van ${agent.name}.`}

@@ -212,7 +212,7 @@ export default async function HQPage() {
             Alles beheren →
           </Link>
         </div>
-        <div className="card divide-y divide-border">
+        <div className="card lijst">
           {team.map((lid) => (
             <Link
               key={lid.id}
@@ -356,7 +356,7 @@ export default async function HQPage() {
             Alles bekijken →
           </Link>
         </div>
-        <div className="card divide-y divide-border">
+        <div className="card lijst">
           <ActivityList events={activiteit} emptyMessage="Nog niets gebeurd vandaag." />
         </div>
       </section>

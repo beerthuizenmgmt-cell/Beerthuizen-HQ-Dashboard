@@ -17,7 +17,7 @@ export type StatusItem = {
 /// een dashboard dat doet alsof alles af is, is erger dan een lege plek.
 export function SystemStatus({ items }: { items: StatusItem[] }) {
   return (
-    <div className="card divide-y divide-border">
+    <div className="card lijst">
       {items.map((item) => {
         const style = STYLE[item.level];
         return (

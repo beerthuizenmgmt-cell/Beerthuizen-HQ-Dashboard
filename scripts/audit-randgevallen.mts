@@ -624,6 +624,33 @@ async function main() {
   const telegramBron = await readFile(new URL("../src/lib/telegram.ts", import.meta.url), "utf8");
   toets("op de telefoon nog korter", /Hoogstens drie zinnen/.test(telegramBron));
 
+  // ── De vormtaal van het dashboard ────────────────────────────────────────
+  //
+  // Geen getekende lijnen om dingen heen, maar licht dat van boven valt: kaarten
+  // liggen op het vlak, invoervelden en codeblokken erin.
+  console.log("\nVormtaal");
+
+  const css = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
+  const kaartRegel = css.slice(css.indexOf("  .card {"), css.indexOf("  .card {") + 400);
+
+  toets("een kaart heeft geen getekende rand", !/border:\s*1px/.test(kaartRegel));
+  toets("een kaart vangt licht van boven", /inset 0 1px 0 var\(--kaart-glans\)/.test(kaartRegel));
+  toets("er is een verdiept vlak voor wat erin ligt", /\.verdiept \{/.test(css));
+  toets("een invoerveld ligt verdiept", /\.input \{[^}]*var\(--verdiept-vlak\)/s.test(css));
+  toets(
+    "randen lopen naar de uiteinden weg",
+    /\.rand-rechts::after/.test(css) && /transparent,\s*\n?\s*var\(--border\)/.test(css),
+  );
+  toets("lijsten worden gescheiden zonder streep van rand tot rand", /\.lijst > \* \+ \*::before/.test(css));
+  toets("een echte tabel heeft zijn eigen scheiding", /\.lijst-tabel > tr \+ tr/.test(css));
+  toets(
+    "de crèmekleurige klantpagina heeft haar eigen licht",
+    /--kaart-boven: #ffffff/.test(css) && /--verdiept-vlak: #efeae1/.test(css),
+  );
+
+  const alleTsx = await readFile(new URL("../src/app/(app)/layout.tsx", import.meta.url), "utf8");
+  toets("de zijbalk heeft geen getrokken rand meer", !/border-r border-border/.test(alleTsx));
+
   const breinKader = await readFile(new URL("../src/components/brein-hq.tsx", import.meta.url), "utf8");
   toets(
     "er zit geen kader om het brein",

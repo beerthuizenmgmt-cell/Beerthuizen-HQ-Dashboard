@@ -417,7 +417,7 @@ function Breakdown({
   return (
     <div>
       <h2 className="mb-2 text-sm font-semibold">{title}</h2>
-      <div className="card divide-y divide-border">
+      <div className="card lijst">
         {rows.length === 0 && (
           <p className="px-4 py-6 text-center text-xs text-text-faint">Nog geen gegevens.</p>
         )}

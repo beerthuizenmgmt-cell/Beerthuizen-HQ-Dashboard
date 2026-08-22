@@ -68,7 +68,7 @@ export default async function ApprovalsPage() {
       {decided.length > 0 && (
         <section>
           <h2 className="eyebrow-rule start mb-3">Eerder beslist</h2>
-          <div className="card divide-y divide-border">
+          <div className="card lijst">
             {decided.map((approval) => {
               const style = STATUS_STYLE[approval.status] ?? {
                 label: approval.status,

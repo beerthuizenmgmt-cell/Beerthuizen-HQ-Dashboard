@@ -153,7 +153,7 @@ export default async function CampagnePagina({ params }: PageProps<"/projecten/[
             </p>
           </div>
         ) : (
-          <div className="card divide-y divide-border">
+          <div className="card lijst">
             {standen.map((stand) => {
               const koppeling = project.creators.find((k) => k.id === stand.creatorCampagneId);
               return (
@@ -220,7 +220,7 @@ export default async function CampagnePagina({ params }: PageProps<"/projecten/[
           <h2 className="eyebrow-rule start mb-3">
             Wie eraan werkt · {openTaken.length} open van {project.tasks.length}
           </h2>
-          <div className="card divide-y divide-border">
+          <div className="card lijst">
             {project.tasks.map((taak) => (
               <Link
                 key={taak.id}

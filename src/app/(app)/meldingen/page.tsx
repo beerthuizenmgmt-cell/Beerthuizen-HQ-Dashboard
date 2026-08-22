@@ -45,7 +45,7 @@ export default async function NotificationsPage() {
         )}
       </header>
 
-      <div className="card divide-y divide-border">
+      <div className="card lijst">
         {notifications.length === 0 && (
           <p className="px-4 py-10 text-center text-sm text-text-faint">
             Nog geen meldingen. Zodra een agent iets afrondt of vastloopt, staat het hier.

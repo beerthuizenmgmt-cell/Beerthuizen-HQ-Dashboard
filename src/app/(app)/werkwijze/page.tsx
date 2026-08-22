@@ -57,7 +57,7 @@ export default async function WerkwijzePagina() {
       {/* ── Wie is waar eigenaar van ─────────────────────────────────── */}
       <section>
         <h2 className="eyebrow-rule start mb-3">Wie is waar eigenaar van</h2>
-        <div className="card divide-y divide-border">
+        <div className="card lijst">
           {EIGENDOM.map((eigendom) => {
             const agent = zoek(eigendom.agentKey);
             return (

@@ -99,13 +99,13 @@ export default async function ScenarioPagina() {
             </p>
           )}
           {loopStatus(laatste.run) === "bezig" && (
-            <p className="mt-3 rounded-lg border border-border px-3 py-2 text-xs text-text-muted">
+            <p className="mt-3 verdiept px-3 py-2 text-xs text-text-muted">
               Loopt nog. Ververs deze pagina over een minuut.
             </p>
           )}
 
           {/* De tijdlijn: wat er werkelijk gebeurde, niet wat de agent zegt */}
-          <div className="card mt-4 divide-y divide-border">
+          <div className="card mt-4 lijst">
             {laatste.tijdlijn.length === 0 ? (
               <p className="p-4 text-sm text-text-muted">
                 Er is niets gebeurd. De agent heeft geantwoord zonder iets aan te maken of iemand in te
@@ -140,7 +140,7 @@ export default async function ScenarioPagina() {
       {runs.length > 1 && (
         <section>
           <h2 className="eyebrow-rule start mb-3">Eerdere runs</h2>
-          <div className="card divide-y divide-border">
+          <div className="card lijst">
             {runs.slice(1).map((run) => {
               const stand = loopStatus(run);
               return (

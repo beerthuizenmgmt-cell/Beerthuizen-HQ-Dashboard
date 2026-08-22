@@ -95,7 +95,7 @@ export function ApprovalCard({ approval }: { approval: ApprovalItem }) {
       <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">{approval.summary}</p>
 
       {kern.length > 0 && (
-        <dl className="mt-3 space-y-1 rounded-lg border border-border bg-bg px-3 py-2.5 text-sm">
+        <dl className="mt-3 space-y-1 verdiept px-3 py-2.5 text-sm">
           {kern.map(({ label, waarde, nadruk }) => (
             <div key={label} className="flex gap-2">
               <dt className="w-20 shrink-0 text-xs text-text-faint">{label}</dt>
@@ -111,7 +111,7 @@ export function ApprovalCard({ approval }: { approval: ApprovalItem }) {
         <summary className="cursor-pointer text-xs text-text-muted hover:text-text">
           Wat er precies klaarstaat
         </summary>
-        <pre className="mt-2 overflow-x-auto rounded-lg border border-border bg-bg p-3 font-mono text-[11px] leading-relaxed text-text-muted">
+        <pre className="mt-2 overflow-x-auto verdiept p-3 font-mono text-[11px] leading-relaxed text-text-muted">
           {JSON.stringify(approval.payload, null, 2)}
         </pre>
       </details>

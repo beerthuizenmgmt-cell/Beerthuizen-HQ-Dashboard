@@ -49,7 +49,7 @@ export function CreatorBewerken({ creator }: { creator: CreatorGegevens }) {
   }
 
   return (
-    <form action={formAction} className="mt-3 space-y-3 rounded-xl border border-border bg-bg p-4">
+    <form action={formAction} className="mt-3 space-y-3 verdiept p-4">
       <input type="hidden" name="id" value={creator.id} />
 
       <div className="grid gap-3 sm:grid-cols-2">

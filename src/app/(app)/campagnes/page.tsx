@@ -70,7 +70,7 @@ export default async function CampaignsPage() {
             </p>
           </div>
         ) : (
-          <div className="card divide-y divide-border">
+          <div className="card lijst">
             {campaigns.map((campaign) => (
               <div key={campaign.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -92,7 +92,7 @@ export default async function CampaignsPage() {
       {adviceItems.length > 0 && (
         <section>
           <h2 className="eyebrow-rule start mb-3">Advies dat op je wacht</h2>
-          <div className="card divide-y divide-border">
+          <div className="card lijst">
             {adviceItems.map((advice) => (
               <div key={advice.id} className="px-4 py-3">
                 <div className="flex items-center gap-2 text-xs text-text-faint">
@@ -115,7 +115,7 @@ export default async function CampaignsPage() {
             Takenbord →
           </Link>
         </div>
-        <div className="card divide-y divide-border">
+        <div className="card lijst">
           {open.length === 0 && (
             <p className="px-4 py-8 text-center text-sm text-text-faint">
               Geen open campagnetaken.
@@ -143,7 +143,7 @@ export default async function CampaignsPage() {
               Naar het gesprek →
             </Link>
           </div>
-          <div className="card divide-y divide-border">
+          <div className="card lijst">
             {channel.messages.length === 0 && (
               <p className="px-4 py-8 text-center text-sm text-text-faint">Nog niets besproken.</p>
             )}

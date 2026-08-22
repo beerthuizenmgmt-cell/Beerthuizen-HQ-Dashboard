@@ -139,7 +139,7 @@ export function ToolRow({
                   .map((agent) => (
                     <li
                       key={agent.agentId}
-                      className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-3 py-2"
+                      className="flex flex-wrap items-center gap-3 verdiept px-3 py-2"
                     >
                       <span className="min-w-0 flex-1 text-sm">{agent.naam}</span>
 

@@ -259,7 +259,7 @@ export default async function AgentDossierPage({ params }: PageProps<"/agents/[i
               meten — er wordt niets geschat.
             </p>
 
-            <div className="mt-4 divide-y divide-border">
+            <div className="mt-4 lijst">
               {dossier.kpis.map((kpi) => (
                 <div key={kpi.key} className="flex flex-wrap items-baseline justify-between gap-2 py-3">
                   <div className="min-w-0 flex-1">
@@ -283,7 +283,7 @@ export default async function AgentDossierPage({ params }: PageProps<"/agents/[i
             <h2 className="text-sm font-semibold">Wat hij mag</h2>
 
             {dossier.autonomie && (
-              <div className="mt-3 rounded-lg border border-border bg-bg-elevated p-4">
+              <div className="mt-3 verdiept p-4">
                 <p className="text-sm font-medium">
                   Autonomieniveau {dossier.autonomie.niveau} — {dossier.autonomie.label}
                 </p>
@@ -323,7 +323,7 @@ export default async function AgentDossierPage({ params }: PageProps<"/agents/[i
           {/* Communicatielijnen */}
           <section className="card p-5">
             <h2 className="text-sm font-semibold">Met wie hij schakelt</h2>
-            <ul className="mt-3 divide-y divide-border text-sm">
+            <ul className="mt-3 lijst text-sm">
               {dossier.lijnen.map((lijn, index) => (
                 <li key={index} className="py-2">
                   <span className="font-medium">{lijn.naam}</span>
@@ -356,7 +356,7 @@ export default async function AgentDossierPage({ params }: PageProps<"/agents/[i
       {/* Gereedschap */}
       <section className="card p-5">
         <h2 className="text-sm font-semibold">Welke systemen hij gebruikt</h2>
-        <ul className="mt-3 divide-y divide-border text-sm">
+        <ul className="mt-3 lijst text-sm">
           {dossier.gereedschap.map((tool) => (
             <li key={tool.toolKey} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span>

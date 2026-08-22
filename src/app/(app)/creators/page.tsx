@@ -99,7 +99,7 @@ export default async function CreatorsPagina() {
           </p>
         </div>
       ) : (
-        <div className="card divide-y divide-border">
+        <div className="card lijst">
           {creators.map((creator) => {
             const lopend = creator.campagnes.filter(
               (k) => !["afgezegd"].includes(k.status) && k.project.status !== "afgerond",

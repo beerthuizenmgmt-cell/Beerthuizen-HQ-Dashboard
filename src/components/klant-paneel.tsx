@@ -138,7 +138,7 @@ export function KlantPaneel({
       </div>
 
       {aanvragen.length > 0 && (
-        <div className="card divide-y divide-border">
+        <div className="card lijst">
           {aanvragen.map((aanvraag) => (
             <div key={aanvraag.id} className="p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">

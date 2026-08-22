@@ -204,7 +204,7 @@ export function FactuurTabel({ facturen }: { facturen: FactuurRij[] }) {
                 <th className="px-3 py-3"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="lijst-tabel">
               {facturen.map((factuur) => (
                 <tr key={factuur.id} className={factuur.teLaat ? "bg-danger/5" : ""}>
                   <td className="px-3 py-3 font-medium">{factuur.nummer}</td>

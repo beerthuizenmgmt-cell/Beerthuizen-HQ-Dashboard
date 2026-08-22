@@ -66,7 +66,7 @@ export function AgentPlaybook({
               {playbook.split("\n").filter((r) => r.startsWith("# ")).length} onderdelen ·{" "}
               {tokens.toLocaleString("nl-NL")} tokens per denkbeurt — openklappen
             </summary>
-            <div className="mt-3 max-h-[32rem] overflow-y-auto whitespace-pre-wrap rounded-lg border border-border bg-bg-elevated p-4 text-sm leading-relaxed">
+            <div className="mt-3 max-h-[32rem] overflow-y-auto whitespace-pre-wrap verdiept p-4 text-sm leading-relaxed">
               {playbook}
             </div>
           </details>

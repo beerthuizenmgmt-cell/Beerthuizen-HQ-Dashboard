@@ -22,7 +22,7 @@ export default async function ActivityPage() {
         </p>
       </header>
 
-      <div className="card divide-y divide-border">
+      <div className="card lijst">
         <ActivityList
           events={events}
           emptyMessage="Nog geen activiteit. Koppel een reader bij Instellingen, of test een agentverbinding."
