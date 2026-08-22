@@ -36,6 +36,14 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className="sterrenveld flex min-h-screen">
+      {/* Af en toe een vallende ster door de achtergrond. Puur sfeer, dus
+          aria-hidden: een schermlezer heeft niets aan drie lege blokjes. */}
+      <div aria-hidden>
+        <span className="vallende-ster" />
+        <span className="vallende-ster" />
+        <span className="vallende-ster" />
+      </div>
+
       {/* Vast aan de zijkant met een eigen schuifbalk. Zonder dit groeit de balk
           mee met de pagina en staat de onderkant — je account, je meldingen —
           buiten beeld zodra een scherm langer is dan het venster. */}

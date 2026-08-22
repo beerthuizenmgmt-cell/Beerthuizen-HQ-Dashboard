@@ -556,3 +556,140 @@ h3 {
   position: relative;
   z-index: 1;
 }
+
+/* ============================================================
+   Vallende sterren
+   ============================================================
+
+   Af en toe een streep licht dwars door de sterrenhemel. Zeldzaam, want dat is
+   het hem juist: iets wat elke twee seconden gebeurt is geen vallende ster maar
+   een knipperlicht. Elke ster reist ruim een seconde en wacht daarna tientallen
+   seconden voordat hij opnieuw gaat.
+
+   Alleen beweging, geen javascript: drie vaste elementjes met elk hun eigen
+   route en tempo. En net als de rest van de beweging in het dashboard staat het
+   achter prefers-reduced-motion. */
+
+.vallende-ster {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  /* De staart. Loopt naar linksboven weg, tegengesteld aan de richting waarin
+     hij valt, anders lijkt het of hij achteruit vliegt. */
+  box-shadow:
+    0 0 4px 1px #ffffffcc,
+    -2px -2px 3px 0 #ffffff66;
+}
+
+.vallende-ster::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 90px;
+  height: 1px;
+  transform-origin: 0 0;
+  transform: rotate(-135deg);
+  background: linear-gradient(90deg, #ffffffb3, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Elke ster zijn eigen route én zijn eigen tempo.
+
+     Met één gedeelde animatie reizen ze alle drie hetzelfde pad in dezelfde
+     richting, en dan is het geen hemel maar een lichtkrant. Drie losse sets
+     kost wat meer regels en is het waard.
+
+     De zichtbare flits duurt ongeveer anderhalve seconde; de rest van de ronde
+     is hij er niet. Die stilte is het hele punt — iets wat elke twee seconden
+     gebeurt is geen vallende ster. Samen valt er nu ongeveer elke vijftien
+     seconden eentje. */
+
+  @keyframes valt-een {
+    0%,
+    96% {
+      opacity: 0;
+      transform: translate3d(0, 0, 0);
+    }
+    96.5% {
+      opacity: 1;
+    }
+    99.5% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 0;
+      transform: translate3d(52vw, 46vh, 0);
+    }
+  }
+
+  @keyframes valt-twee {
+    0%,
+    97.4% {
+      opacity: 0;
+      transform: translate3d(0, 0, 0);
+    }
+    97.7% {
+      opacity: 1;
+    }
+    99.6% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 0;
+      transform: translate3d(-38vw, 62vh, 0);
+    }
+  }
+
+  @keyframes valt-drie {
+    0%,
+    96.8% {
+      opacity: 0;
+      transform: translate3d(0, 0, 0);
+    }
+    97.2% {
+      opacity: 1;
+    }
+    99.5% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 0;
+      transform: translate3d(-64vw, 40vh, 0);
+    }
+  }
+
+  .vallende-ster:nth-child(1) {
+    top: 6%;
+    left: 10%;
+    animation: valt-een 38s linear 4s infinite;
+  }
+
+  .vallende-ster:nth-child(2) {
+    top: -1%;
+    left: 72%;
+    animation: valt-twee 61s linear 19s infinite;
+  }
+
+  /* Deze valt naar linksonder, dus zijn staart hoort de andere kant op. */
+  .vallende-ster:nth-child(3) {
+    top: 14%;
+    left: 88%;
+    animation: valt-drie 47s linear 33s infinite;
+  }
+
+  .vallende-ster:nth-child(2)::before,
+  .vallende-ster:nth-child(3)::before {
+    transform: rotate(-45deg);
+    background: linear-gradient(270deg, #ffffffb3, transparent);
+    transform-origin: 100% 0;
+    left: auto;
+    right: 0;
+  }
+}

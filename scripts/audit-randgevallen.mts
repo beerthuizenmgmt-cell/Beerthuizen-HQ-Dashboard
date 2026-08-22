@@ -681,6 +681,33 @@ async function main() {
   );
   toets("de inhoud staat bovenop de sterren", /\.sterrenveld > \*/.test(stijl));
 
+  // Vallende sterren horen zeldzaam te zijn: iets wat elke twee seconden
+  // gebeurt is geen vallende ster maar een knipperlicht.
+  const rondes = [...stijl.matchAll(/animation: valt-\w+ (\d+)s/g)].map((m) => Number(m[1]));
+  toets("er zijn drie vallende sterren", rondes.length === 3, rondes.join("s, ") + "s");
+  toets(
+    "ze hebben elk hun eigen route",
+    /@keyframes valt-een/.test(stijl) &&
+      /@keyframes valt-twee/.test(stijl) &&
+      /@keyframes valt-drie/.test(stijl),
+  );
+  toets(
+    "ze vallen niet in formatie",
+    new Set(rondes).size === rondes.length,
+  );
+  const elke = rondes.length ? 1 / rondes.reduce((n, r) => n + 1 / r, 0) : 0;
+  toets(
+    "er valt er ongeveer eens per kwartier eentje, niet elke paar seconden",
+    elke > 10,
+    `gemiddeld elke ${Math.round(elke)} seconden`,
+  );
+  toets(
+    "ze bewegen alleen als beweging aan staat",
+    stijl.indexOf("@keyframes valt-een") >
+      stijl.lastIndexOf("@media (prefers-reduced-motion: no-preference)"),
+  );
+  toets("ze vangen geen muisklikken op", /\.vallende-ster \{[^}]*pointer-events: none/s.test(stijl));
+
 
   const stijlBron = await readFile(new URL("../src/app/globals.css", import.meta.url), "utf8");
   toets(
