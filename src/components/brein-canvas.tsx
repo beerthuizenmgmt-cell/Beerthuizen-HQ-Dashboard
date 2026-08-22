@@ -167,7 +167,10 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
       // de massa reikt tot ongeveer 1,2. Met het perspectief erbij komt dat op
       // 0,39 van de kortste kant — een bol die ruim binnen het paneel past in
       // plaats van er aan alle kanten uit te lopen.
-      const schaal = Math.min(breedte, hoogte) * 0.62;
+      // 0,56 en niet 0,62: de ademhaling laat de massa tot elf procent uitzetten,
+      // en bij de grotere maat liep de bovenste en onderste zwerm dan net buiten
+      // het paneel. Deze marge is precies die uitzetting.
+      const schaal = Math.min(breedte, hoogte) * 0.56;
 
       // De hele massa draait om zijn as, met een lichte knik zodat je er van
       // opzij op kijkt in plaats van er recht tegenaan.
@@ -175,6 +178,12 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
       const cosD = Math.cos(draaiing);
       const sinD = Math.sin(draaiing);
       const kanteling = Math.sin(tijd * 0.11) * 0.16;
+
+      // De hele massa ademt: zet uit en krimpt weer. Twee ritmes over elkaar,
+      // want één zuivere sinus voelt als een machine die pompt. Zo lijkt het
+      // eerder op iets wat leeft.
+      const adem =
+        1 + Math.sin(tijd * 0.42) * 0.07 + Math.sin(tijd * 0.27 + 1.3) * 0.045;
       const cosK = Math.cos(kanteling);
       const sinK = Math.sin(kanteling);
 
@@ -205,12 +214,13 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
         for (const d of deeltjes) {
           if (d.zwerm !== w) continue;
 
-          // Zachte ademhaling van de zwerm.
-          const adem = 1 + Math.sin(tijd * 0.7 + d.fase) * 0.05;
+          // Elk deeltje wiegt nog een beetje in zichzelf, boven op de ademhaling
+          // van de hele massa. Zonder dit is het een star rooster dat draait.
+          const wieg = 1 + Math.sin(tijd * 0.7 + d.fase) * 0.04;
 
-          let px = plek.x + d.x * plek.r * adem;
-          let py = plek.y + d.y * plek.r * adem;
-          let pz = plek.z + d.z * plek.r * adem;
+          let px = plek.x + d.x * plek.r * wieg;
+          let py = plek.y + d.y * plek.r * wieg;
+          let pz = plek.z + d.z * plek.r * wieg;
 
           // Draaien om de verticale as, dan kantelen om de horizontale.
           const rx = px * cosD - pz * sinD;
@@ -225,8 +235,8 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
           // Perspectief: wat verder weg ligt, wordt kleiner en doffer. Dit is
           // wat de zwerm ruimtelijk maakt in plaats van een platte sticker.
           const diepte = 1 / (1.9 + pz);
-          const x = midX + px * schaal * diepte;
-          const y = midY + py * schaal * diepte;
+          const x = midX + px * schaal * adem * diepte;
+          const y = midY + py * schaal * adem * diepte;
 
           const maat = d.grootte * diepte * 4.6;
           if (maat < 0.25) continue;
@@ -244,8 +254,8 @@ export function BreinCanvas({ team }: { team: TeamRegel[] }) {
         // Vonken: alleen bij wie echt aan het werk is. Ze schieten vanuit de kern
         // naar buiten en doven onderweg uit.
         if (werkt && !stil) {
-          const kx = midX + (plek.x * cosD - plek.z * sinD) * schaal * 0.53;
-          const ky = midY + plek.y * schaal * 0.53;
+          const kx = midX + (plek.x * cosD - plek.z * sinD) * schaal * adem * 0.53;
+          const ky = midY + plek.y * schaal * adem * 0.53;
 
           ctx!.globalAlpha = 1;
           for (let i = 0; i < 6; i += 1) {

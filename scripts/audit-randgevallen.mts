@@ -602,6 +602,21 @@ async function main() {
   // De diepte is wat het ruimtelijk maakt in plaats van een platte sticker.
   toets("de massa draait om zijn as", /const draaiing = tijd \* /.test(breinCanvas));
   toets("er zit perspectief op", /const diepte = 1 \/ \(1\.9 \+ pz\)/.test(breinCanvas));
+  toets("de massa ademt: zet uit en krimpt weer", /const adem =\s*\n?\s*1 \+ Math\.sin/.test(breinCanvas));
+  toets(
+    "de ademhaling heeft twee ritmes, geen zuivere sinus",
+    (breinCanvas.match(/Math\.sin\(tijd \* 0\.\d+[^)]*\) \* 0\.0\d+/g) ?? []).length >= 2,
+  );
+  toets(
+    "de schaal laat ruimte voor het uitzetten",
+    /hoogte\) \* 0\.56/.test(breinCanvas),
+  );
+
+  const breinKader = await readFile(new URL("../src/components/brein-hq.tsx", import.meta.url), "utf8");
+  toets(
+    "er zit geen kader om het brein",
+    !/border border-border/.test(breinKader) && !/bg-\[#05060a\]/.test(breinKader),
+  );
   toets(
     "wat verder weg ligt wordt kleiner én doffer",
     /d\.grootte \* diepte/.test(breinCanvas) && /diepte \* 1\.3/.test(breinCanvas),

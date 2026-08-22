@@ -15,7 +15,11 @@ export function BreinHQ({ team }: { team: TeamRegel[] }) {
   const actief = team.filter((l) => l.bezig).length;
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-border bg-[#05060a]">
+    // Geen kader en geen eigen achtergrond: het brein zweeft op het dashboard
+    // zelf, tussen de sterren. Een omlijnd vlak eromheen maakte er een plaatje
+    // in een lijstje van, en juist het uitwaaieren van de zwermen naar het
+    // donker is wat het ruimtelijk maakt.
+    <section className="relative">
       <div className="flex flex-col lg:flex-row">
         {/* Het brein */}
         <div className="relative min-h-[300px] flex-1 sm:min-h-[380px] lg:min-h-[440px]">
@@ -34,7 +38,7 @@ export function BreinHQ({ team }: { team: TeamRegel[] }) {
         </div>
 
         {/* De bezetting */}
-        <aside className="border-t border-white/10 p-4 lg:w-64 lg:shrink-0 lg:border-t-0 lg:border-l">
+        <aside className="border-t border-white/5 p-4 lg:w-60 lg:shrink-0 lg:border-t-0 lg:border-l">
           <p className="mb-3 font-mono text-[10px] tracking-[0.2em] text-white/40 uppercase">
             Agents
           </p>
