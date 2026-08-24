@@ -3,9 +3,14 @@ import { haalSignalen } from "@/lib/signalen";
 
 // Wat er opvalt zonder dat iemand ernaar vraagt.
 //
-// Twee keer per werkdag kijkt de Head of Operations of er iets scheefloopt: een
-// campagne die afloopt terwijl de briefing nog niet rond is, werk dat vastligt,
-// een vraag waar geen antwoord op komt, een factuur die over tijd is.
+// Elke werkdag om tien uur kijkt de Head of Operations of er iets scheefloopt:
+// een campagne die afloopt terwijl de briefing nog niet rond is, werk dat
+// vastligt, een vraag waar geen antwoord op komt, een factuur die over tijd is.
+//
+// Eén keer per dag en niet twee: het Vercel-plan staat maar één cronmoment per
+// dag toe. Tien uur is een bewuste keuze binnen die grens — dan is er sinds het
+// overleg van zes uur iets kunnen misgaan, en is er nog een dag over om het op
+// te lossen.
 //
 // De signalen worden in gewone code uitgerekend en niet aan het model gevraagd.
 // Een deadline over drie dagen is een som, geen inschatting. Het model krijgt de
