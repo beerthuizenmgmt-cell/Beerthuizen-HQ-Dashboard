@@ -20,6 +20,7 @@ import { KANALEN, kanaal, kanaalkeuzeAlsPrompt } from "../src/lib/kanalen";
 import { haalOverzicht } from "../src/lib/overzicht";
 import { TOOL_CATALOG } from "../src/lib/ai/toolkit";
 import { BRIEFINGVELDEN } from "../src/lib/ai/briefing";
+import { haalSignalen } from "../src/lib/signalen";
 import { VOORWAARDEN, stelOvereenkomstOp } from "../src/lib/samenwerking";
 import {
   MAATSTAVEN,
@@ -841,6 +842,74 @@ async function main() {
   toets(
     "een proefdraai telt wat er zou activeren, niet wat er activeerde",
     /outcome\.zouActiveren/.test(monitorBron),
+  );
+
+  // ── Uit zichzelf beginnen ────────────────────────────────────────────────
+  //
+  // Signalen worden in gewone code uitgerekend en niet aan het model gevraagd.
+  // Een deadline over drie dagen is een som, geen inschatting — en een agent die
+  // zelf mag bepalen wat dringend is, vindt de ene dag iets anders dringend dan
+  // de andere.
+  console.log("\nSignalen");
+
+  const nietsAanDeHand = await haalSignalen();
+  toets("signalen zijn een lijst", Array.isArray(nietsAanDeHand));
+  toets(
+    "elk signaal zegt wat er is en hoe erg",
+    nietsAanDeHand.every((s) => s.wat.length > 15 && ["hoog", "midden"].includes(s.urgentie)),
+  );
+
+  // Een campagne die over drie dagen afloopt met een lege briefing hoort op te
+  // vallen. Dat is het geval waar dit voor bestaat.
+  const dringend = await db.project.create({
+    data: {
+      name: `${MERK} dringend`,
+      status: "nieuw",
+      deadline: new Date(Date.now() + 3 * 864e5),
+    },
+  });
+
+  const metCampagne = await haalSignalen();
+  const gevonden = metCampagne.find((s) => s.wat.includes(`${MERK} dringend`));
+  toets("een aflopende campagne met lege briefing valt op", Boolean(gevonden));
+  toets("die krijgt hoge urgentie", gevonden?.urgentie === "hoog", gevonden?.urgentie);
+  toets(
+    "er staat bij welke velden ontbreken",
+    /budget/.test(gevonden?.wat ?? ""),
+    (gevonden?.wat ?? "").slice(0, 90),
+  );
+
+  // Is de briefing rond, dan is er niets meer aan de hand.
+  for (const veld of BRIEFINGVELDEN.filter((v) => v.hard)) {
+    await db.briefingAntwoord.create({
+      data: { projectId: dringend.id, veld: veld.sleutel, antwoord: "ingevuld", beantwoordOp: new Date() },
+    });
+  }
+  const naInvullen = await haalSignalen();
+  toets(
+    "een complete briefing levert geen signaal meer op",
+    !naInvullen.some((s) => s.wat.includes(`${MERK} dringend`)),
+  );
+
+  await db.briefingAntwoord.deleteMany({ where: { projectId: dringend.id } });
+  await db.project.delete({ where: { id: dringend.id } });
+
+  const cronBron = await readFile(
+    new URL("../src/app/api/cron/signalen/route.ts", import.meta.url),
+    "utf8",
+  );
+  toets("de route is afgeschermd met het cron-geheim", /CRON_SECRET/.test(cronBron));
+  toets("zonder signalen gebeurt er niets", /signalen\.length === 0/.test(cronBron));
+  toets(
+    "een opsomming is geen bericht waard",
+    /geen bericht waard/.test(cronBron),
+  );
+
+  const geheugenRegel = await readFile(new URL("../src/lib/ai/profiles.ts", import.meta.url), "utf8");
+  toets("er staat wanneer je onthoudt wat hij uitlegt", /Onthouden wat hij je uitlegt/.test(geheugenRegel));
+  toets(
+    "wat in het dashboard staat wordt niet onthouden",
+    /een kopie in\s*\n?\/\/?\s*je geheugen is dan een leugen|kopie in\s+je geheugen is dan een leugen/.test(geheugenRegel),
   );
 
   // ── Hoe een creator beoordeeld wordt ─────────────────────────────────────
