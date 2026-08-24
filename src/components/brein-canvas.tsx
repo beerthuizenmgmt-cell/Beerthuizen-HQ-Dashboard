@@ -25,16 +25,21 @@ import type { TeamRegel } from "@/lib/cockpit";
 /// Waar de zwermen zweven, in een kubus van -1 tot 1. Met de hand uitgezet in de
 /// vorm van een brein: breder dan hoog, voller aan de bovenkant. Negen punten op
 /// gelijke afstand van elkaar ziet eruit als een bloem, niet als hersenen.
+//
+// Dichter op elkaar dan je zou denken, en met ruimere zwermen. Ze horen te
+// overlappen: waar twee kleuren in elkaar overlopen wordt het wit, en dát is
+// wat er één massa van maakt in plaats van negen losse wolken met zwart
+// ertussen.
 const PLEKKEN = [
-  { x: 0.0, y: -0.05, z: 0.0, r: 0.62 },
-  { x: 0.52, y: -0.42, z: 0.18, r: 0.5 },
-  { x: -0.52, y: -0.4, z: -0.16, r: 0.5 },
-  { x: 0.74, y: 0.12, z: -0.24, r: 0.46 },
-  { x: -0.74, y: 0.14, z: 0.22, r: 0.46 },
-  { x: 0.44, y: 0.56, z: 0.26, r: 0.46 },
-  { x: -0.46, y: 0.55, z: -0.2, r: 0.46 },
-  { x: 0.04, y: -0.7, z: -0.3, r: 0.4 },
-  { x: -0.02, y: 0.74, z: 0.28, r: 0.4 },
+  { x: 0.0, y: -0.04, z: 0.0, r: 0.72 },
+  { x: 0.42, y: -0.34, z: 0.15, r: 0.6 },
+  { x: -0.42, y: -0.32, z: -0.13, r: 0.6 },
+  { x: 0.59, y: 0.1, z: -0.19, r: 0.55 },
+  { x: -0.59, y: 0.11, z: 0.18, r: 0.55 },
+  { x: 0.35, y: 0.45, z: 0.21, r: 0.55 },
+  { x: -0.37, y: 0.44, z: -0.16, r: 0.55 },
+  { x: 0.03, y: -0.56, z: -0.24, r: 0.48 },
+  { x: -0.02, y: 0.59, z: 0.22, r: 0.48 },
 ];
 
 /// Waar de tentakels vandaan komen en heen kronkelen.
