@@ -886,6 +886,67 @@ async function main() {
     /outcome\.zouActiveren/.test(monitorBron),
   );
 
+  // ── De notulist ──────────────────────────────────────────────────────────
+  //
+  // Enriqueo praat met klanten en dat gesprek bepaalt alles wat erna komt. Stond
+  // het alleen in zijn hoofd, dan moest hij het per agent opnieuw uitleggen — en
+  // wat hij vergat, wist niemand.
+  console.log("\nNotulist");
+
+  const opnameRoute = await readFile(
+    new URL("../src/app/api/opname/route.ts", import.meta.url),
+    "utf8",
+  );
+  toets("opnemen vereist dat je ingelogd bent", /requireUser\(\)/.test(opnameRoute));
+  toets("zonder sleutel gebeurt er niets", /geen transcriptiesleutel ingesteld/.test(opnameRoute));
+  toets(
+    "de sleutel blijft op de server",
+    // Zou de browser rechtstreeks naar OpenAI sturen, dan stond hij in de pagina
+    // en kon iedereen hem meelezen.
+    /De sleutel blijft hier/.test(opnameRoute),
+  );
+  toets("stilte kost geen geld", /stuk\.size < 4_000/.test(opnameRoute));
+  toets("Nederlands wordt meegegeven", /"language", "nl"/.test(opnameRoute));
+
+  const recorder = await readFile(new URL("../src/components/notuleren.tsx", import.meta.url), "utf8");
+  toets(
+    "de opname overleeft het klikken door het dashboard",
+    /buitenste schil/.test(recorder),
+  );
+  toets("hij waarschuwt bij het sluiten van het tabblad", /beforeunload/.test(recorder));
+  toets(
+    "het laatste stuk komt nog binnen voordat er wordt opgeslagen",
+    /r\.onstop = async/.test(recorder),
+  );
+  toets(
+    "een stuk dat niet aankomt stopt de opname niet",
+    /De opname loopt door/.test(recorder),
+  );
+
+  const verwerker = await readFile(
+    new URL("../src/lib/gesprek-verwerken.ts", import.meta.url),
+    "utf8",
+  );
+  toets("het gesprek-id gaat mee naar de agent", /Het gesprek_id dat je daarbij invult/.test(verwerker));
+  toets(
+    "er wordt gescheiden wat er is en wat er ontbreekt",
+    /wat er niet besproken is maar wel had gemoeten/.test(verwerker),
+  );
+  toets("verzinnen is verboden", /Verzin niets/.test(verwerker));
+
+  // De ruwe tekst blijft altijd bewaard: een samenvatting waarvan je het
+  // origineel niet meer hebt is niet na te kijken.
+  const proefGesprek = await db.klantgesprek.create({
+    data: { bedrijf: `${MERK} proef`, ruweTekst: "letterlijk wat er gezegd is" },
+  });
+  await db.klantgesprek.update({
+    where: { id: proefGesprek.id },
+    data: { verwachtingen: "samengevat", status: "verwerkt" },
+  });
+  const naVerwerken = await db.klantgesprek.findUnique({ where: { id: proefGesprek.id } });
+  toets("het origineel blijft naast de samenvatting staan", naVerwerken?.ruweTekst === "letterlijk wat er gezegd is");
+  await db.klantgesprek.delete({ where: { id: proefGesprek.id } });
+
   // ── Uit zichzelf beginnen ────────────────────────────────────────────────
   //
   // Signalen worden in gewone code uitgerekend en niet aan het model gevraagd.

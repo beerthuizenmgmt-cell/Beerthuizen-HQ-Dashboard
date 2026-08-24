@@ -159,6 +159,46 @@ export const AGENT_TOOLS: ToolDefinition[] = [
 /// Alleen de Head of Operations kan collega's aan het werk zetten; zo blijft de
 /// aansturing op één plek en wordt het geen wirwar van agents die elkaar
 /// opdrachten geven.
+/// Een klantgesprek uitpluizen.
+export const GESPREK_TOOLS: ToolDefinition[] = [
+  {
+    name: "leg_gespreksverslag_vast",
+    description:
+      "Leg vast wat er uit een klantgesprek kwam. Scheid wat de klant verwacht, wat er is afgesproken, wat er moet gebeuren, en wat er niet besproken is maar wel had gemoeten. Verzin niets: wat er niet gezegd is hoort bij wat ontbreekt.",
+    parameters: {
+      type: "object",
+      properties: {
+        gesprek_id: { type: "string", description: "Het id van het gesprek dat je uitpluist" },
+        bedrijf: {
+          type: "string",
+          description:
+            "Om welk bedrijf het ging. Staat de naam er niet in, gebruik dan wat je wél hebt — 'het restaurant uit Utrecht' is bruikbaarder dan 'onbekend'.",
+        },
+        verwachtingen: {
+          type: "string",
+          description: "Wat de klant verwacht, in zijn eigen woorden waar dat kan",
+        },
+        afspraken: {
+          type: "array",
+          items: { type: "string" },
+          description: "Wat er is afgesproken, per punt",
+        },
+        vervolgstappen: {
+          type: "array",
+          items: { type: "string" },
+          description: "Wat er moet gebeuren en door wie",
+        },
+        ontbreekt: {
+          type: "array",
+          items: { type: "string" },
+          description: "Wat er niet besproken is maar wel nodig is voor een voorstel",
+        },
+      },
+      required: ["gesprek_id", "bedrijf"],
+    },
+  },
+];
+
 /// Samenwerkingsovereenkomsten opstellen.
 export const SAMENWERKING_TOOLS: ToolDefinition[] = [
   {
@@ -596,6 +636,8 @@ export async function runTool(
         return await readInvoices(args);
       case "bericht_enriqueo":
         return await messageFounder(args, context);
+      case "leg_gespreksverslag_vast":
+        return await legGespreksverslagVast(args, context);
       case "stel_samenwerking_op":
         return await stelSamenwerkingOp(args, context);
       case "zoek_creators":
@@ -1778,5 +1820,61 @@ async function stelSamenwerkingOp(
   return {
     ok: true,
     message: `De overeenkomst met ${bedrijf} staat klaar met ${afspraken.length} afspraak/afspraken. Enriqueo kijkt hem na en stuurt hem zelf door — versturen doen wij niet.`,
+  };
+}
+
+// ============================================================
+// Klantgesprekken
+// ============================================================
+
+async function legGespreksverslagVast(
+  args: Record<string, unknown>,
+  context: ToolContext,
+): Promise<ToolResult> {
+  const id = text(args.gesprek_id);
+  const bedrijf = text(args.bedrijf);
+  if (!id || !bedrijf) return { ok: false, message: "gesprek_id en bedrijf zijn verplicht" };
+
+  const gesprek = await db.klantgesprek.findUnique({ where: { id } });
+  if (!gesprek) return { ok: false, message: "Dat gesprek bestaat niet." };
+
+  const lijst = (v: unknown) =>
+    Array.isArray(v) ? (v as unknown[]).map((x) => String(x).trim()).filter(Boolean) : [];
+
+  // De klant erbij zoeken als hij bestaat. Een eerste gesprek gaat vaak over
+  // iemand die nog nergens in staat, en dat mag geen reden zijn om het verslag
+  // niet vast te leggen.
+  const klant = await db.client.findFirst({
+    where: { name: { contains: bedrijf, mode: "insensitive" } },
+    select: { id: true },
+  });
+
+  await db.klantgesprek.update({
+    where: { id },
+    data: {
+      bedrijf,
+      clientId: klant?.id ?? null,
+      verwachtingen: text(args.verwachtingen) || null,
+      afspraken: lijst(args.afspraken),
+      vervolgstappen: lijst(args.vervolgstappen),
+      ontbreekt: lijst(args.ontbreekt),
+      status: "verwerkt",
+      verwerktOp: new Date(),
+      agentId: context.agentId,
+    },
+  });
+
+  await notify({
+    level: "info",
+    title: `Verslag klaar: ${bedrijf}`,
+    body: `${lijst(args.afspraken).length} afspraak/afspraken, ${lijst(args.vervolgstappen).length} vervolgstap(pen).`,
+    link: `/gesprekken/${id}`,
+    agentId: context.agentId,
+    push: false,
+  });
+
+  return {
+    ok: true,
+    message: `Verslag van het gesprek met ${bedrijf} staat vast. Zet nu het werk uit dat eruit voortkomt.`,
   };
 }

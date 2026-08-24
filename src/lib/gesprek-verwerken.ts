@@ -39,6 +39,7 @@ export async function verwerkGesprek(gesprekId: string): Promise<void> {
       `Doe het volgende, in deze volgorde:`,
       ``,
       `1. Bepaal om welk bedrijf het gaat en leg dat vast met leg_gespreksverslag_vast.`,
+      `   Het gesprek_id dat je daarbij invult is: ${gesprek.id}`,
       `   Staat de naam er niet in, gebruik dan wat je wél hebt — "het restaurant uit`,
       `   Utrecht" is bruikbaarder dan "onbekend".`,
       ``,

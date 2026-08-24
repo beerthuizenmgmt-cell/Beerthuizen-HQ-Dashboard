@@ -4,6 +4,7 @@ import { logout } from "@/lib/actions/auth";
 import { MobieleNav } from "@/components/mobiele-nav";
 import { SidebarNav, OnderaanNav } from "@/components/sidebar-nav";
 import { BeheerMenu } from "@/components/beheer-menu";
+import { Notuleren } from "@/components/notuleren";
 import { Logo, LogoMark } from "@/components/logo";
 import { areasFor, GROEPEN, isBeheer } from "@/lib/access";
 import { db } from "@/lib/db";
@@ -56,6 +57,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
         {/* Vlak boven je account, vastgezet aan de onderkant van de balk. */}
         <div className="mt-auto space-y-1 px-3 pb-2">
+          {/* Notuleren hangt hier en niet op een pagina: navigeer je van HQ naar
+              Taken, dan wordt die pagina opgeruimd en de opname met hem mee. */}
+          <Notuleren />
           <OnderaanNav links={links} unread={unread} />
           <BeheerMenu links={beheerLinks} />
         </div>

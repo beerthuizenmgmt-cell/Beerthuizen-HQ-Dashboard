@@ -13,6 +13,7 @@ import {
   BRIEFING_TOOLS,
   CREATOR_TOOLS,
   SAMENWERKING_TOOLS,
+  GESPREK_TOOLS,
   VOORSTEL_CHIEF_TOOLS,
   VOORSTEL_TOOLS,
   runTool,
@@ -193,42 +194,8 @@ export async function runAgent(options: {
     situation,
   ].join("\n");
 
-  // Op één niveau diep mag de Head collega's bevragen; dieper wordt het een
-  // kettingreactie die niemand meer kan volgen.
-  //
-  // Daarbovenop krijgt elke agent zijn eigen gekoppelde tools. Die zijn per
-  // agent: Canva bij de Creative Director maakt Canva niet beschikbaar voor
-  // Analytics.
-  const ownTools = options.gereedschap === "geen" ? [] : await toolsForAgent(agent.id);
-
   const tools: ToolDefinition[] =
-    options.gereedschap === "geen"
-      ? []
-      : [
-          ...(agent.isChief && depth === 0
-            ? [
-                ...AGENT_TOOLS,
-                ...CHIEF_TOOLS,
-                ...VOORSTEL_CHIEF_TOOLS,
-                ...BRIEFING_TOOLS,
-                ...SAMENWERKING_TOOLS,
-              ]
-            : AGENT_TOOLS),
-          // Aan een voorstel werkt iedereen mee; alleen de coördinator start er
-          // een en zet hem klaar.
-          ...VOORSTEL_TOOLS,
-          // De administratie is niet voor iedereen: daar staan klantnamen en
-          // bedragen in.
-          ...(agent.key === "finance" ? FINANCE_TOOLS : []),
-          // Vastleggen is het vak van de Research Manager; opzoeken mag iedereen.
-          // Contracten uitpluizen hoort daar ook bij — het is tekstonderzoek,
-          // geen juridisch advies, en dat onderscheid staat in de tool zelf.
-          ...(agent.key === "research" ? [...RESEARCH_TOOLS, ...CONTRACT_TOOLS] : []),
-          // Het creatorregister: wie aan een selectie werkt moet erbij kunnen.
-          // De Head bewaakt het geheel en heeft het dus ook nodig.
-          ...(["influencer", "research", "social", "chief"].includes(agent.key) ? CREATOR_TOOLS : []),
-          ...ownTools.map((tool) => tool.definition),
-        ];
+    options.gereedschap === "geen" ? [] : await gereedschapVoorAgent(agent.id, depth);
 
   const messages: ChatMessage[] = [
     { role: "system", content: systemPrompt },
@@ -454,4 +421,54 @@ async function askColleague(
   return answer.ok
     ? { ok: true, message: `${colleague.name} antwoordt:\n${answer.text}` }
     : { ok: false, message: `${colleague.name} kon niet antwoorden: ${answer.error}` };
+}
+
+/// Welk gereedschap krijgt deze agent?
+///
+/// Apart van runAgent zodat je de verdeling kunt nakijken zonder een agent te
+/// laten nadenken — dat kost geld en geeft elke keer een ander antwoord. Nu is
+/// het een lijst die je kunt uitrekenen en vergelijken met wat er bedoeld is.
+export async function gereedschapVoorAgent(
+  agentId: string,
+  depth = 0,
+): Promise<ToolDefinition[]> {
+  const agent = await db.agent.findUnique({
+    where: { id: agentId },
+    select: { key: true, isChief: true },
+  });
+  if (!agent) return [];
+
+  // Daarbovenop krijgt elke agent zijn eigen gekoppelde tools. Die zijn per
+  // agent: Canva bij de Creative Director maakt Canva niet beschikbaar voor
+  // Analytics.
+  const eigen = await toolsForAgent(agentId);
+
+  return [
+    // Op één niveau diep mag de Head collega's bevragen; dieper wordt het een
+    // kettingreactie die niemand meer kan volgen.
+    ...(agent.isChief && depth === 0
+      ? [
+          ...AGENT_TOOLS,
+          ...CHIEF_TOOLS,
+          ...VOORSTEL_CHIEF_TOOLS,
+          ...BRIEFING_TOOLS,
+          ...SAMENWERKING_TOOLS,
+          ...GESPREK_TOOLS,
+        ]
+      : AGENT_TOOLS),
+    // Aan een voorstel werkt iedereen mee; alleen de coördinator start er een en
+    // zet hem klaar.
+    ...VOORSTEL_TOOLS,
+    // De administratie is niet voor iedereen: daar staan klantnamen en bedragen
+    // in.
+    ...(agent.key === "finance" ? FINANCE_TOOLS : []),
+    // Vastleggen is het vak van de Research Manager; opzoeken mag iedereen.
+    // Contracten uitpluizen hoort daar ook bij — het is tekstonderzoek, geen
+    // juridisch advies, en dat onderscheid staat in de tool zelf.
+    ...(agent.key === "research" ? [...RESEARCH_TOOLS, ...CONTRACT_TOOLS] : []),
+    // Het creatorregister: wie aan een selectie werkt moet erbij kunnen. De Head
+    // bewaakt het geheel en heeft het dus ook nodig.
+    ...(["influencer", "research", "social", "chief"].includes(agent.key) ? CREATOR_TOOLS : []),
+    ...eigen.map((tool) => tool.definition),
+  ];
 }

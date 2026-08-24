@@ -47,7 +47,7 @@ echo "TESTSETS"
 GOED=0; FOUT=0; STUK=""
 for s in audit-rechten audit-bewaking audit-standup audit-creators audit-klantportal \
          audit-rapportage audit-contract audit-voorstellen audit-studio audit-facturen \
-         audit-gereedschap audit-randgevallen; do
+         audit-gereedschap audit-gereedschapstoegang audit-randgevallen; do
   UIT=$(npx tsx "scripts/$s.mts" 2>&1 | tail -1)
   printf "  %-22s %s\n" "$s" "$UIT"
   # Een testset die crasht geeft geen telregel terug. Zonder deze controle

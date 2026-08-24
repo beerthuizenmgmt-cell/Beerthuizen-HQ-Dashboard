@@ -120,6 +120,16 @@ export const AREAS: Area[] = [
     groep: "klanten",
   },
   {
+    // Verslagen van klantgesprekken. Het team moet erbij kunnen: zonder te weten
+    // wat er is afgesproken kunnen ze er niet mee verder, en dat is precies
+    // waarvoor ze bestaan. Er staan budgetten in, maar dat is campagne-informatie
+    // en geen financiële administratie.
+    path: "/gesprekken",
+    label: "Gesprekken",
+    icon: "❝",
+    groep: "klanten",
+  },
+  {
     // Hier staat de naam van het bureau onder een document dat naar een klant
     // gaat. Dat is niets voor een teamlid om goed te keuren.
     path: "/samenwerkingen",
