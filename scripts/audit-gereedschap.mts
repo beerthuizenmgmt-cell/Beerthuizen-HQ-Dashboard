@@ -114,9 +114,14 @@ async function main() {
   const v1 = await runTool("vraag_aan_enriqueo", { vraag: `${MERK}Mag dit zo?` }, alsFleur);
   toets("vraag in de wachtrij zetten", v1.ok, v1.message.slice(0, 60));
 
-  const inWachtrij = await db.meetingQuestion.findFirst({ where: { body: { contains: MERK } } });
-  toets("komt in de wachtrij van de ochtendcall", Boolean(inWachtrij));
-  toets("met de juiste agent erbij", inWachtrij?.agentId === fleur.id);
+  // De vraag hoort in de groepschat te landen, niet in een aparte call. Die
+  // call dwong een volgorde op die er niet is en stond op een plek waar je
+  // verder niets doet.
+  const inGroep = await db.message.findFirst({
+    where: { body: { contains: MERK }, channel: { key: "vragen" } },
+  });
+  toets("komt in de groepschat #vragen", Boolean(inGroep));
+  toets("met de juiste agent erbij", inGroep?.fromAgentId === fleur.id);
 
   const v2 = await runTool("vraag_aan_enriqueo", { vraag: "" }, alsFleur);
   toets("lege vraag wordt geweigerd", !v2.ok, v2.message.slice(0, 60));

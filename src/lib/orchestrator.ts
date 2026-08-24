@@ -75,11 +75,38 @@ export async function plaatsBericht(input: PostMessageInput) {
   // die erover gaat reageert. Alleen bij berichten van mensen — laten we agents
   // onderling ook automatisch routeren, dan praten ze eindeloos door.
   if (recipients.length === 0 && input.fromType === "user" && channel.kind === "team") {
-    const { kiesAgentVoor } = await import("./ai/routeren");
-    const gekozen = await kiesAgentVoor(input.body);
-    if (gekozen) {
-      explicitTarget = gekozen;
-      recipients = [gekozen];
+    // Antwoord je op iemand die net iets vroeg, dan is dat voor hém.
+    //
+    // Zo werkt een groepsapp: je hoeft niemand te taggen om te reageren op het
+    // bericht erboven. Zonder dit zou een antwoord op Fleurs vraag alsnog bij
+    // Daan belanden omdat het onderwerp daar het beste bij past, en blijft Fleur
+    // wachten op iets wat allang gegeven is.
+    const vorige = await db.message.findFirst({
+      where: { channelId: channel.id, fromType: "agent", fromAgentId: { not: null } },
+      orderBy: { createdAt: "desc" },
+      select: { fromAgentId: true, createdAt: true },
+    });
+
+    // Alleen als dat bericht ook echt het laatste was: staat er sindsdien al een
+    // ander gesprek in, dan sloeg jouw bericht daar waarschijnlijk niet op.
+    // Het eigen bericht bestaat op dit punt nog niet, dus alles wat nieuwer is
+    // dan die vraag is per definitie van iemand anders.
+    const nogNieuwer = vorige
+      ? await db.message.count({
+          where: { channelId: channel.id, createdAt: { gt: vorige.createdAt } },
+        })
+      : 0;
+
+    if (vorige?.fromAgentId && nogNieuwer === 0) {
+      explicitTarget = vorige.fromAgentId;
+      recipients = [vorige.fromAgentId];
+    } else {
+      const { kiesAgentVoor } = await import("./ai/routeren");
+      const gekozen = await kiesAgentVoor(input.body);
+      if (gekozen) {
+        explicitTarget = gekozen;
+        recipients = [gekozen];
+      }
     }
   }
 

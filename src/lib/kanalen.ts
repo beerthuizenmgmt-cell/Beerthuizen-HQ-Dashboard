@@ -11,7 +11,7 @@
 // gewerkt wordt, en die hoort vast te liggen. Het gereedschap, de prompt en het
 // scherm putten er alle drie uit, zodat ze niet uit elkaar kunnen lopen.
 
-export type KanaalSleutel = "algemeen" | "campagnes" | "resultaten";
+export type KanaalSleutel = "algemeen" | "vragen" | "campagnes" | "resultaten";
 
 export type Kanaal = {
   key: KanaalSleutel;
@@ -25,6 +25,15 @@ export type Kanaal = {
 };
 
 export const KANALEN: Kanaal[] = [
+  {
+    key: "vragen",
+    naam: "Vragen",
+    omschrijving: "Wat het team aan jou wil weten — gooi je antwoord er gewoon in",
+    wanneer:
+      "Als je iets nodig hebt van Enriqueo dat je echt niet zelf kunt uitzoeken: een keuze, een budget, een voorkeur, een akkoord. Stel één vraag per bericht, met erbij waarom je het nodig hebt en wat er stilligt zolang je het niet hebt.",
+    nietHier:
+      "Geen dingen die je zelf kunt opzoeken en geen voortgangsberichten. Dit kanaal is er om hem te ontlasten, niet om hem op de hoogte te houden.",
+  },
   {
     key: "algemeen",
     naam: "Algemeen",

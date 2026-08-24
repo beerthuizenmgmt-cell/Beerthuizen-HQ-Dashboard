@@ -53,9 +53,9 @@ export default async function StandupPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {meeting && (
-            <Link href="/overleg/call" className="btn btn-primary">
-              {openQuestions > 0 ? `Naar de call · ${openQuestions} vragen` : "Naar de call"}
+          {openQuestions > 0 && (
+            <Link href="/team/vragen" className="btn btn-primary">
+              {openQuestions} vraag/vragen in de groep
             </Link>
           )}
           <StandupControls hasMeeting={Boolean(meeting)} reachable={reachable} />
@@ -65,8 +65,11 @@ export default async function StandupPage() {
       {openQuestions > 0 && (
         <div className="card border-accent/30 bg-accent/5 p-4">
           <p className="text-sm">
-            Het team heeft <strong>{openQuestions} vraag/vragen</strong> voor je liggen. In de call loop
-            je ze één voor één af en spreek je je antwoord in.
+            Het team heeft <strong>{openQuestions} vraag/vragen</strong> voor je liggen. Die staan in{" "}
+            <Link href="/team/vragen" className="underline">
+              #vragen
+            </Link>
+            ; antwoord daar gewoon, zoals in elke groepsapp. Je antwoord gaat terug naar wie het vroeg.
           </p>
         </div>
       )}

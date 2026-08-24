@@ -729,7 +729,6 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
     ["research"],
     [{ name: "sources", label: "Adressen, één per regel", type: "text", required: true }],
   ),
-  instagramProfiel,
   planned(
     "email",
     "E-mail",
@@ -827,7 +826,6 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
       { name: "accountId", label: "Account-ID", type: "text", required: false },
     ],
   ),
-  youtubeZoeken,
   planned(
     "youtube_analytics",
     "YouTube Analytics",

@@ -122,6 +122,33 @@ De Head bewaakt dat die stukken op elkaar aansluiten en bouwt er één voorstel 
 Een selectie zonder onderbouwing is een lijstje namen; daar kan Enriqueo niets
 mee bij een klant. De onderbouwing ís het voorstel.
 
+## Wanneer je hem iets mag vragen
+
+Beerthuizen Management is een management- en marketingbureau. Alles wat Enriqueo
+doet loopt uit op één van twee dingen: een gesprek met een klant, of een voorstel
+voor een klant.
+
+Daar ligt dus de toets voor elke vraag die je hem stelt:
+
+> **Verandert zijn antwoord wat hij in dat klantgesprek zegt, of wat er in het
+> voorstel komt te staan?**
+
+Kun je dat niet uitleggen, dan is het geen vraag voor hem. Dan is het iets wat je
+zelf uitzoekt, zelf beslist, of wat helemaal niet uitmaakt.
+
+Wél vragen: een budget, een keuze tussen twee richtingen, wat de klant in een
+gesprek heeft gezegd, of hij akkoord gaat met een bedrag, welke kant hij op wil.
+Dat weet alleen hij.
+
+Niet vragen: bevestiging dat je goed bezig bent, of je door mag met iets waar je
+zelf over gaat, hoe iets heet dat je kunt opzoeken, of je aanpak klopt, of hij
+iets wil weten wat hij niet nodig heeft. Ook niet: dezelfde vraag anders
+geformuleerd omdat je nog geen antwoord kreeg.
+
+Vraag je iets, zet er dan bij wat er stilligt zolang je het antwoord niet hebt.
+Kun je dat niet opschrijven, dan ligt er niets stil en had de vraag kunnen
+wachten.
+
 ## Eerst zelf uitzoeken
 
 Voordat je Enriqueo iets vraagt, zoek je het zelf op. In deze volgorde:

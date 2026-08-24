@@ -74,7 +74,7 @@ export const AGENT_TOOLS: ToolDefinition[] = [
   {
     name: "vraag_aan_enriqueo",
     description:
-      "Zet een vraag klaar voor de ochtendcall. Gebruik dit voor keuzes, prioriteiten of akkoord waar je zijn oordeel voor nodig hebt maar wat niet vandaag hoeft.",
+      "Stel Enriqueo een vraag in de groepschat #vragen. Toets vooraf: verandert zijn antwoord wat hij tegen een klant zegt of wat er in een voorstel komt te staan? Zo nee, dan is het geen vraag voor hem. Eén vraag per bericht, met erbij wat er stilligt zolang je het antwoord niet hebt. Vraag geen bevestiging, geen toestemming voor iets waar je zelf over gaat, en niets wat je kunt opzoeken.",
     parameters: {
       type: "object",
       properties: { vraag: { type: "string" } },
@@ -711,19 +711,39 @@ async function askFounder(args: Record<string, unknown>, context: ToolContext): 
   const question = text(args.vraag);
   if (!question) return { ok: false, message: "vraag is verplicht" };
 
-  const date = meetingDate();
-  const meeting = await db.meeting.upsert({
-    where: { date },
-    update: {},
-    create: { date, status: "collecting" },
+  // In de groepschat en niet meer in een aparte call.
+  //
+  // Die call liet je vragen één voor één afwerken in een eigen scherm. Dat
+  // dwingt een volgorde op die er niet is, en je moest ervoor naar een plek
+  // waar je verder niets doet. Nu staan de vragen gewoon in #vragen, kun je
+  // antwoorden zoals je in elke groepsapp antwoordt, en gaat je antwoord terug
+  // naar de agent die het vroeg.
+  const kanaal = await db.channel.findUnique({ where: { key: "vragen" } });
+  if (!kanaal) {
+    return { ok: false, message: "Het kanaal #vragen bestaat niet; meld dit bij Enriqueo." };
+  }
+
+  const { plaatsBericht } = await import("@/lib/orchestrator");
+  await plaatsBericht({
+    channelId: kanaal.id,
+    fromType: "agent",
+    fromAgentId: context.agentId,
+    body: question,
   });
 
-  const offset = await db.meetingQuestion.count({ where: { meetingId: meeting.id } });
-  await db.meetingQuestion.create({
-    data: { meetingId: meeting.id, agentId: context.agentId, body: question, sortOrder: offset },
+  await notify({
+    level: "info",
+    title: `${context.agentName} heeft een vraag`,
+    body: question.slice(0, 200),
+    link: "/team/vragen",
+    agentId: context.agentId,
+    push: false,
   });
 
-  return { ok: true, message: "Staat klaar voor de ochtendcall." };
+  return {
+    ok: true,
+    message: "Staat in #vragen. Zijn antwoord komt daar te staan en krijg je vanzelf terug.",
+  };
 }
 
 async function requestApproval(args: Record<string, unknown>, context: ToolContext): Promise<ToolResult> {

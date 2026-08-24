@@ -13,8 +13,9 @@ const db = new PrismaClient({
 
 const CHANNELS = [
   { key: "algemeen", name: "Algemeen", purpose: "Teambreed overleg", sortOrder: 0 },
-  { key: "campagnes", name: "Campagnes", purpose: "Lopende influencer- en adcampagnes", sortOrder: 1 },
-  { key: "resultaten", name: "Resultaten", purpose: "Cijfers, KPI's en rapportages", sortOrder: 2 },
+  { key: "vragen", name: "Vragen", purpose: "Wat het team aan jou wil weten", sortOrder: 1 },
+  { key: "campagnes", name: "Campagnes", purpose: "Lopende influencer- en adcampagnes", sortOrder: 2 },
+  { key: "resultaten", name: "Resultaten", purpose: "Cijfers, KPI's en rapportages", sortOrder: 3 },
 ];
 
 async function main() {

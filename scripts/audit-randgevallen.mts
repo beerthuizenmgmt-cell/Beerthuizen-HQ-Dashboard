@@ -479,7 +479,13 @@ async function main() {
   // ── De drie kanalen zijn echt drie kanalen ───────────────────────────────
   console.log("\nKanalen");
 
-  toets("er zijn drie teamkanalen met een eigen doel", KANALEN.length === 3);
+  // Vier sinds #vragen erbij kwam: de vragen van het team stonden eerst in een
+  // aparte call.
+  toets("elk teamkanaal heeft een eigen doel", KANALEN.length >= 3);
+  toets(
+    "er is een kanaal waar het team zijn vragen kwijt kan",
+    KANALEN.some((k) => k.key === "vragen"),
+  );
   toets(
     "elk kanaal zegt wanneer je het gebruikt",
     KANALEN.every((k) => k.wanneer.length > 40),
