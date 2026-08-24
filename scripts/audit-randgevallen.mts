@@ -886,6 +886,38 @@ async function main() {
     /outcome\.zouActiveren/.test(monitorBron),
   );
 
+  // ── Samenwerkingsovereenkomsten ──────────────────────────────────────────
+  console.log("\nSamenwerkingen");
+
+  const { stelOvereenkomstOp, VOORWAARDEN } = await import("../src/lib/samenwerking");
+  const document = stelOvereenkomstOp({
+    bedrijf: `${MERK} bv`,
+    contactpersoon: null,
+    afspraken: ["vier creators", "budget 4.000 euro"],
+    datum: new Date("2026-08-24T12:00:00Z"),
+  });
+
+  toets("de afspraken staan bovenaan", document.indexOf("vier creators") < document.indexOf("Voorwaarden"));
+  toets("alle voorwaarden staan erin", VOORWAARDEN.every((v) => document.includes(v.kop)));
+  toets("er staat een handtekening onder", /Enriqueo Beerthuizen/.test(document));
+  toets("de klant tekent ook", /Namens \$\{|Namens /.test(document) && document.includes("Handtekening:"));
+
+  const overeenkomstBron = await readFile(new URL("../src/lib/ai/tools.ts", import.meta.url), "utf8");
+  toets(
+    "zonder afspraken wordt er niets opgesteld",
+    /alleen het standaardblok voorwaarden/.test(overeenkomstBron),
+  );
+  toets(
+    "versturen doet het systeem niet",
+    /versturen doen wij niet/i.test(overeenkomstBron),
+  );
+
+  const actiesBron = await readFile(
+    new URL("../src/lib/actions/samenwerking.ts", import.meta.url),
+    "utf8",
+  );
+  toets("alleen de eigenaar keurt goed", /requireOwner\(\)/.test(actiesBron));
+
   // ── De notulist ──────────────────────────────────────────────────────────
   //
   // Enriqueo praat met klanten en dat gesprek bepaalt alles wat erna komt. Stond
