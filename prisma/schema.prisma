@@ -190,6 +190,7 @@ model Agent {
 
   voorstelSecties VoorstelSectie[]
   samenwerkingen  Samenwerking[]
+  gesprekken      Klantgesprek[]
 }
 
 /// Een OpenClaw-installatie die via de reader outbound naar dit dashboard
@@ -1244,6 +1245,7 @@ model Client {
 
   invoices Invoice[]
   samenwerkingen Samenwerking[]
+  gesprekken     Klantgesprek[]
   requests PortalRequest[]
   projects Project[]
   threads  TelegramThread[]
@@ -1368,6 +1370,7 @@ model Project {
   voorstellen Voorstel[]
 
   briefing BriefingAntwoord[]
+  gesprekken Klantgesprek[]
 }
 
 /// Wat Enriqueo heeft aangeleverd voor een campagne.
@@ -1531,6 +1534,53 @@ model Creator {
   @@index([soort])
 
   contracten Contract[]
+}
+
+/// Een gesprek met een klant, zoals het gevoerd is.
+///
+/// Enriqueo praat met klanten en dat gesprek bepaalt alles wat erna komt: wat ze
+/// verwachten, wat er is toegezegd, wanneer het moet. Stond dat alleen in zijn
+/// hoofd, dan moest hij het per agent opnieuw uitleggen — en wat hij vergat,
+/// wist niemand.
+model Klantgesprek {
+  id      String  @id @default(cuid())
+  /// De naam zoals hij hem opgaf. Ook als de klant nog niet bestaat: een eerste
+  /// gesprek gaat vaak over iemand die nog nergens in staat.
+  bedrijf String
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  gevoerdOp DateTime @default(now())
+  /// Wie erbij waren, vrije tekst.
+  aanwezig String?
+
+  /// Het gesprek zelf: een uitgewerkt transcript of zijn eigen aantekeningen.
+  /// Blijft bewaard zoals het binnenkwam, want een samenvatting waarvan je het
+  /// origineel niet meer hebt is niet na te kijken.
+  ruweTekst String
+
+  /// Wat het team eruit haalde.
+  verwachtingen String?
+  afspraken     String[] @default([])
+  vervolgstappen String[] @default([])
+  /// Wat er niet besproken is maar wel had gemoeten.
+  ontbreekt String[] @default([])
+
+  /// nieuw | verwerkt
+  status String @default("nieuw")
+
+  verwerktOp DateTime?
+  agentId    String?
+  agent      Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, gevoerdOp(sort: Desc)])
 }
 
 /// Een samenwerkingsovereenkomst die wij opstellen.

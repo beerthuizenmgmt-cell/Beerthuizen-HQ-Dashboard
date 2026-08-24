@@ -48,6 +48,13 @@ const TENTAKELS = [
   { hoek: 3.7, lengte: 1.6, bocht: 0.4, tempo: 0.68 },
 ];
 
+/// Welke deeltjes met elkaar verbonden zijn.
+///
+/// Eén keer uitgerekend en daarna alleen nog getekend. Elk beeld opnieuw
+/// nagaan welke deeltjes dicht bij elkaar liggen is achtduizend deeltjes tegen
+/// achtduizend, en dat haalt geen enkele browser dertig keer per seconde.
+type Verbinding = { van: number; naar: number };
+
 type Deeltje = {
   zwerm: number;
   /// Plek binnen de zwerm, in de kubus. Vast; de hele wolk draait, niet het
@@ -97,6 +104,10 @@ export function BreinCanvas({
     let breedte = 0;
     let hoogte = 0;
     let deeltjes: Deeltje[] = [];
+    let draden: Verbinding[] = [];
+    /// Waar elk deeltje op het scherm belandde. Nodig om de draden te kunnen
+    /// tekenen zonder het perspectief twee keer uit te rekenen.
+    let opScherm: { x: number; y: number; diepte: number }[] = [];
 
     // Eén keer een lichtpuntje tekenen en dat daarna duizenden keren stempelen.
     // Een cirkel per deeltje berekenen kost per beeld het veelvoud; een
@@ -110,18 +121,29 @@ export function BreinCanvas({
       const bestaand = stippen.get(sleutel);
       if (bestaand) return bestaand;
 
-      const maat = 12;
+      // Ruim genoeg om nooit opgeblazen te worden.
+      //
+      // Het sjabloon was twaalf pixels en deeltjes vooraan worden groter dan
+      // dat. Een plaatje van twaalf pixels dat je naar vierentwintig uitrekt
+      // wordt blokkerig, en dat is precies het pixeleffect dat je ziet. Vierenzestig
+      // is groter dan het grootste deeltje ooit wordt.
+      const maat = 64;
       const doek = document.createElement("canvas");
       doek.width = maat;
       doek.height = maat;
       const dctx = doek.getContext("2d")!;
       const verloop = dctx.createRadialGradient(maat / 2, maat / 2, 0, maat / 2, maat / 2, maat / 2);
-      // Bijna de hele stip is vol; alleen de buitenste rand dooft uit. Met een
-      // lange uitloop bestaat een klein stipje vooral uit halo en blijft er van
-      // het licht zelf niets over — dan oogt de hele zwerm dof.
+      // Een volle kern die geleidelijk uitdooft, zonder knik.
+      //
+      // Eerder sprong het verloop van vol naar bijna niets in één stap. Dat
+      // geeft elk stipje een harde rand, en duizenden harde randjes bij elkaar
+      // lezen als korrel. Meer tussenstappen maakt er licht van.
       verloop.addColorStop(0, `rgba(${r},${g},${b},1)`);
-      verloop.addColorStop(0.55, `rgba(${r},${g},${b},1)`);
-      verloop.addColorStop(0.78, `rgba(${r},${g},${b},0.45)`);
+      verloop.addColorStop(0.18, `rgba(${r},${g},${b},1)`);
+      verloop.addColorStop(0.34, `rgba(${r},${g},${b},0.72)`);
+      verloop.addColorStop(0.52, `rgba(${r},${g},${b},0.34)`);
+      verloop.addColorStop(0.72, `rgba(${r},${g},${b},0.11)`);
+      verloop.addColorStop(0.88, `rgba(${r},${g},${b},0.03)`);
       verloop.addColorStop(1, `rgba(${r},${g},${b},0)`);
       dctx.fillStyle = verloop;
       dctx.fillRect(0, 0, maat, maat);
@@ -159,6 +181,34 @@ export function BreinCanvas({
         }
       }
       deeltjes = nieuw;
+
+      // De draden ertussen. Alleen tussen een handvol knooppunten per zwerm:
+      // alles met alles verbinden geeft een wolk gaas waarin je niets meer ziet,
+      // en het kost het veelvoud aan rekenwerk.
+      const nieuweDraden: Verbinding[] = [];
+      const perZwermGeteld = new Map<number, number[]>();
+
+      nieuw.forEach((d, i) => {
+        const lijst = perZwermGeteld.get(d.zwerm) ?? [];
+        // Elke twaalfde is een knooppunt. Dat geeft genoeg draden om een netwerk
+        // te zien zonder dat het dichtslibt.
+        if (lijst.length < 26 && i % 12 === 0) lijst.push(i);
+        perZwermGeteld.set(d.zwerm, lijst);
+      });
+
+      for (const knopen of perZwermGeteld.values()) {
+        for (let a = 0; a < knopen.length; a += 1) {
+          for (let b = a + 1; b < knopen.length; b += 1) {
+            const p = nieuw[knopen[a]];
+            const q = nieuw[knopen[b]];
+            const afstand = Math.hypot(p.x - q.x, p.y - q.y, p.z - q.z);
+            // Alleen wat dicht bij elkaar ligt. Draden dwars door de hele zwerm
+            // zien eruit als een kooi, niet als een netwerk.
+            if (afstand < 0.62) nieuweDraden.push({ van: knopen[a], naar: knopen[b] });
+          }
+        }
+      }
+      draden = nieuweDraden;
     }
 
     function meten() {
@@ -171,6 +221,10 @@ export function BreinCanvas({
       canvas!.width = Math.round(breedte * dpr);
       canvas!.height = Math.round(hoogte * dpr);
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // Zonder dit schaalt de browser de lichtpuntjes met harde randen in plaats
+      // van vloeiend, en dat is te zien als korrel.
+      ctx!.imageSmoothingEnabled = true;
+      ctx!.imageSmoothingQuality = "high";
       bouwDeeltjes();
     }
 
@@ -212,6 +266,19 @@ export function BreinCanvas({
 
       ctx!.globalCompositeOperation = "lighter";
 
+      // Het hart van de massa. Een zachte gloed waar alles samenkomt, zodat het
+      // een lichtbron wordt in plaats van een verzameling stipjes die toevallig
+      // bij elkaar hangen.
+      const hartStraal = schaal * adem * 0.55;
+      const hart = ctx!.createRadialGradient(midX, midY, 0, midX, midY, hartStraal);
+      hart.addColorStop(0, "rgba(255,255,255,0.13)");
+      hart.addColorStop(0.35, "rgba(180,200,255,0.05)");
+      hart.addColorStop(1, "rgba(255,255,255,0)");
+      ctx!.fillStyle = hart;
+      ctx!.fillRect(midX - hartStraal, midY - hartStraal, hartStraal * 2, hartStraal * 2);
+
+      opScherm = [];
+
       for (let w = 0; w < PLEKKEN.length; w += 1) {
         const lid = leden[w];
         if (!lid) continue;
@@ -234,7 +301,8 @@ export function BreinCanvas({
           Math.round(b + (255 - b) * 0.75),
         );
 
-        for (const d of deeltjes) {
+        for (let index = 0; index < deeltjes.length; index += 1) {
+          const d = deeltjes[index];
           if (d.zwerm !== w) continue;
 
           // Elk deeltje wiegt nog een beetje in zichzelf, boven op de ademhaling
@@ -261,14 +329,18 @@ export function BreinCanvas({
           const x = midX + px * schaal * adem * diepte;
           const y = midY + py * schaal * adem * diepte;
 
-          const maat = d.grootte * diepte * 4.6;
-          if (maat < 0.25) continue;
+          // Onder een hele pixel wordt een stipje een hard blokje in plaats van
+          // een lichtpunt. Dan liever iets groter en zwakker.
+          const maat = Math.max(1.4, d.grootte * diepte * 4.6);
 
           const alfa = Math.min(1, d.helderheid * kracht * (0.45 + diepte * 1.3));
           if (alfa < 0.02) continue;
 
           // Dicht bij het hart van de zwerm gloeit het wit uit.
           const kernNabij = Math.abs(d.x) + Math.abs(d.y) + Math.abs(d.z) < 0.55;
+
+          // Waar dit deeltje belandde, zodat de draden er straks langs kunnen.
+          opScherm[index] = { x, y, diepte };
 
           ctx!.globalAlpha = alfa;
           ctx!.drawImage(kernNabij ? heet : gewoon, x - maat / 2, y - maat / 2, maat, maat);
@@ -406,6 +478,40 @@ export function BreinCanvas({
             ctx!.stroke();
           }
         }
+      }
+
+      // De draden tussen de knooppunten. Na de deeltjes, want ze horen erover
+      // te liggen — eronder verdwijnen ze in de wolk.
+      //
+      // Ze doven uit met de afstand: een draad die het halve scherm oversteekt
+      // is geen verbinding meer maar een streep. En met de diepte, zodat het
+      // netwerk aan de achterkant terugvalt in plaats van door de massa heen te
+      // snijden.
+      ctx!.globalAlpha = 1;
+      for (const draad of draden) {
+        const a = opScherm[draad.van];
+        const b = opScherm[draad.naar];
+        if (!a || !b) continue;
+
+        const lid = leden[deeltjes[draad.van].zwerm];
+        if (!lid || lid.stand === "op pauze") continue;
+
+        const lengte = Math.hypot(a.x - b.x, a.y - b.y);
+        const grens = schaal * 0.5;
+        if (lengte > grens) continue;
+
+        const [r, g, b2] = hexNaarRgb(lid.color ?? "#6366f1");
+        const nabij = 1 - lengte / grens;
+        const diep = (a.diepte + b.diepte) / 2;
+        const alfa = nabij * nabij * diep * (lid.bezig ? 0.42 : 0.2);
+        if (alfa < 0.015) continue;
+
+        ctx!.strokeStyle = `rgba(${r},${g},${b2},${alfa})`;
+        ctx!.lineWidth = Math.max(0.4, diep * 0.9);
+        ctx!.beginPath();
+        ctx!.moveTo(a.x, a.y);
+        ctx!.lineTo(b.x, b.y);
+        ctx!.stroke();
       }
 
       ctx!.globalAlpha = 1;

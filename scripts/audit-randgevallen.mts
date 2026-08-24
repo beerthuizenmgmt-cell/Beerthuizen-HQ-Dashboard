@@ -617,6 +617,32 @@ async function main() {
   // De diepte is wat het ruimtelijk maakt in plaats van een platte sticker.
   toets("de massa draait om zijn as", /const draaiing = tijd \* /.test(breinCanvas));
   toets("er zit perspectief op", /const diepte = 1 \/ \(1\.9 \+ pz\)/.test(breinCanvas));
+  toets("er lopen draden tussen de knooppunten", /type Verbinding/.test(breinCanvas));
+  toets(
+    "die draden worden één keer uitgerekend, niet elk beeld",
+    // Elk beeld opnieuw nagaan welke deeltjes dicht bij elkaar liggen is
+    // achtduizend tegen achtduizend; dat haalt geen browser dertig keer per
+    // seconde.
+    /draden = nieuweDraden/.test(breinCanvas) && !/indexOf\(d\)/.test(breinCanvas),
+  );
+  toets(
+    "draden dwars door de zwerm vallen af",
+    /if \(lengte > grens\) continue/.test(breinCanvas),
+  );
+  toets("er is een gloeiend hart", /const hart = ctx!\.createRadialGradient/.test(breinCanvas));
+
+  // Korrel ontstaat als een sjabloon van een paar pixels wordt opgeblazen, en
+  // als het verloop een harde rand heeft.
+  toets("het lichtpuntje is groot genoeg om nooit opgeblazen te worden", /const maat = 64/.test(breinCanvas));
+  toets(
+    "het verloop dooft geleidelijk uit",
+    (breinCanvas.match(/verloop\.addColorStop/g) ?? []).length >= 6,
+  );
+  toets("vloeiend schalen staat aan", /imageSmoothingQuality = "high"/.test(breinCanvas));
+  toets(
+    "geen deeltje wordt kleiner dan een pixel",
+    /Math\.max\(1\.4, d\.grootte/.test(breinCanvas),
+  );
   toets("de massa ademt: zet uit en krimpt weer", /const adem =\s*\n?\s*1 \+ Math\.sin/.test(breinCanvas));
   toets(
     "de ademhaling heeft twee ritmes, geen zuivere sinus",

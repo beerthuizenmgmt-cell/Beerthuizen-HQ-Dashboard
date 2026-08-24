@@ -577,6 +577,29 @@ const instagramProfiel: ToolCatalogEntry = {
   },
 };
 
+const transcriptie: ToolCatalogEntry = {
+  key: "transcriptie",
+  name: "Gesprekken uitschrijven",
+  category: "data",
+  description:
+    "Neemt je fysieke klantgesprekken op en schrijft ze uit. Kost ongeveer 36 cent per uur gesprek. Je hebt een sleutel van OpenAI nodig; die is los van je OpenRouter-sleutel, want OpenRouter doet geen audio.",
+  suggestedFor: ["chief", "operations"],
+  fields: [
+    {
+      name: "apiKey",
+      label: "OpenAI API-sleutel",
+      type: "password",
+      required: true,
+      secret: true,
+      placeholder: "sk-...",
+    },
+  ],
+  implemented: true,
+  // Geen gereedschap voor de agents: dit draait tijdens het opnemen en niet
+  // omdat een agent erom vraagt. De koppeling bestaat alleen om de sleutel
+  // ergens te kunnen bewaren en te controleren.
+};
+
 const customWebhook: ToolCatalogEntry = {
   key: "custom_webhook",
   name: "Eigen webhook",
@@ -668,6 +691,7 @@ export const TOOL_CATALOG: ToolCatalogEntry[] = [
   webSearch,
   youtubeZoeken,
   instagramProfiel,
+  transcriptie,
   customWebhook,
 
   planned(
