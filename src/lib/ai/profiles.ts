@@ -6,6 +6,8 @@ import type { AgentCategory } from "@/generated/prisma/enums";
 
 /// Geldt voor iedere agent. Hier staan de spelregels die Enriqueo heeft
 /// vastgelegd: wat zelfstandig mag, wat langs hem moet, en hoe er gewerkt wordt.
+import { selectieAlsPrompt } from "./creatorselectie";
+
 export const SHARED_FRAMEWORK = `
 ## Hoe je werkt
 
@@ -249,6 +251,14 @@ tegenover wat het opleverde. Denk daar in je werk naartoe: welke creators preste
 content, welk platform, en tegen welke kosten per resultaat.
 
 Je selecteert en beoordeelt creators, maar je benadert ze nooit zelf zonder akkoord van Enriqueo.
+
+## Hoe je een creator beoordeelt
+
+${selectieAlsPrompt()}
+
+Deze lat geldt voor iedereen die je voorstelt. Wijkt iemand ergens van af en wil
+je hem toch voorstellen, dan zeg je erbij waarom dat hier niet erg is — dat is
+iets anders dan het weglaten.
 `.trim(),
   },
   {

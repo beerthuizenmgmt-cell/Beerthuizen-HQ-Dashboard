@@ -21,6 +21,12 @@ import { haalOverzicht } from "../src/lib/overzicht";
 import { TOOL_CATALOG } from "../src/lib/ai/toolkit";
 import { BRIEFINGVELDEN } from "../src/lib/ai/briefing";
 import { VOORWAARDEN, stelOvereenkomstOp } from "../src/lib/samenwerking";
+import {
+  MAATSTAVEN,
+  ALARMSIGNALEN,
+  ONDERBOUWING,
+  selectieAlsPrompt,
+} from "../src/lib/ai/creatorselectie";
 
 const db = new PrismaClient({ adapter: new PrismaPg(poolConfig(resolveDatabaseUrl()!)) });
 
@@ -836,6 +842,32 @@ async function main() {
     "een proefdraai telt wat er zou activeren, niet wat er activeerde",
     /outcome\.zouActiveren/.test(monitorBron),
   );
+
+  // ── Hoe een creator beoordeeld wordt ─────────────────────────────────────
+  //
+  // Dit is de werkwijze van het vak en niet iets wat wij bedacht hebben. Een
+  // agent die zegt "deze past goed" moet dat langs deze lat kunnen leggen, en
+  // Enriqueo moet kunnen nakijken welke lat dat was.
+  console.log("\nCreatorselectie");
+
+  toets("er staan maatstaven vast", MAATSTAVEN.length >= 4);
+  toets("er staan alarmsignalen vast", ALARMSIGNALEN.length >= 4);
+  toets(
+    "elk alarmsignaal legt uit wat het betekent",
+    ALARMSIGNALEN.every((a) => a.betekenis.length > 25),
+  );
+  toets(
+    "er staat wat er in een onderbouwing hoort",
+    ONDERBOUWING.length >= 5 && ONDERBOUWING.some((o) => /twijfel/i.test(o)),
+  );
+
+  const selectie = selectieAlsPrompt();
+  toets("de norm voor engagement staat erin", /3 en 8 procent/.test(selectie));
+  toets("gekocht bereik wordt herkend", /gekocht/i.test(selectie));
+  toets("de doelgroep telt zwaarder dan het aantal", /doelgroep|publiek/i.test(selectie));
+
+  const fleurProfiel = await readFile(new URL("../src/lib/ai/profiles.ts", import.meta.url), "utf8");
+  toets("de lat zit in Fleurs profiel", /selectieAlsPrompt\(\)/.test(fleurProfiel));
 
   // ── Samenwerkingsovereenkomsten ──────────────────────────────────────────
   //

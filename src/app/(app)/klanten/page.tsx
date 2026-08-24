@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/auth";
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { KlantPaneel } from "@/components/klant-paneel";
 import { formatDate, timeAgo, isVerlopen } from "@/lib/format";
@@ -94,7 +95,10 @@ export default async function KlantenPagina() {
             {klanten.map((klant) => (
               <div key={klant.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div className="min-w-0">
-                  <p className="font-medium">{klant.name}</p>
+                  {/* Naar het dossier: alles van deze klant bij elkaar. */}
+                  <Link href={`/klanten/${klant.id}`} className="font-medium hover:underline">
+                    {klant.name}
+                  </Link>
                   <p className="text-xs text-text-muted">
                     {[klant.contactName, klant.invoiceEmail ?? klant.email, klant.city]
                       .filter(Boolean)

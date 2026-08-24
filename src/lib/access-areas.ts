@@ -111,6 +111,15 @@ export const AREAS: Area[] = [
     groep: "klanten",
   },
   {
+    // Het dossier van één klant. Valt onder /klanten en erft dus dezelfde
+    // toegang; staat hier alleen omdat de bewakingstest elke pagina wil zien.
+    path: "/klanten/[id]",
+    label: "Klantdossier",
+    icon: "◈",
+    buitenMenu: true,
+    groep: "klanten",
+  },
+  {
     // Hier staat de naam van het bureau onder een document dat naar een klant
     // gaat. Dat is niets voor een teamlid om goed te keuren.
     path: "/samenwerkingen",
