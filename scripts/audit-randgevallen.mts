@@ -629,7 +629,20 @@ async function main() {
     "draden dwars door de zwerm vallen af",
     /if \(lengte > grens\) continue/.test(breinCanvas),
   );
-  toets("er is een gloeiend hart", /const hart = ctx!\.createRadialGradient/.test(breinCanvas));
+  // De kern is een kloppende zon geworden in plaats van een zachte gloed.
+  toets("er is een kern die klopt", /function hartslag/.test(breinCanvas));
+  toets(
+    "die klopt als een hart en niet als een sinus",
+    /piek\(0\.\d+, 0\.\d+\) \+ piek\(/.test(breinCanvas),
+  );
+  toets("er zit een zon in", /const zon = ctx!\.createRadialGradient/.test(breinCanvas));
+  toets("er breekt licht door de kieren", /uitbarstingen door de kieren/i.test(breinCanvas));
+  toets(
+    "de schil is licht en niet donker",
+    // Een donkere schil op een zwarte achtergrond leest als een gat, niet als
+    // een tralie waar licht doorheen komt.
+    /De schil is niet donker maar licht/.test(breinCanvas),
+  );
 
   // Korrel ontstaat als een sjabloon van een paar pixels wordt opgeblazen, en
   // als het verloop een harde rand heeft.
@@ -643,7 +656,10 @@ async function main() {
     "geen deeltje wordt kleiner dan een pixel",
     /Math\.max\(1\.4, d\.grootte/.test(breinCanvas),
   );
-  toets("de massa ademt: zet uit en krimpt weer", /const adem =\s*\n?\s*1 \+ Math\.sin/.test(breinCanvas));
+  toets(
+    "de massa ademt en klopt mee met de kern",
+    /const adem =/.test(breinCanvas) && /hartslag\(tijd\) \* 0\.\d+/.test(breinCanvas),
+  );
   toets(
     "de ademhaling heeft twee ritmes, geen zuivere sinus",
     (breinCanvas.match(/Math\.sin\(tijd \* 0\.\d+[^)]*\) \* 0\.0\d+/g) ?? []).length >= 2,

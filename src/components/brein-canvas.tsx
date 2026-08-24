@@ -43,9 +43,11 @@ const PLEKKEN = [
 /// anders vandaan groeit hoort niet bij een zwerm meer. Elk getal is een hoek in
 /// radialen, een lengte en een tempo.
 const TENTAKELS = [
-  { hoek: -0.4, lengte: 1.5, bocht: 0.55, tempo: 0.55 },
-  { hoek: 1.9, lengte: 1.25, bocht: -0.7, tempo: 0.42 },
-  { hoek: 3.7, lengte: 1.6, bocht: 0.4, tempo: 0.68 },
+  // Sterke bochten. Met een kleine bocht schieten ze recht naar buiten en wordt
+  // het een sterexplosie in plaats van slierten die om de massa heen krullen.
+  { hoek: -0.4, lengte: 0.55, bocht: 1.5, tempo: 0.55 },
+  { hoek: 1.9, lengte: 0.4, bocht: -1.8, tempo: 0.42 },
+  { hoek: 3.7, lengte: 0.62, bocht: 1.15, tempo: 0.68 },
 ];
 
 /// Welke deeltjes met elkaar verbonden zijn.
@@ -67,6 +69,29 @@ type Deeltje = {
   /// Eigen ritme, zodat niet alles tegelijk ademt.
   fase: number;
 };
+
+/// Een hartslag, geen sinus.
+///
+/// Een hart doet twee slagen kort na elkaar en ligt daarna stil: lub-dub, rust.
+/// Een zuivere sinus pompt gelijkmatig op en neer en dat voelt als een machine.
+/// Twee smalle pieken met een lange stilte erna is wat je herkent als iets wat
+/// leeft.
+///
+/// Geeft 0 in rust en 1 op het hoogtepunt van de eerste slag.
+function hartslag(tijd: number): number {
+  // Trager en breder dan een echte hartslag.
+  //
+  // Op veertig slagen per minuut met scherpe pieken schokte het beeld: je oog
+  // wordt er elke seconde naartoe getrokken en dat is vermoeiend op een scherm
+  // waar je de hele dag naar kijkt. Nu tweeëntwintig slagen per minuut met
+  // zachte pieken — je ziet het kloppen, maar het trekt niet aan je.
+  const CYCLUS = 2.7;
+  const t = tijd % CYCLUS;
+  const piek = (midden: number, breedte: number) =>
+    Math.exp(-(((t - midden) / breedte) ** 2));
+  // De tweede slag is zwakker dan de eerste, zoals het echt gaat.
+  return Math.min(1, piek(0.22, 0.19) + piek(0.78, 0.24) * 0.55);
+}
 
 function hexNaarRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
@@ -256,26 +281,101 @@ export function BreinCanvas({
       const sinD = Math.sin(draaiing);
       const kanteling = Math.sin(tijd * 0.11) * 0.16;
 
-      // De hele massa ademt: zet uit en krimpt weer. Twee ritmes over elkaar,
-      // want één zuivere sinus voelt als een machine die pompt. Zo lijkt het
-      // eerder op iets wat leeft.
+      // De hele massa ademt én klopt mee met de kern.
+      //
+      // De trage golven zijn de ademhaling; de hartslag zet er een korte stoot
+      // bovenop. Zonder die stoot leeft de kern in zijn eentje en hangt de rest
+      // er los omheen — mét klopt alles op hetzelfde ritme, en dát is wat het
+      // één ding maakt in plaats van een bal met wolken eromheen.
       const adem =
-        1 + Math.sin(tijd * 0.42) * 0.07 + Math.sin(tijd * 0.27 + 1.3) * 0.045;
+        1 +
+        Math.sin(tijd * 0.42) * 0.055 +
+        Math.sin(tijd * 0.27 + 1.3) * 0.035 +
+        hartslag(tijd) * 0.045;
       const cosK = Math.cos(kanteling);
       const sinK = Math.sin(kanteling);
 
       ctx!.globalCompositeOperation = "lighter";
 
-      // Het hart van de massa. Een zachte gloed waar alles samenkomt, zodat het
-      // een lichtbron wordt in plaats van een verzameling stipjes die toevallig
-      // bij elkaar hangen.
-      const hartStraal = schaal * adem * 0.55;
-      const hart = ctx!.createRadialGradient(midX, midY, 0, midX, midY, hartStraal);
-      hart.addColorStop(0, "rgba(255,255,255,0.13)");
-      hart.addColorStop(0.35, "rgba(180,200,255,0.05)");
-      hart.addColorStop(1, "rgba(255,255,255,0)");
-      ctx!.fillStyle = hart;
-      ctx!.fillRect(midX - hartStraal, midY - hartStraal, hartStraal * 2, hartStraal * 2);
+      // ── De kern ────────────────────────────────────────────────────────
+      //
+      // Een opgesloten zon die eruit wil. Hij klopt als een hart: twee slagen
+      // kort na elkaar en dan rust. Bij elke slag zwelt hij op, wordt het licht
+      // feller, en breekt er licht door de kieren van de schil die eromheen zit.
+      //
+      // Dit is het punt waar alles vandaan komt. De zwermen eromheen halen hun
+      // energie hier, en dat moet je kunnen zien.
+      const slag = hartslag(tijd);
+
+      // De gloed die om alles heen hangt. Zwelt mee, maar veel breder en zachter
+      // dan de kern zelf — dat is wat de ruimte vult.
+      const wijd = schaal * (0.62 + slag * 0.14);
+      const halo = ctx!.createRadialGradient(midX, midY, 0, midX, midY, wijd);
+      halo.addColorStop(0, `rgba(255,248,230,${0.1 + slag * 0.1})`);
+      halo.addColorStop(0.28, `rgba(190,210,255,${0.045 + slag * 0.045})`);
+      halo.addColorStop(1, "rgba(255,255,255,0)");
+      ctx!.fillStyle = halo;
+      ctx!.fillRect(midX - wijd, midY - wijd, wijd * 2, wijd * 2);
+
+      // De zon zelf. Wit in het midden, naar goud en dan naar de kleur van de
+      // ruimte eromheen.
+      const kernStraal = schaal * (0.115 + slag * 0.038);
+      const zon = ctx!.createRadialGradient(midX, midY, 0, midX, midY, kernStraal);
+      zon.addColorStop(0, "rgba(255,255,255,1)");
+      zon.addColorStop(0.3, `rgba(255,246,214,${0.92 + slag * 0.08})`);
+      zon.addColorStop(0.6, `rgba(255,196,96,${0.5 + slag * 0.3})`);
+      zon.addColorStop(0.85, `rgba(255,130,40,${0.16 + slag * 0.2})`);
+      zon.addColorStop(1, "rgba(255,90,20,0)");
+      ctx!.fillStyle = zon;
+      ctx!.fillRect(midX - kernStraal, midY - kernStraal, kernStraal * 2, kernStraal * 2);
+
+      // De schil eromheen, met kieren.
+      //
+      // Zes bogen met openingen ertussen, langzaam draaiend. Bij elke hartslag
+      // wijken ze uit elkaar en breekt het licht erdoorheen — dat is het
+      // "open en dicht" gaan. Ze zijn donker getekend, dus wat je ziet is niet
+      // de schil maar het licht dat er tussenuit komt.
+      // De schil is niet donker maar licht.
+      //
+      // Eerst tekende ik hem in bijna zwart, in de gedachte dat je dan het licht
+      // ertussenuit ziet komen. Op een zwarte achtergrond leest dat als een gat:
+      // je ziet een balk dwars over de zon. Wat je in het echt ziet bij iets wat
+      // gloeit achter een tralie is niet de tralie maar de rand die oplicht.
+      // Daarom bogen in warm licht, die opengaan bij elke slag.
+      const schilStraal = kernStraal * (1.34 + slag * 0.3);
+      const opening = 0.3 + slag * 0.42;
+      ctx!.lineCap = "round";
+      for (let i = 0; i < 6; i += 1) {
+        const van = (i / 6) * Math.PI * 2 + tijd * 0.22;
+        ctx!.strokeStyle = `rgba(255,214,150,${0.16 + slag * 0.3})`;
+        ctx!.lineWidth = Math.max(1, kernStraal * 0.07);
+        ctx!.beginPath();
+        ctx!.arc(midX, midY, schilStraal, van + opening / 2, van + Math.PI / 3 - opening / 2);
+        ctx!.stroke();
+      }
+
+      // De uitbarstingen door de kieren. Alleen op het hoogtepunt van een slag:
+      // dat maakt het een uitbarsting in plaats van een lamp die aanstaat.
+      if (slag > 0.18) {
+        for (let i = 0; i < 6; i += 1) {
+          const hoek = (i / 6) * Math.PI * 2 + tijd * 0.22 - opening / 2;
+          const ver = kernStraal * (1.4 + slag * 2.6);
+          const straal = ctx!.createLinearGradient(
+            midX + Math.cos(hoek) * kernStraal,
+            midY + Math.sin(hoek) * kernStraal,
+            midX + Math.cos(hoek) * ver,
+            midY + Math.sin(hoek) * ver,
+          );
+          straal.addColorStop(0, `rgba(255,236,180,${0.55 * slag})`);
+          straal.addColorStop(1, "rgba(255,170,60,0)");
+          ctx!.strokeStyle = straal;
+          ctx!.lineWidth = Math.max(1.5, kernStraal * 0.14 * slag);
+          ctx!.beginPath();
+          ctx!.moveTo(midX + Math.cos(hoek) * kernStraal * 0.9, midY + Math.sin(hoek) * kernStraal * 0.9);
+          ctx!.lineTo(midX + Math.cos(hoek) * ver, midY + Math.sin(hoek) * ver);
+          ctx!.stroke();
+        }
+      }
 
       opScherm = [];
 
@@ -361,20 +461,35 @@ export function BreinCanvas({
         // puls die eroverheen loopt. Eén lijn van één pixel is een streepje;
         // deze stapeling maakt er licht van.
         if (!stil || werkt) {
-          const kx = midX + (plek.x * cosD - plek.z * sinD) * schaal * adem * 0.53;
-          const ky = midY + plek.y * schaal * adem * 0.53;
+          // Waar de sliert vandaan komt: niet uit de zwerm zelf maar uit de
+          // kern. De zwerm ligt er onderweg tussen, en dat is precies het
+          // beeld — de energie komt uit de bron en gaat langs de agent naar
+          // buiten.
+          const kx = midX;
+          const ky = midY;
+
+          // De zwerm waar hij langs moet, zodat de sliert niet dwars door de
+          // massa heen schiet maar via zijn eigen agent naar buiten loopt.
+          const langsX = midX + (plek.x * cosD - plek.z * sinD) * schaal * adem * 0.53;
+          const langsY = midY + plek.y * schaal * adem * 0.53;
 
           const STAPPEN = 18;
 
           for (const t of TENTAKELS) {
             const zwaai = Math.sin(tijd * t.tempo + w) * t.bocht;
-            const hoek = t.hoek + w * 0.7 + zwaai * 0.35;
-            const lang = schaal * 0.42 * t.lengte * adem;
 
-            const eindX = kx + Math.cos(hoek) * lang;
-            const eindY = ky + Math.sin(hoek) * lang;
-            const stuurX = kx + Math.cos(hoek + zwaai) * lang * 0.6;
-            const stuurY = ky + Math.sin(hoek + zwaai) * lang * 0.6;
+            // De richting van kern naar zwerm, en dan dóór naar buiten.
+            const richting = Math.atan2(langsY - ky, langsX - kx) + zwaai * 0.5;
+            const naarZwerm = Math.hypot(langsX - kx, langsY - ky);
+            const lang = naarZwerm + schaal * 0.22 * t.lengte * adem;
+
+            const eindX = kx + Math.cos(richting) * lang;
+            const eindY = ky + Math.sin(richting) * lang;
+            // Het controlepunt ligt bij de zwerm, met een zwaai opzij: zo buigt
+            // de sliert er langs in plaats van er dwars doorheen.
+            // Ver opzij, zodat de sliert een boog maakt om de massa heen.
+            const stuurX = langsX + Math.cos(richting + Math.PI / 2) * naarZwerm * zwaai * 1.15;
+            const stuurY = langsY + Math.sin(richting + Math.PI / 2) * naarZwerm * zwaai * 1.15;
 
             // De hele sliert uitrekenen: punt voor punt over de bocht, met de
             // uitwijking erbovenop.
@@ -424,9 +539,12 @@ export function BreinCanvas({
             tekenPad(0, STAPPEN);
 
             // Laag 3: de stroom die eroverheen loopt.
+            // De pulsen vertrekken mee met de hartslag: elke slag stuurt de
+            // kern een lading naar buiten. Daarom loopt hun positie op met de
+            // tijd maar begint hij bij elke cyclus opnieuw.
             const pulsen = werkt ? 3 : 1;
             for (let i = 0; i < pulsen; i += 1) {
-              const u = (tijd * (werkt ? 0.55 : 0.28) + i / pulsen + w * 0.13) % 1;
+              const u = (tijd * (werkt ? 0.55 : 0.32) + i / pulsen + w * 0.13) % 1;
               const kop = Math.round(u * STAPPEN);
               const staart = Math.max(0, kop - 4);
               if (kop <= staart) continue;
@@ -588,21 +706,59 @@ export function BreinCanvas({
           <Link
             key={lid.id}
             href={`/team/dm-${lid.sleutel}`}
-            className="absolute hidden -translate-x-1/2 -translate-y-1/2 rounded border px-1.5 py-0.5 font-mono text-[9px] leading-tight tracking-wider whitespace-nowrap uppercase backdrop-blur-[2px] transition-transform hover:scale-110 sm:block sm:text-[10px]"
+            className="absolute hidden -translate-x-1/2 -translate-y-1/2 border px-1 py-px font-mono text-[9px] leading-[1.15] tracking-[0.08em] whitespace-nowrap uppercase transition-transform hover:scale-110 sm:block"
             style={{
               // Vaste plek, afgeleid van waar de zwerm hoort te zweven. De
               // zwerm zelf draait; het label niet, want een naam die met de
               // massa meedraait is niet te lezen en niet aan te klikken.
-              left: `${50 + plek.x * 34 * (schaalFactor / 0.56)}%`,
-              top: `${50 + plek.y * 34 * (schaalFactor / 0.56)}%`,
-              borderColor: `${kleur}88`,
-              background: "rgba(0,0,0,0.6)",
+              //
+              // Nooit op de kern. De Head of Operations zweeft in het midden,
+              // en zijn label kwam daarmee precies op de zon te liggen — een
+              // zwarte balk dwars door het felste punt van het beeld. Elk label
+              // wordt daarom minstens een stuk naar buiten geduwd, in de
+              // richting waarin zijn zwerm ligt.
+              ...(() => {
+                const factor = schaalFactor / 0.56;
+                const afstand = Math.hypot(plek.x, plek.y);
+
+                // Het label hoort óp zijn eigen wolk, niet ernaast. Duw je ze
+                // naar buiten, dan zweven ze los in het zwart en valt het beeld
+                // uit elkaar — dan zie je negen bordjes met een wolk ergens
+                // daarachter in plaats van negen gekleurde zwermen die zichzelf
+                // benoemen.
+                //
+                // Eén uitzondering: de zwerm die in het midden zweeft ligt op de
+                // kern, en daar is het te fel om iets te kunnen lezen. Die krijgt
+                // net genoeg ruimte om de zon vrij te laten.
+                // 0,3 en niet lager: nagemeten stond het label bij 0,2 op
+                // zevenenvijftig pixels van het midden terwijl de zon er
+                // vierenvijftig is — dan valt het weg in de gloed.
+                const kernVrij = 0.3;
+                const richting =
+                  afstand < 0.02
+                    ? { x: 0, y: -1 }
+                    : { x: plek.x / afstand, y: plek.y / afstand };
+                const uit = Math.max(afstand, kernVrij);
+                return {
+                  left: `${50 + richting.x * uit * 34 * factor}%`,
+                  top: `${50 + richting.y * uit * 34 * factor}%`,
+                };
+              })(),
+              // Rand in zijn eigen kleur, met een gloed die hem aan de wolk
+              // vastplakt. Zonder die gloed is het een bordje dat toevallig
+              // boven de zwerm hangt; mét lijkt het licht van de wolk zelf.
+              borderColor: lid.bezig ? kleur : `${kleur}99`,
+              background: "rgba(2,3,7,0.78)",
               color: kleur,
-              opacity: lid.stand === "op pauze" ? 0.45 : 1,
+              boxShadow: `0 0 10px -2px ${kleur}${lid.bezig ? "" : "66"}`,
+              opacity: lid.stand === "op pauze" ? 0.4 : 1,
             }}
           >
             <span className="block font-semibold">{lid.naam}</span>
-            <span className="block text-[8px] opacity-70 sm:text-[9px]">
+            {/* De tweede regel is de stand, gedempt. In de referentie staat daar
+                het aantal neuronen en de vuursnelheid; hier staat wat hij
+                werkelijk doet — dat is hetzelfde idee met echte inhoud. */}
+            <span className="block text-[8px] tracking-normal opacity-60">
               {lid.bezig ? "actief" : "rust"} · {lid.stand}
             </span>
           </Link>
