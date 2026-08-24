@@ -189,6 +189,7 @@ model Agent {
   @@index([status])
 
   voorstelSecties VoorstelSectie[]
+  samenwerkingen  Samenwerking[]
 }
 
 /// Een OpenClaw-installatie die via de reader outbound naar dit dashboard
@@ -1242,6 +1243,7 @@ model Client {
   updatedAt DateTime @updatedAt
 
   invoices Invoice[]
+  samenwerkingen Samenwerking[]
   requests PortalRequest[]
   projects Project[]
   threads  TelegramThread[]
@@ -1529,6 +1531,44 @@ model Creator {
   @@index([soort])
 
   contracten Contract[]
+}
+
+/// Een samenwerkingsovereenkomst die wij opstellen.
+///
+/// Los van Contract: dat model is voor contracten die bínnenkomen en die we
+/// uitpluizen. Dit is de andere kant op — een document dat wij maken en dat
+/// Enriqueo alleen nog nakijkt en doorstuurt.
+model Samenwerking {
+  id       String  @id @default(cuid())
+  bedrijf  String
+  contactpersoon String?
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  /// Wat er per partij verschilt. De voorwaarden staan in code en zijn overal
+  /// hetzelfde; dit is het stuk dat uit het gesprek met de klant komt.
+  afspraken String[] @default([])
+
+  /// Het document zoals het is opgesteld. Bewaard en niet elke keer opnieuw
+  /// samengesteld: verandert het sjabloon later, dan hoort een overeenkomst van
+  /// vorige maand nog steeds te zijn wat er destijds is verstuurd.
+  tekst String
+
+  /// concept | goedgekeurd | verstuurd
+  status String @default("concept")
+
+  /// Wie het opstelde, zodat je kunt teruglezen waar het vandaan kwam.
+  agentId String?
+  agent   Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  goedgekeurdOp DateTime?
+  verstuurdOp   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
 }
 
 /// Een creator die aan een campagne meedoet. Hier staat wat er voor déze

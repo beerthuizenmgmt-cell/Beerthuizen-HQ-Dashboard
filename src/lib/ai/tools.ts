@@ -159,6 +159,29 @@ export const AGENT_TOOLS: ToolDefinition[] = [
 /// Alleen de Head of Operations kan collega's aan het werk zetten; zo blijft de
 /// aansturing op één plek en wordt het geen wirwar van agents die elkaar
 /// opdrachten geven.
+/// Samenwerkingsovereenkomsten opstellen.
+export const SAMENWERKING_TOOLS: ToolDefinition[] = [
+  {
+    name: "stel_samenwerking_op",
+    description:
+      "Stel een samenwerkingsovereenkomst op voor een klant. Enriqueo geeft de bedrijfsnaam en wat er is afgesproken; de voorwaarden staan vast en vul je niet zelf in. Het document komt klaar te staan zodat hij het alleen nog hoeft na te kijken.",
+    parameters: {
+      type: "object",
+      properties: {
+        bedrijf: { type: "string", description: "De naam van het bedrijf, zoals het in het contract moet staan" },
+        contactpersoon: { type: "string", description: "Wie er namens het bedrijf tekent, als je dat weet" },
+        afspraken: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Wat er per punt is afgesproken: wat we leveren, wat het kost, wanneer, en hoe lang het materiaal gebruikt mag worden. Schrijf ze zo op dat er later geen discussie over kan ontstaan.",
+        },
+      },
+      required: ["bedrijf", "afspraken"],
+    },
+  },
+];
+
 /// Het creatorregister. Voor iedereen die aan een selectie werkt.
 ///
 /// Hiervoor kon geen enkele agent bij dit register — niet lezen en niet
@@ -573,6 +596,8 @@ export async function runTool(
         return await readInvoices(args);
       case "bericht_enriqueo":
         return await messageFounder(args, context);
+      case "stel_samenwerking_op":
+        return await stelSamenwerkingOp(args, context);
       case "zoek_creators":
         return await zoekCreators(args);
       case "leg_creator_vast":
@@ -1692,4 +1717,66 @@ async function legCreatorVast(args: Record<string, unknown>): Promise<ToolResult
 
   await db.creator.create({ data: gegevens });
   return { ok: true, message: `${naam} staat nu in het register.` };
+}
+
+// ============================================================
+// Samenwerkingsovereenkomsten
+// ============================================================
+
+async function stelSamenwerkingOp(
+  args: Record<string, unknown>,
+  context: ToolContext,
+): Promise<ToolResult> {
+  const bedrijf = text(args.bedrijf);
+  if (!bedrijf) return { ok: false, message: "bedrijf is verplicht" };
+
+  const ruw = Array.isArray(args.afspraken) ? (args.afspraken as unknown[]) : [];
+  const afspraken = ruw.map((a) => String(a).trim()).filter(Boolean);
+
+  // Een overeenkomst zonder afspraken is alleen de voorwaarden, en die staan
+  // toch al vast. Dan is er niets vastgelegd waar iemand zich aan houdt.
+  if (afspraken.length === 0) {
+    return {
+      ok: false,
+      message:
+        "Er staan geen afspraken in. Zonder wat er is afgesproken is dit alleen het standaardblok voorwaarden, en daar heeft niemand iets aan.",
+    };
+  }
+
+  const contactpersoon = text(args.contactpersoon) || null;
+
+  // De klant erbij zoeken als hij bestaat. Lukt dat niet, dan gaat het document
+  // gewoon door: een overeenkomst met een nieuw bedrijf is normaal.
+  const klant = await db.client.findFirst({
+    where: { name: { contains: bedrijf, mode: "insensitive" } },
+    select: { id: true },
+  });
+
+  const { stelOvereenkomstOp } = await import("@/lib/samenwerking");
+  const tekst = stelOvereenkomstOp({ bedrijf, contactpersoon, afspraken, datum: new Date() });
+
+  const overeenkomst = await db.samenwerking.create({
+    data: {
+      bedrijf,
+      contactpersoon,
+      clientId: klant?.id ?? null,
+      afspraken,
+      tekst,
+      agentId: context.agentId,
+    },
+  });
+
+  await notify({
+    level: "info",
+    title: `Samenwerkingsovereenkomst klaar: ${bedrijf}`,
+    body: `${afspraken.length} afspraak/afspraken vastgelegd. Kijk hem na en stuur hem door.`,
+    link: `/samenwerkingen/${overeenkomst.id}`,
+    agentId: context.agentId,
+    push: true,
+  });
+
+  return {
+    ok: true,
+    message: `De overeenkomst met ${bedrijf} staat klaar met ${afspraken.length} afspraak/afspraken. Enriqueo kijkt hem na en stuurt hem zelf door — versturen doen wij niet.`,
+  };
 }

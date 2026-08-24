@@ -111,6 +111,16 @@ export const AREAS: Area[] = [
     groep: "klanten",
   },
   {
+    // Hier staat de naam van het bureau onder een document dat naar een klant
+    // gaat. Dat is niets voor een teamlid om goed te keuren.
+    path: "/samenwerkingen",
+    label: "Samenwerkingen",
+    icon: "✎",
+    roles: ["owner"],
+    reason: "Overeenkomsten worden namens de eigenaar getekend.",
+    groep: "klanten",
+  },
+  {
     path: "/tools",
     label: "Tools",
     icon: "⚒",

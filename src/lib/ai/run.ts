@@ -12,6 +12,7 @@ import {
   RESEARCH_TOOLS,
   BRIEFING_TOOLS,
   CREATOR_TOOLS,
+  SAMENWERKING_TOOLS,
   VOORSTEL_CHIEF_TOOLS,
   VOORSTEL_TOOLS,
   runTool,
@@ -205,7 +206,13 @@ export async function runAgent(options: {
       ? []
       : [
           ...(agent.isChief && depth === 0
-            ? [...AGENT_TOOLS, ...CHIEF_TOOLS, ...VOORSTEL_CHIEF_TOOLS, ...BRIEFING_TOOLS]
+            ? [
+                ...AGENT_TOOLS,
+                ...CHIEF_TOOLS,
+                ...VOORSTEL_CHIEF_TOOLS,
+                ...BRIEFING_TOOLS,
+                ...SAMENWERKING_TOOLS,
+              ]
             : AGENT_TOOLS),
           // Aan een voorstel werkt iedereen mee; alleen de coördinator start er
           // een en zet hem klaar.

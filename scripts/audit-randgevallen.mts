@@ -20,6 +20,7 @@ import { KANALEN, kanaal, kanaalkeuzeAlsPrompt } from "../src/lib/kanalen";
 import { haalOverzicht } from "../src/lib/overzicht";
 import { TOOL_CATALOG } from "../src/lib/ai/toolkit";
 import { BRIEFINGVELDEN } from "../src/lib/ai/briefing";
+import { VOORWAARDEN, stelOvereenkomstOp } from "../src/lib/samenwerking";
 
 const db = new PrismaClient({ adapter: new PrismaPg(poolConfig(resolveDatabaseUrl()!)) });
 
@@ -834,6 +835,54 @@ async function main() {
   toets(
     "een proefdraai telt wat er zou activeren, niet wat er activeerde",
     /outcome\.zouActiveren/.test(monitorBron),
+  );
+
+  // ── Samenwerkingsovereenkomsten ──────────────────────────────────────────
+  //
+  // De voorwaarden zijn altijd hetzelfde, de afspraken verschillen per partij.
+  // Enriqueo levert alleen de bedrijfsnaam en wat er is afgesproken.
+  console.log("\nSamenwerkingsovereenkomst");
+
+  toets("de voorwaarden liggen vast", VOORWAARDEN.length >= 8);
+  toets(
+    "elke voorwaarde heeft een kop en een tekst",
+    VOORWAARDEN.every((v) => v.kop.length > 3 && v.tekst.length > 60),
+  );
+
+  const proefstuk = stelOvereenkomstOp({
+    bedrijf: `${MERK} Ristorante`,
+    contactpersoon: "Anna de Vries",
+    afspraken: ["Drie influencers, elk één reel", "Budget 4500 euro"],
+    datum: new Date("2026-10-01T00:00:00Z"),
+  });
+
+  toets("het bedrijf staat erin", proefstuk.includes(`${MERK} Ristorante`));
+  toets("de contactpersoon staat erin", proefstuk.includes("Anna de Vries"));
+  toets("de afspraken staan erin", proefstuk.includes("Drie influencers"));
+  toets("alle voorwaarden staan erin", VOORWAARDEN.every((v) => proefstuk.includes(v.kop)));
+  toets(
+    "de afspraken staan vóór de voorwaarden",
+    // Dit is het deel dat per partij verschilt en waar het gesprek over ging;
+    // de voorwaarden eronder leest niemand opnieuw.
+    proefstuk.indexOf("Drie influencers") < proefstuk.indexOf("## Voorwaarden"),
+  );
+  toets("er is een plek om te ondertekenen", proefstuk.includes("Handtekening"));
+
+  const samenBron = await readFile(new URL("../src/lib/ai/tools.ts", import.meta.url), "utf8");
+  toets(
+    "een overeenkomst zonder afspraken wordt geweigerd",
+    /alleen het standaardblok voorwaarden/.test(samenBron),
+  );
+  toets("versturen doet het systeem niet", /versturen doen wij niet/.test(samenBron));
+
+  const actieSamen = await readFile(
+    new URL("../src/lib/actions/samenwerking.ts", import.meta.url),
+    "utf8",
+  );
+  toets("alleen de eigenaar keurt goed", /requireOwner\(\)/.test(actieSamen));
+  toets(
+    "goedkeuren kan alleen vanuit concept",
+    /status: "concept"/.test(actieSamen),
   );
 
   // ── Het creatorregister ──────────────────────────────────────────────────
