@@ -170,10 +170,10 @@ const webFetch: ToolCatalogEntry = {
 
 const webSearch: ToolCatalogEntry = {
   key: "web_search",
-  name: "Zoekmachine",
+  name: "Zoekmachine (Brave, betaald)",
   category: "onderzoek",
   description:
-    "De agent kan zelf op het web zoeken in plaats van te wachten tot jij een link aanlevert. Vereist een sleutel bij Brave Search; die heeft een gratis laag om mee te beginnen.",
+    "Hetzelfde als Webonderzoek, maar via Brave. Kost vijf dollar per duizend zoekopdrachten met vijf dollar tegoed per maand, en er moet een creditcard achter. Neem dit alleen als je meer dan duizend zoekopdrachten per maand doet — daaronder is Webonderzoek gratis en doet het hetzelfde.",
   suggestedFor: ["research", "bizdev", "influencer", "social"],
   fields: [
     {
@@ -271,6 +271,134 @@ const webSearch: ToolCatalogEntry = {
           `Dit zijn samenvattingen van derden. Gaat het om een bedrag, een naam of een toezegging,`,
           `lees dan de bron zelf met lees_webpagina voordat je het als feit gebruikt.`,
         ].join("\n"),
+      };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : "Zoeken mislukt." };
+    }
+  },
+};
+
+const tavilyZoeken: ToolCatalogEntry = {
+  key: "tavily",
+  name: "Webonderzoek (gratis)",
+  category: "onderzoek",
+  description:
+    "De agent kan zelf op het web zoeken en krijgt schone, samengevatte resultaten met bronnen erbij. Duizend zoekopdrachten per maand gratis, zonder creditcard — dat vult elke maand aan, dus je kunt er niet per ongeluk overheen. Gebouwd voor agents en niet voor mensen: waar een gewone zoekmachine tien blauwe links teruggeeft, komt hier de tekst zelf terug.",
+  suggestedFor: ["research", "bizdev", "influencer", "social", "chief"],
+  fields: [
+    {
+      name: "apiKey",
+      label: "Tavily API-sleutel",
+      type: "password",
+      required: true,
+      secret: true,
+      placeholder: "tvly-...",
+    },
+  ],
+  implemented: true,
+  definition: () => ({
+    name: "zoek_op_internet",
+    description:
+      "Zoek op het web. Geeft per resultaat de titel, het adres en de tekst zelf terug, plus een kort antwoord op je vraag. Gebruik dit vóórdat je Enriqueo iets vraagt wat op internet te vinden is — een tarief, een adres, wie er bij een merk over partnerships gaat, hoe een concurrent het aanpakt.",
+    parameters: {
+      type: "object",
+      properties: {
+        vraag: { type: "string", description: "Waar je naar zoekt, in gewone taal" },
+        aantal: { type: "number", description: "Hoeveel resultaten, standaard 5, hoogstens 12" },
+        diepte: {
+          type: "string",
+          enum: ["basis", "grondig"],
+          description:
+            "Grondig kost twee zoekopdrachten in plaats van één, maar graaft dieper. Gebruik dat alleen als basis niets bruikbaars gaf.",
+        },
+        recent: {
+          type: "string",
+          enum: ["dag", "week", "maand", "jaar"],
+          description: "Alleen resultaten uit deze periode. Laat leeg als ouder ook goed is.",
+        },
+      },
+      required: ["vraag"],
+    },
+  }),
+  async run(config, args) {
+    const vraag = typeof args.vraag === "string" ? args.vraag.trim() : "";
+    if (!vraag) return { ok: false, message: "vraag is verplicht" };
+    if (!config.apiKey) return { ok: false, message: "Er is nog geen Tavily-sleutel ingesteld." };
+
+    const periodes: Record<string, string> = { dag: "day", week: "week", maand: "month", jaar: "year" };
+
+    try {
+      const response = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${config.apiKey}`,
+        },
+        body: JSON.stringify({
+          query: vraag,
+          max_results: Math.min(Math.max(Number(args.aantal) || 5, 1), 12),
+          search_depth: args.diepte === "grondig" ? "advanced" : "basic",
+          // Een kort antwoord bovenaan scheelt de agent een leesronde door vijf
+          // pagina's als de vraag simpel was.
+          include_answer: "basic",
+          // Het bureau werkt in Nederland; een Amerikaans tarief helpt niemand.
+          country: "netherlands",
+          language: "nl",
+          ...(typeof args.recent === "string" && periodes[args.recent]
+            ? { time_range: periodes[args.recent] }
+            : {}),
+        }),
+        signal: AbortSignal.timeout(25_000),
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        return { ok: false, message: "De Tavily-sleutel werd geweigerd. Controleer hem bij Tools." };
+      }
+      if (response.status === 429) {
+        return {
+          ok: false,
+          message:
+            "Het maandtegoed van Tavily is op. Het vult volgende maand vanzelf aan; tot die tijd kun je een pagina rechtstreeks lezen met lees_webpagina.",
+        };
+      }
+      if (!response.ok) return { ok: false, message: `Tavily gaf ${response.status} terug.` };
+
+      const body = (await response.json()) as {
+        answer?: string;
+        results?: { title?: string; url?: string; content?: string }[];
+      };
+
+      const treffers = body.results ?? [];
+      if (treffers.length === 0) {
+        return {
+          ok: true,
+          message: `Niets gevonden voor "${vraag}". Dat betekent niet dat het er niet is — probeer andere woorden voordat je concludeert dat het niet bestaat.`,
+        };
+      }
+
+      const regels = treffers.map((t, i) =>
+        [
+          `${i + 1}. ${t.title ?? "zonder titel"}`,
+          `   ${t.url ?? ""}`,
+          t.content ? `   ${t.content.slice(0, 400)}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      );
+
+      return {
+        ok: true,
+        message: [
+          body.answer ? `Kort antwoord: ${body.answer}\n` : "",
+          `Bronnen voor "${vraag}":`,
+          ``,
+          ...regels,
+          ``,
+          `Gaat het om een bedrag, een naam of een toezegging, lees dan de bron zelf`,
+          `met lees_webpagina voordat je het als feit gebruikt.`,
+        ]
+          .filter(Boolean)
+          .join("\n"),
       };
     } catch (error) {
       return { ok: false, message: error instanceof Error ? error.message : "Zoeken mislukt." };
@@ -688,6 +816,7 @@ function planned(
 
 export const TOOL_CATALOG: ToolCatalogEntry[] = [
   webFetch,
+  tavilyZoeken,
   webSearch,
   youtubeZoeken,
   instagramProfiel,

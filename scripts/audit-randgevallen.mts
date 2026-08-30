@@ -1304,6 +1304,22 @@ async function main() {
   // ── Zelf uitzoeken in plaats van vragen ──────────────────────────────────
   console.log("\nZelfstandigheid");
 
+  const gratis = TOOL_CATALOG.find((t) => t.key === "tavily");
+  toets("er is een gratis manier om te zoeken", Boolean(gratis?.implemented));
+  toets("zonder sleutel wordt er niet gezocht", !(await gratis!.run!({}, { vraag: "test" })).ok);
+  toets(
+    "een opgebruikt tegoed zegt wat je ondertussen kunt doen",
+    /lees_webpagina/.test(
+      await readFile(new URL("../src/lib/ai/toolkit.ts", import.meta.url), "utf8"),
+    ),
+  );
+  toets(
+    "beide zoekmachines bieden de agent hetzelfde gereedschap aan",
+    // Anders moet een agent weten wélke zoekmachine hij heeft, en dat hoort hij
+    // niet te merken.
+    gratis!.definition!({}, "x").name === "zoek_op_internet",
+  );
+
   const zoek = TOOL_CATALOG.find((t) => t.key === "web_search");
   toets("de zoekmachine is gebouwd", Boolean(zoek?.implemented));
   toets("er staat er precies één in de catalogus", TOOL_CATALOG.filter((t) => t.key === "web_search").length === 1);
