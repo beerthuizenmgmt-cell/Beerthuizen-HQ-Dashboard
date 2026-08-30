@@ -168,116 +168,6 @@ const webFetch: ToolCatalogEntry = {
   },
 };
 
-const webSearch: ToolCatalogEntry = {
-  key: "web_search",
-  name: "Zoekmachine (Brave, betaald)",
-  category: "onderzoek",
-  description:
-    "Hetzelfde als Webonderzoek, maar via Brave. Kost vijf dollar per duizend zoekopdrachten met vijf dollar tegoed per maand, en er moet een creditcard achter. Neem dit alleen als je meer dan duizend zoekopdrachten per maand doet — daaronder is Webonderzoek gratis en doet het hetzelfde.",
-  suggestedFor: ["research", "bizdev", "influencer", "social"],
-  fields: [
-    {
-      name: "apiKey",
-      label: "Brave Search API-sleutel",
-      type: "password",
-      required: true,
-      secret: true,
-      placeholder: "BSA...",
-    },
-  ],
-  implemented: true,
-  definition: () => ({
-    name: "zoek_op_internet",
-    description:
-      "Zoek op het web en krijg titels, adressen en korte samenvattingen terug. Gebruik dit vóórdat je Enriqueo iets vraagt wat op internet te vinden is — een tarief, een adres, wie er bij een merk over partnerships gaat. Lees daarna met lees_webpagina de bron die er het meest toe doet: deze zoekopdracht geeft samenvattingen van derden, geen uitspraken van de bron zelf.",
-    parameters: {
-      type: "object",
-      properties: {
-        vraag: { type: "string", description: "Waar je naar zoekt, in gewone taal" },
-        aantal: { type: "number", description: "Hoeveel resultaten, standaard 5, hoogstens 10" },
-      },
-      required: ["vraag"],
-    },
-  }),
-  async run(config, args) {
-    const vraag = typeof args.vraag === "string" ? args.vraag.trim() : "";
-    if (!vraag) return { ok: false, message: "vraag is verplicht" };
-    if (!config.apiKey) return { ok: false, message: "Er is nog geen zoeksleutel ingesteld." };
-
-    const aantal = Math.min(Math.max(Number(args.aantal) || 5, 1), 10);
-
-    try {
-      const url = new URL("https://api.search.brave.com/res/v1/web/search");
-      url.searchParams.set("q", vraag);
-      url.searchParams.set("count", String(aantal));
-      // Nederlandstalig en Nederlands gericht: het bureau werkt hier, en een
-      // Amerikaans tarief of een Amerikaanse partnerpagina helpt niemand.
-      url.searchParams.set("country", "nl");
-      url.searchParams.set("search_lang", "nl");
-
-      const response = await fetch(url, {
-        headers: { accept: "application/json", "x-subscription-token": config.apiKey },
-        signal: AbortSignal.timeout(20_000),
-      });
-
-      // Brave antwoordt op een onbruikbare sleutel met 422, niet met 401 — dat
-      // ziet eruit als een fout in de vraag terwijl het de sleutel is.
-      if ([401, 403, 422].includes(response.status)) {
-        return {
-          ok: false,
-          message:
-            "De zoekmachine accepteerde dit niet. Meestal is de sleutel verlopen of verkeerd overgenomen; controleer hem bij Tools → Zoekmachine.",
-        };
-      }
-      if (response.status === 429) {
-        return {
-          ok: false,
-          message: "Te veel zoekopdrachten achter elkaar; het abonnement staat dit even niet toe.",
-        };
-      }
-      if (!response.ok) return { ok: false, message: `De zoekmachine gaf ${response.status} terug.` };
-
-      const body = (await response.json()) as {
-        web?: { results?: { title?: string; url?: string; description?: string; age?: string }[] };
-      };
-      const treffers = body.web?.results ?? [];
-
-      if (treffers.length === 0) {
-        return {
-          ok: true,
-          message: `Niets gevonden voor "${vraag}". Dat betekent niet dat het er niet is — probeer andere woorden voordat je concludeert dat het niet bestaat.`,
-        };
-      }
-
-      const regels = treffers.map((t, i) => {
-        // De opmaaktekens die Brave in samenvattingen zet zijn hier ruis.
-        const tekst = (t.description ?? "").replace(/<[^>]+>/g, "").trim();
-        return [
-          `${i + 1}. ${t.title ?? "zonder titel"}`,
-          `   ${t.url ?? ""}${t.age ? ` · ${t.age}` : ""}`,
-          tekst ? `   ${tekst}` : "",
-        ]
-          .filter(Boolean)
-          .join("\n");
-      });
-
-      return {
-        ok: true,
-        message: [
-          `Zoekresultaten voor "${vraag}":`,
-          ``,
-          ...regels,
-          ``,
-          `Dit zijn samenvattingen van derden. Gaat het om een bedrag, een naam of een toezegging,`,
-          `lees dan de bron zelf met lees_webpagina voordat je het als feit gebruikt.`,
-        ].join("\n"),
-      };
-    } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : "Zoeken mislukt." };
-    }
-  },
-};
-
 const tavilyZoeken: ToolCatalogEntry = {
   key: "tavily",
   name: "Webonderzoek (gratis)",
@@ -299,7 +189,7 @@ const tavilyZoeken: ToolCatalogEntry = {
   definition: () => ({
     name: "zoek_op_internet",
     description:
-      "Zoek op het web. Geeft per resultaat de titel, het adres en de tekst zelf terug, plus een kort antwoord op je vraag. Gebruik dit vóórdat je Enriqueo iets vraagt wat op internet te vinden is — een tarief, een adres, wie er bij een merk over partnerships gaat, hoe een concurrent het aanpakt.",
+      "Zoek op het web. Geeft per resultaat de titel, het adres en de tekst zelf terug, plus een kort antwoord op je vraag. Gebruik dit vóórdat je Enriqueo iets vraagt wat op internet te vinden is — een tarief, een adres, wie er bij een merk over partnerships gaat, hoe een concurrent het aanpakt. Wat je hier terugkrijgt is een stuk van een pagina; gaat het om een bedrag, een naam of een toezegging, lees de bron dan zelf met lees_webpagina voordat je het als feit gebruikt.",
     parameters: {
       type: "object",
       properties: {
@@ -817,7 +707,6 @@ function planned(
 export const TOOL_CATALOG: ToolCatalogEntry[] = [
   webFetch,
   tavilyZoeken,
-  webSearch,
   youtubeZoeken,
   instagramProfiel,
   transcriptie,

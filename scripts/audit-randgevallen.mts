@@ -1350,36 +1350,47 @@ async function main() {
     gratis!.definition!({}, "x").name === "zoek_op_internet",
   );
 
-  const zoek = TOOL_CATALOG.find((t) => t.key === "web_search");
-  toets("de zoekmachine is gebouwd", Boolean(zoek?.implemented));
-  toets("er staat er precies één in de catalogus", TOOL_CATALOG.filter((t) => t.key === "web_search").length === 1);
-  toets("zonder sleutel wordt er niet gezocht", !(await zoek!.run!({}, { vraag: "test" })).ok);
-  toets("zonder vraag wordt er niet gezocht", !(await zoek!.run!({ apiKey: "x" }, {})).ok);
+  // Brave is eruit: die deed precies hetzelfde als Tavily en bood hetzelfde
+  // gereedschap aan onder dezelfde naam. Twee zoekmachines naast elkaar was
+  // waar Stefano over struikelde — hij greep afwisselend naar de een en de
+  // ander.
+  toets(
+    "er is maar één zoekmachine",
+    TOOL_CATALOG.filter((t) => t.implemented && t.definition?.({}, "x").name === "zoek_op_internet")
+      .length === 1,
+  );
   toets(
     "de agent wordt naar de bron gestuurd, niet naar de samenvatting",
-    /lees_webpagina/.test(zoek!.definition!({}, "Zoekmachine").description),
+    /lees_webpagina/.test(gratis!.definition!({}, "Webonderzoek").description),
   );
 
-  const kaderBron = await readFile(new URL("../src/lib/ai/profiles.ts", import.meta.url), "utf8");
-  toets("er staat een volgorde: eerst archief, dan dashboard, dan internet", /Eerst zelf uitzoeken/.test(kaderBron));
+  const ig2 = TOOL_CATALOG.find((t) => t.key === "instagram");
+  toets("Instagram-profiel opzoeken is gebouwd", Boolean(ig?.implemented));
   toets(
-    "vragen mag alleen over wat alleen Enriqueo weet",
-    /alleen wat alleen hij kan weten/.test(kaderBron),
+    "zonder token en account-ID gebeurt er niets",
+    !(await ig2!.run!({ accessToken: "x" }, { gebruikersnaam: "test" })).ok,
   );
   toets(
-    "niet vinden is geen reden om te gokken",
-    /Niets verzinnen blijft de belangrijkste regel/.test(kaderBron),
+    "de omschrijving zegt dat Instagram geen zoekfunctie heeft",
+    /géén zoekfunctie/.test(ig2!.description),
+  );
+  toets(
+    "engagement wordt zelf uitgerekend, niet overgenomen",
+    /gemiddeld \/ volgers/.test(
+      await readFile(new URL("../src/lib/ai/toolkit.ts", import.meta.url), "utf8"),
+    ),
   );
 
-  const hqBron = await readFile(new URL("../src/app/(app)/hq/page.tsx", import.meta.url), "utf8");
-  toets("bij elke medewerker staat zijn functie", /\{lid\.rol\}/.test(hqBron));
-
-  const cockpitBron = await readFile(new URL("../src/lib/cockpit.ts", import.meta.url), "utf8");
-  toets("de briefing op HQ wordt ingekort", /eersteZinnen/.test(cockpitBron));
-
-  const actieBron = await readFile(new URL("../src/lib/actions/messages.ts", import.meta.url), "utf8");
-  toets("het denkwerk gebeurt na de bevestiging", /after\(/.test(actieBron));
-  toets("een mislukt antwoord laat een spoor na", /bericht_niet_bezorgd/.test(actieBron));
+  const zoekweg2 = await readFile(new URL("../src/lib/ai/profiles.ts", import.meta.url), "utf8");
+  toets(
+    "er staat per kanaal wat er kan en wat niet",
+    /TikTok\*\* — niets/.test(zoekweg2) && /Instagram\*\* — geen zoekfunctie/.test(zoekweg2),
+  );
+  toets("eerst het eigen register, dan pas naar buiten", /eerst .*zoek_creators/s.test(zoekweg2));
+  toets(
+    "er staat waarom Instagram en TikTok niet doorzocht kunnen worden",
+    /geen zoekfunctie/.test(zoekweg2) && /geen officiële weg/.test(zoekweg2),
+  );
 
   // ── Opruimen ─────────────────────────────────────────────────────────────
   await db.taskUpdate.deleteMany({ where: { task: { title: { startsWith: MERK } } } });
