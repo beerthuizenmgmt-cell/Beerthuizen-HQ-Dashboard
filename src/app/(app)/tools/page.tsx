@@ -131,6 +131,8 @@ export default async function ToolsPage() {
                       ontbreekt: a.ontbreekt,
                     })),
                     velden: TOOL_VELDEN[rij.toolKey] ?? [],
+                    bureauIngevuld: rij.bureauIngevuld,
+                    bureauOntbreekt: rij.bureauOntbreekt,
                   }}
                   alleAgents={agents.map((a) => ({
                     id: a.id,

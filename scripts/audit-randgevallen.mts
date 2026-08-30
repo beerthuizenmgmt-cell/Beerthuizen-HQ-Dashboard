@@ -1304,6 +1304,36 @@ async function main() {
   // ── Zelf uitzoeken in plaats van vragen ──────────────────────────────────
   console.log("\nZelfstandigheid");
 
+  const toolkitBron = await readFile(new URL("../src/lib/ai/toolkit.ts", import.meta.url), "utf8");
+  toets(
+    "gereedschap zonder sleutel wordt niet aangeboden",
+    // Anders grijpt een agent ernaar en krijgt hij "er is geen sleutel
+    // ingesteld" terug — een verspilde denkbeurt aan iets wat nooit kon werken.
+    /const mistSleutel/.test(toolkitBron) && /if \(mistSleutel\) continue/.test(toolkitBron),
+  );
+  toets(
+    "de sleutel van het bureau geldt voor iedereen",
+    /bureauConfig\.get\(row\.toolKey\)/.test(toolkitBron),
+  );
+  toets(
+    "een eigen sleutel bij een agent wint van die van het bureau",
+    // Bij een koppeling waar ieder een eigen account heeft is dat nodig.
+    /\.\.\.decryptToolConfig\(row\.config\),/.test(toolkitBron),
+  );
+
+  const koppelBron = await readFile(
+    new URL("../src/lib/actions/integrations.ts", import.meta.url),
+    "utf8",
+  );
+  toets(
+    "een sleutel koppelt zichzelf aan wie hem nodig heeft",
+    /entry\.suggestedFor/.test(koppelBron),
+  );
+  toets(
+    "een halve koppeling wordt niet uitgedeeld",
+    /ontbreekt\.length === 0 && entry\.suggestedFor/.test(koppelBron),
+  );
+
   const gratis = TOOL_CATALOG.find((t) => t.key === "tavily");
   toets("er is een gratis manier om te zoeken", Boolean(gratis?.implemented));
   toets("zonder sleutel wordt er niet gezocht", !(await gratis!.run!({}, { vraag: "test" })).ok);

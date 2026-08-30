@@ -1266,13 +1266,40 @@ export type ResolvedTool = {
 /// Analytics terecht.
 export async function toolsForAgent(agentId: string): Promise<ResolvedTool[]> {
   const attached = await db.agentTool.findMany({ where: { agentId, enabled: true } });
+  if (attached.length === 0) return [];
+
+  // De sleutels van het bureau. Eén abonnement bij Tavily, niet één per agent —
+  // dus staat de sleutel op de koppeling zelf en erven alle agents hem.
+  const bureau = await db.toolIntegration.findMany({
+    where: { toolKey: { in: attached.map((row) => row.toolKey) } },
+    select: { toolKey: true, config: true },
+  });
+  const bureauConfig = new Map(
+    bureau.map((rij) => [rij.toolKey, decryptToolConfig(rij.config)]),
+  );
 
   const resolved: ResolvedTool[] = [];
   for (const row of attached) {
     const entry = getToolEntry(row.toolKey);
     if (!entry?.implemented || !entry.definition) continue;
 
-    const config = decryptToolConfig(row.config);
+    // Wat bij de agent staat wint van wat bij het bureau staat. Bij een
+    // koppeling waar ieder een eigen account heeft is dat precies wat je wilt;
+    // bij een gedeelde sleutel laat je het bij de agent gewoon leeg.
+    const config = {
+      ...(bureauConfig.get(row.toolKey) ?? {}),
+      ...decryptToolConfig(row.config),
+    };
+
+    // Gereedschap zonder sleutel bieden we niet aan.
+    //
+    // Anders staat het in de lijst, grijpt een agent ernaar, en krijgt hij "er
+    // is geen sleutel ingesteld" terug — een verspilde denkbeurt aan iets wat
+    // nooit kon werken. Het viel op toen Stefano twee zoekmachines had: hij
+    // greep afwisselend naar de een en de ander, en de helft van zijn pogingen
+    // liep dood op de koppeling zonder sleutel.
+    const mistSleutel = (entry.fields ?? []).some((veld) => veld.required && !config[veld.name]);
+    if (mistSleutel) continue;
     const label = (row.label ?? entry.name).toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 24);
 
     resolved.push({

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useActie } from "@/components/use-actie";
 import { ActieFout } from "@/components/actie-fout";
-import { bewaarToolSleutels } from "@/lib/actions/integrations";
+import { bewaarBureauSleutels, bewaarToolSleutels } from "@/lib/actions/integrations";
 
 // Waar je de sleutel van een koppeling invult.
 //
@@ -31,8 +31,11 @@ export function ToolSleutels({
   velden,
   ingevuld,
 }: {
-  agentId: string;
-  agentNaam: string;
+  /// Leeg voor de sleutel van het bureau: die geldt voor iedereen die deze
+  /// koppeling heeft. Vul je hem per agent in, dan wint die van de bureausleutel
+  /// — bedoeld voor koppelingen waar ieder een eigen account heeft.
+  agentId?: string;
+  agentNaam?: string;
   toolKey: string;
   velden: ToolVeld[];
   ingevuld: string[];
@@ -54,7 +57,13 @@ export function ToolSleutels({
         className="text-xs underline"
         style={{ color: compleet ? "var(--ok)" : "var(--warn)" }}
       >
-        {compleet ? "sleutel staat erin" : "sleutel ontbreekt"}
+        {agentId
+          ? compleet
+            ? "eigen sleutel"
+            : "eigen sleutel toevoegen"
+          : compleet
+            ? "sleutel staat erin"
+            : "sleutel invullen"}
       </button>
     );
   }
@@ -62,8 +71,9 @@ export function ToolSleutels({
   return (
     <div className="w-full rounded-lg border border-border bg-bg p-3">
       <p className="mb-2 text-xs text-text-muted">
-        Sleutels voor {agentNaam}. Wat je hier invult wordt versleuteld opgeslagen en nooit meer
-        getoond.
+        {agentId
+          ? `Een eigen sleutel voor ${agentNaam}, die van het bureau overschrijft. Alleen nodig als deze agent een eigen account heeft.`
+          : "Eén keer invullen; elke agent die deze koppeling heeft, gebruikt hem. Wat je hier invult wordt versleuteld opgeslagen en nooit meer getoond."}
       </p>
 
       <div className="space-y-2">
@@ -95,7 +105,9 @@ export function ToolSleutels({
           disabled={bezig}
           onClick={() =>
             doe(async () => {
-              const uit = await bewaarToolSleutels(agentId, toolKey, waarden);
+              const uit = agentId
+                ? await bewaarToolSleutels(agentId, toolKey, waarden)
+                : await bewaarBureauSleutels(toolKey, waarden);
               if (uit.error) throw new Error(uit.error);
               setGelukt(uit.ok ?? "Opgeslagen.");
               setWaarden({});

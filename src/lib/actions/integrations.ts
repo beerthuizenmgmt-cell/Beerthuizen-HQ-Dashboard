@@ -208,3 +208,81 @@ export async function leesToolInstellingen(
     ontbreekt: (entry.fields ?? []).filter((f) => f.required && !config[f.name]).map((f) => f.name),
   };
 }
+
+/// De sleutels van het bureau voor een koppeling.
+///
+/// Eén keer invullen in plaats van bij elke agent apart. Je hebt één abonnement
+/// bij Tavily, niet één per agent; hem drie keer moeten intikken is werk dat
+/// niets oplevert en een plek waar er eentje verkeerd gaat.
+export async function bewaarBureauSleutels(
+  toolKey: string,
+  waarden: Record<string, string>,
+): Promise<IntegratieState> {
+  const user = await requireOwner();
+
+  const entry = getToolEntry(toolKey);
+  if (!entry) return { error: "Onbekende tool." };
+
+  const { decryptToolConfig, encryptToolConfig } = await import("@/lib/ai/toolkit");
+
+  const bestaand = await db.toolIntegration.findUnique({ where: { toolKey } });
+  const huidig = decryptToolConfig(bestaand?.config);
+
+  const samen: Record<string, string> = { ...huidig };
+  for (const veld of entry.fields ?? []) {
+    const nieuw = (waarden[veld.name] ?? "").trim();
+    if (nieuw) samen[veld.name] = nieuw;
+  }
+
+  const versleuteld = encryptToolConfig(toolKey, samen);
+
+  await db.toolIntegration.upsert({
+    where: { toolKey },
+    update: { config: versleuteld },
+    create: { toolKey, config: versleuteld },
+  });
+
+  await audit(user, "tool_sleutel_bureau", toolKey, { type: "tool", id: toolKey });
+
+  const ontbreekt = (entry.fields ?? [])
+    .filter((veld) => veld.required && !samen[veld.name])
+    .map((veld) => veld.label);
+
+  // Zodra de sleutel er is, koppelen we hem aan wie hem nodig heeft.
+  //
+  // Handmatig agents aanwijzen is werk dat het systeem zelf kan doen: in de
+  // catalogus staat per koppeling al voor wiens vak hij bedoeld is. Jij plakt
+  // een sleutel, wij zorgen dat de juiste mensen ermee kunnen werken.
+  //
+  // Alleen als er niets ontbreekt, want een halve koppeling uitdelen levert
+  // negen agents op die op dezelfde foutmelding stuklopen.
+  let gekoppeldAan: string[] = [];
+  if (ontbreekt.length === 0 && entry.suggestedFor.length > 0) {
+    const agents = await db.agent.findMany({
+      where: { key: { in: entry.suggestedFor }, adapterType: { not: "reader_ingest" } },
+      select: { id: true, name: true },
+    });
+
+    for (const agent of agents) {
+      await db.agentTool.upsert({
+        where: { agentId_toolKey: { agentId: agent.id, toolKey } },
+        update: { enabled: true },
+        create: { agentId: agent.id, toolKey, enabled: true },
+      });
+    }
+    gekoppeldAan = agents.map((a) => a.name);
+  }
+
+  revalidatePath("/tools");
+  revalidatePath("/agents");
+
+  if (ontbreekt.length) {
+    return { error: `Opgeslagen, maar ${ontbreekt.join(" en ")} ontbreekt nog — zo werkt de koppeling niet.` };
+  }
+
+  return {
+    ok: gekoppeldAan.length
+      ? `${entry.name} staat aan voor ${gekoppeldAan.join(", ")}.`
+      : `Sleutels opgeslagen voor ${entry.name}.`,
+  };
+}

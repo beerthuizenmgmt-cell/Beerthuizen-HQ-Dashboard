@@ -48,6 +48,9 @@ export type ToolGegevens = {
   /// De instelvelden van deze koppeling, uit de catalogus. Zonder deze kon je
   /// een tool wel koppelen maar de sleutel nergens invullen.
   velden: ToolVeld[];
+  /// Welke sleutels van het bureau staan er al, en wat ontbreekt er verplicht.
+  bureauIngevuld: string[];
+  bureauOntbreekt: string[];
   agents: ToolAgent[];
 };
 
@@ -135,6 +138,21 @@ export function ToolRow({
 
           {/* Wie mag erbij, en wat mag hij */}
           <div>
+            {/* De sleutel staat bovenaan, bij de koppeling zelf. Eén keer
+                invullen; het systeem geeft hem daarna aan wie hem nodig heeft.
+                Handmatig agents aanwijzen is werk dat het systeem zelf kan doen
+                — in de catalogus staat al voor wiens vak elke koppeling is. */}
+            {tool.velden.length > 0 && tool.gebouwd && (
+              <div className="mb-4">
+                <p className="eyebrow mb-2">Sleutel</p>
+                <ToolSleutels
+                  toolKey={tool.toolKey}
+                  velden={tool.velden}
+                  ingevuld={tool.bureauIngevuld}
+                />
+              </div>
+            )}
+
             <p className="eyebrow mb-2">Gekoppelde agents en rechten</p>
 
             {tool.agents.filter((a) => a.ingeschakeld).length === 0 ? (

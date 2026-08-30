@@ -64,6 +64,10 @@ export type IntegratieRij = {
   laatsteTest: { at: Date; ok: boolean; error: string | null } | null;
   laatstGebruikt: Date | null;
   notities: string | null;
+  /// Welke sleutels van het bureau zijn ingevuld, en wat er verplicht nog
+  /// ontbreekt. Alleen de namen — de waarden blijven op de server.
+  bureauIngevuld: string[];
+  bureauOntbreekt: string[];
 };
 
 export async function alleIntegraties(): Promise<IntegratieRij[]> {
@@ -142,6 +146,14 @@ export async function alleIntegraties(): Promise<IntegratieRij[]> {
           };
         })(),
       })),
+      ...(() => {
+        const config = decryptToolConfig(integratie?.config);
+        const velden = entry.fields ?? [];
+        return {
+          bureauIngevuld: velden.filter((v) => config[v.name]).map((v) => v.name),
+          bureauOntbreekt: velden.filter((v) => v.required && !config[v.name]).map((v) => v.name),
+        };
+      })(),
       gevraagdMaarNietGekoppeld: ontbreekt,
       verbinding,
       apiStatus,

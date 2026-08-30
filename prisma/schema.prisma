@@ -839,6 +839,18 @@ model ToolIntegration {
   /// Vrije aantekening: welk account, welk abonnement, wat er nog moet.
   notes String?
 
+  /// De sleutels van het bureau voor deze koppeling.
+  ///
+  /// Hier en niet bij elke agent apart. Een API-sleutel is iets van het bureau:
+  /// je hebt één abonnement bij Tavily, niet één per agent. Hem drie keer moeten
+  /// intikken is werk dat niets oplevert en een plek waar er eentje verkeerd
+  /// gaat.
+  ///
+  /// Een agent mag er nog steeds zijn eigen naast zetten — bij een koppeling
+  /// waar ieder een eigen account heeft is dat juist nodig. Staat er bij de
+  /// agent iets, dan wint dat; anders geldt deze.
+  config Json?
+
   /// Laatste keer dat de verbinding met succes getest is.
   lastTestAt DateTime?
   lastTestOk Boolean?
