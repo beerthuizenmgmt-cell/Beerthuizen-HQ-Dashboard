@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { useActie } from "./use-actie";
 import { ActieFout } from "./actie-fout";
+import { ToolSleutels, type ToolVeld } from "@/components/tool-sleutels";
 import {
   koppelTool,
   setToolPermission,
@@ -25,6 +26,9 @@ type ToolAgent = {
   fout: string | null;
   laatstGebruikt: string | null;
   gebruikAantal: number;
+  /// Welke instelvelden zijn ingevuld. Alleen de namen — de waarden blijven op
+  /// de server.
+  ingevuld: string[];
 };
 
 export type ToolGegevens = {
@@ -41,6 +45,9 @@ export type ToolGegevens = {
   laatstGebruikt: string | null;
   laatsteTest: { wanneer: string; ok: boolean } | null;
   ontbreekt: string[];
+  /// De instelvelden van deze koppeling, uit de catalogus. Zonder deze kon je
+  /// een tool wel koppelen maar de sleutel nergens invullen.
+  velden: ToolVeld[];
   agents: ToolAgent[];
 };
 
@@ -165,6 +172,19 @@ export function ToolRow({
                           ? `${agent.gebruikAantal}× · ${agent.laatstGebruikt}`
                           : "nog niet gebruikt"}
                       </span>
+
+                      {/* Waar de sleutel in gaat. Zonder dit kun je een tool wel
+                          koppelen maar nooit laten werken — en dat is precies wat
+                          er zesentachtig keer gebeurd was. */}
+                      {tool.velden.length > 0 && (
+                        <ToolSleutels
+                          agentId={agent.agentId}
+                          agentNaam={agent.naam}
+                          toolKey={tool.toolKey}
+                          velden={tool.velden}
+                          ingevuld={agent.ingevuld}
+                        />
+                      )}
 
                       <button
                         type="button"

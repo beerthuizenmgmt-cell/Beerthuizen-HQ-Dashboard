@@ -1,7 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
-import { TOOL_CATALOG, CATEGORIE_LABELS, type ToolCategory } from "./toolkit";
+import { TOOL_CATALOG, CATEGORIE_LABELS, decryptToolConfig, type ToolCategory } from "./toolkit";
 import type { ToolPermission } from "@/generated/prisma/enums";
 
 // Het overzicht van alle koppelingen: welke tools er zijn, wie erbij mag, wat
@@ -47,6 +47,13 @@ export type IntegratieRij = {
     fout: string | null;
     laatstGebruikt: Date | null;
     gebruikAantal: number;
+    /// Welke instelvelden zijn ingevuld. Alleen de namen — de waarden komen
+    /// nooit naar de browser; een wachtwoordveld met de echte sleutel erin is
+    /// met één klik in de broncode te lezen.
+    ingevuld: string[];
+    /// Verplichte velden die nog leeg zijn. Zolang hier iets in staat werkt de
+    /// koppeling niet, hoe groen het rijtje er verder ook uitziet.
+    ontbreekt: string[];
   }[];
   /// Voor hoeveel agents het functieprofiel deze tool vraagt maar er nog geen
   /// koppeling ligt.
@@ -124,6 +131,16 @@ export async function alleIntegraties(): Promise<IntegratieRij[]> {
         fout: row.lastError,
         laatstGebruikt: row.lastUsedAt,
         gebruikAantal: row.useCount,
+        ...(() => {
+          const config = decryptToolConfig(row.config);
+          const velden = entry.fields ?? [];
+          return {
+            ingevuld: velden.filter((veld) => config[veld.name]).map((veld) => veld.name),
+            ontbreekt: velden
+              .filter((veld) => veld.required && !config[veld.name])
+              .map((veld) => veld.name),
+          };
+        })(),
       })),
       gevraagdMaarNietGekoppeld: ontbreekt,
       verbinding,

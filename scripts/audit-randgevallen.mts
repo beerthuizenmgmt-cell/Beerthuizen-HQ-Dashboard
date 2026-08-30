@@ -886,6 +886,46 @@ async function main() {
     /outcome\.zouActiveren/.test(monitorBron),
   );
 
+  // ── Sleutels van koppelingen ─────────────────────────────────────────────
+  //
+  // Je kon een tool wel aan een agent hangen maar de sleutel nergens invullen.
+  // Zesentachtig koppelingen zonder één werkende verbinding, en niemand die kon
+  // zien waaróm ze niets deden.
+  console.log("\nSleutels");
+
+  const sleutelBron = await readFile(
+    new URL("../src/lib/actions/integrations.ts", import.meta.url),
+    "utf8",
+  );
+  toets("er is een manier om sleutels op te slaan", /bewaarToolSleutels/.test(sleutelBron));
+  toets("alleen de eigenaar mag dat", /requireOwner\(\)/.test(sleutelBron));
+  toets("wat geheim is gaat versleuteld de database in", /encryptToolConfig/.test(sleutelBron));
+  toets(
+    "een leeg veld overschrijft niet wat er stond",
+    /if \(nieuw\) samen\[veld\.name\] = nieuw/.test(sleutelBron),
+  );
+  toets(
+    "een ontbrekend verplicht veld wordt gemeld",
+    /zo werkt de koppeling niet/.test(sleutelBron),
+  );
+
+  const formulier = await readFile(
+    new URL("../src/components/tool-sleutels.tsx", import.meta.url),
+    "utf8",
+  );
+  toets(
+    "de sleutel komt nooit terug naar de browser",
+    // Een wachtwoordveld met de echte waarde erin is met één klik in de
+    // broncode van de pagina te lezen.
+    // Geen vaste zin zoeken: die staat in de opmaak over twee regels verdeeld en
+    // verspringt bij elke keer bijschaven. Waar het om gaat is dat de waarde
+    // nergens uit de server komt — het veld begint leeg en blijft leeg.
+    !/value=\{ingevuld/.test(formulier) &&
+      !/defaultValue/.test(formulier) &&
+      /Wat er staat tonen we nooit terug/.test(formulier),
+  );
+  toets("geheime velden zijn wachtwoordvelden", /veld\.secret \? "password"/.test(formulier));
+
   // ── Samenwerkingsovereenkomsten ──────────────────────────────────────────
   console.log("\nSamenwerkingen");
 

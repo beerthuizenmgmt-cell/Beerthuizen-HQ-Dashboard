@@ -5,6 +5,7 @@ import { alleIntegraties, maandtotaal, PERMISSION_LABELS } from "@/lib/ai/integr
 import { CATEGORIE_LABELS, type ToolCategory } from "@/lib/ai/toolkit";
 import { ToolRow } from "@/components/tool-row";
 import { formatEuro, timeAgo } from "@/lib/format";
+import { TOOL_CATALOG } from "@/lib/ai/toolkit";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,11 @@ const VOLGORDE: ToolCategory[] = [
   "communicatie",
   "overig",
 ];
+
+/// Welke instelvelden een koppeling heeft. Uit de catalogus, want dat is waar
+/// ze gedefinieerd staan — de waarden zelf komen nooit naar de browser.
+const TOOL_VELDEN: Record<string, { name: string; label: string; type: string; required?: boolean; secret?: boolean; placeholder?: string }[]> =
+  Object.fromEntries(TOOL_CATALOG.map((t) => [t.key, t.fields ?? []]));
 
 export default async function ToolsPage() {
   await requireOwner();
@@ -121,7 +127,10 @@ export default async function ToolsPage() {
                       fout: a.fout,
                       laatstGebruikt: a.laatstGebruikt ? timeAgo(a.laatstGebruikt) : null,
                       gebruikAantal: a.gebruikAantal,
+                      ingevuld: a.ingevuld,
+                      ontbreekt: a.ontbreekt,
                     })),
+                    velden: TOOL_VELDEN[rij.toolKey] ?? [],
                   }}
                   alleAgents={agents.map((a) => ({
                     id: a.id,

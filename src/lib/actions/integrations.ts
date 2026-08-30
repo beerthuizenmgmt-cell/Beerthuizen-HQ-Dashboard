@@ -122,3 +122,89 @@ export async function setToolKosten(
 
   return { ok: "Opgeslagen." };
 }
+
+/// De sleutels van een koppeling opslaan.
+///
+/// Dit ontbrak. Je kon een tool wel aan een agent hangen, maar de sleutel
+/// nergens invullen — dus stonden er zesentachtig koppelingen zonder één werkende
+/// verbinding, en niemand die kon zien waaróm ze niets deden.
+///
+/// Wat geheim is gaat versleuteld de database in en komt nooit meer terug naar
+/// de browser. Laat je een veld leeg, dan blijft staan wat er stond: zo kun je
+/// het bedrag aanpassen zonder je sleutel opnieuw te moeten intikken.
+export async function bewaarToolSleutels(
+  agentId: string,
+  toolKey: string,
+  waarden: Record<string, string>,
+): Promise<IntegratieState> {
+  const user = await requireOwner();
+
+  const entry = getToolEntry(toolKey);
+  if (!entry) return { error: "Onbekende tool." };
+
+  const koppeling = await db.agentTool.findUnique({
+    where: { agentId_toolKey: { agentId, toolKey } },
+  });
+  if (!koppeling) return { error: "Deze tool is nog niet aan deze agent gekoppeld." };
+
+  const { decryptToolConfig, encryptToolConfig } = await import("@/lib/ai/toolkit");
+  const bestaand = decryptToolConfig(koppeling.config);
+
+  const samen: Record<string, string> = { ...bestaand };
+  for (const veld of entry.fields ?? []) {
+    const nieuw = (waarden[veld.name] ?? "").trim();
+    if (nieuw) samen[veld.name] = nieuw;
+  }
+
+  // Verplichte velden die nog steeds leeg zijn: dan werkt de koppeling niet en
+  // dat zeggen we nu, in plaats van dat de agent er later op stukloopt.
+  const ontbreekt = (entry.fields ?? [])
+    .filter((veld) => veld.required && !samen[veld.name])
+    .map((veld) => veld.label);
+
+  await db.agentTool.update({
+    where: { id: koppeling.id },
+    data: { config: encryptToolConfig(toolKey, samen) },
+  });
+
+  const agent = await db.agent.findUnique({ where: { id: agentId }, select: { name: true } });
+  await audit(user, "tool_sleutel", `${agent?.name ?? agentId} · ${toolKey}`, {
+    type: "agent",
+    id: agentId,
+  });
+
+  revalidatePath("/tools");
+  revalidatePath(`/agents/${agentId}`);
+
+  return ontbreekt.length
+    ? { error: `Opgeslagen, maar ${ontbreekt.join(" en ")} ontbreekt nog — zo werkt de koppeling niet.` }
+    : { ok: `Sleutels opgeslagen voor ${agent?.name ?? "de agent"}.` };
+}
+
+/// Wat er is ingevuld, zonder de geheimen zelf.
+///
+/// Het scherm moet kunnen laten zien dát er een sleutel staat, maar hem nooit
+/// tonen: een wachtwoordveld met de echte waarde erin is met één klik in de
+/// broncode te lezen.
+export async function leesToolInstellingen(
+  agentId: string,
+  toolKey: string,
+): Promise<{ ingevuld: string[]; ontbreekt: string[] }> {
+  await requireOwner();
+
+  const entry = getToolEntry(toolKey);
+  if (!entry) return { ingevuld: [], ontbreekt: [] };
+
+  const koppeling = await db.agentTool.findUnique({
+    where: { agentId_toolKey: { agentId, toolKey } },
+  });
+  if (!koppeling) return { ingevuld: [], ontbreekt: (entry.fields ?? []).map((f) => f.name) };
+
+  const { decryptToolConfig } = await import("@/lib/ai/toolkit");
+  const config = decryptToolConfig(koppeling.config);
+
+  return {
+    ingevuld: (entry.fields ?? []).filter((f) => config[f.name]).map((f) => f.name),
+    ontbreekt: (entry.fields ?? []).filter((f) => f.required && !config[f.name]).map((f) => f.name),
+  };
+}
