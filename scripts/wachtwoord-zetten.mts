@@ -2,6 +2,11 @@
 //
 //   HQ_EMAIL='jij@voorbeeld.nl' HQ_WACHTWOORD='...' npx tsx scripts/wachtwoord-zetten.mts
 //
+// Met HQ_ROL='member' krijgt het account de dagelijkse kantooromgeving zonder
+// instellingen en geldzaken; laat je hem weg, dan wordt het owner. Bij een
+// bestaand account blijft de rol staan die er al was — een script hoort niemand
+// ongevraagd te promoveren.
+//
 // Waarom dit bestaat: de seed maakt het eigenaarsaccount aan met een upsert
 // waarvan de update-tak leeg is. Bestaat het account al, dan doet `npm run
 // db:seed` niets meer met het wachtwoord — precies de situatie waarin je
@@ -18,6 +23,12 @@ import { poolConfig, resolveDirectUrl } from "../src/lib/db-url";
 
 const email = process.env.HQ_EMAIL?.trim().toLowerCase();
 const wachtwoord = process.env.HQ_WACHTWOORD;
+const rol = process.env.HQ_ROL ?? "owner";
+
+if (rol !== "owner" && rol !== "member") {
+  console.error(`WEIGER: HQ_ROL is 'owner' of 'member', niet '${rol}'.`);
+  process.exit(1);
+}
 
 if (!email || !wachtwoord) {
   console.error(
@@ -53,8 +64,9 @@ const bestond = await db.user.findUnique({ where: { email }, select: { id: true 
 
 const user = await db.user.upsert({
   where: { email },
+  // Alleen het wachtwoord: wie hier al stond houdt de rol die hij had.
   update: { passwordHash },
-  create: { email, name: "Beerthuizen", role: "owner", passwordHash },
+  create: { email, name: email.split("@")[0], role: rol, passwordHash },
 });
 
 console.log(
